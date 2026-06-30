@@ -1,6 +1,11 @@
 // GPU Broker types for the state machine, config, and snapshot model.
 
-/** The five states of the GPU broker state machine. */
+/**
+ * The five states of the GPU broker state machine.
+ * Note: "draining" is a placeholder for a future evacuation flow where models are
+ * unloaded and VRAM is released before transitioning to user-claimed. No code path
+ * currently enters this state in production.
+ */
 export type GpuBrokerState = "idle" | "agent-active" | "user-claimed" | "draining" | "dormant";
 
 /** Plugin configuration for the GPU broker. */

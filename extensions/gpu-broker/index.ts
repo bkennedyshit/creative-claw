@@ -96,7 +96,8 @@ export default definePluginEntry({
         const { holdMs } = (params && typeof params === "object" ? params : {}) as {
           holdMs?: number;
         };
-        const token = broker.claim(holdMs);
+        const clampedHoldMs = holdMs ? Math.max(holdMs, 1000) : undefined;
+        const token = broker.claim(clampedHoldMs);
         if (!token) {
           return {
             type: "json" as const,
@@ -173,7 +174,8 @@ export default definePluginEntry({
             text: "GPU handoff failed: could not evacuate Ollama models.",
           };
         }
-        const token = broker.claim(holdMs);
+        const clampedHoldMs = holdMs ? Math.max(holdMs, 1000) : undefined;
+        const token = broker.claim(clampedHoldMs);
         if (!token) {
           return {
             type: "json" as const,
@@ -195,8 +197,8 @@ export default definePluginEntry({
     const runGate = createRunGate(broker, api.logger);
     api.on("before_model_resolve", async (_event, _ctx) => {
       const result = runGate();
-      // Trigger warmup recalibration after the first permitted agent run
-      if (!warmupDone && broker.getCurrentState() === "agent-active") {
+      // Recalibrate on first permitted run to absorb model warmup into baseline
+      if (!warmupDone && result === undefined) {
         warmupDone = true;
         await recalibrateAfterWarmup(broker, api.logger);
       }
