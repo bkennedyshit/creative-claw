@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Scaffold the gpu-broker extension plugin and port the GpuBroker state-machine class. Creates extensions/gpu-broker/ with manifest, package.json, tsconfig, entry point, and the core broker class implementing the state machine (idle|agent-active|user-claimed|draining|dormant) with lease model, ghost-claim, snapshot fallback, and poll loop.",
+  "status": "completed",
+  "steps": [
+    "Create extensions/gpu-broker/package.json following the pattern in extensions/llm-task/package.json and extensions/comfy/package.json. Name: @openclaw/gpu-broker, private, type module, devDependencies: @openclaw/plugin-sdk workspace:*, dependencies: typebox 1.1.39. openclaw.extensions points to ./index.ts",
+    "Create extensions/gpu-broker/tsconfig.json extending ../tsconfig.package-boundary.base.json with rootDir '.', include ['./*.ts', './src/**/*.ts'], exclude tests/dist/node_modules",
+    "Create extensions/gpu-broker/openclaw.plugin.json with id 'gpu-broker', activation.onStartup true, enabledByDefault true, configSchema with properties: ollamaUrl (string), pollMs (integer min 500), externalClaimThresholdMb (integer min 0), defaultHoldMs (integer min 1000), dormant (boolean). Add contracts.tools array listing gpu.status, gpu.release, gpu.reclaim, gpu.handoff",
+    "Create extensions/gpu-broker/src/types.ts defining GpuBrokerState union type (idle|agent-active|user-claimed|draining|dormant), GpuBrokerConfig interface (ollamaUrl, pollMs, externalClaimThresholdMb, defaultHoldMs, dormant), GpuSnapshot interface (totalMb, usedMb, freeMb, timestamp), LeaseToken type",
+    "Create extensions/gpu-broker/src/gpu-snapshot.ts with snapshotGpu() function that tries nvidia-smi first (parse XML output for memory), falls back to Ollama /api/ps endpoint to estimate usage, returns GpuSnapshot or null. This handles honest degradation - returns null if neither source available.",
+    "Create extensions/gpu-broker/src/broker.ts implementing the GpuBroker class. State machine with states: idle, agent-active, user-claimed, draining, dormant. Methods: init(), shutdown(), claim(holdMs?) returning LeaseToken, release(token), canAgentRun() returning {allowed, reason?}, evacuateOllama(ollamaUrl), waitForVramFree(thresholdMb, timeoutMs), recalibrateBaseline(), snapshotGpu(), poll(), applyConfig(config), getState(). Lease uses crypto.randomUUID() instead of ulid. Poll interval checks for external VRAM pressure (ghost-claim). Auto-expiry timer on lease. Logger shim interface {info, warn, error}.",
+    "Create extensions/gpu-broker/src/broker.test.ts with unit tests using mocked snapshotGpu: test state transitions (idle->agent-active->idle), lease token integrity (claim returns token, release with wrong token fails), auto-expiry (fake timers, claim then advance past holdMs, state returns to idle), claim-while-claimed rejection, canAgentRun returns allowed:true in idle/agent-active/dormant and allowed:false with reason in user-claimed/draining, ghost-claim triggers on external pressure > threshold, ghost-claim auto-releases when pressure drops below half threshold",
+    "Create extensions/gpu-broker/index.ts using definePluginEntry (not defineToolPlugin since we need both tools and a service). Register the broker as a service via api.registerService({id: 'gpu-broker', start, stop}). Register tools using api.registerTool for gpu.status, gpu.release, gpu.reclaim, gpu.handoff. Register typed hook api.on('before_model_resolve', ...) for the agent-run gate that checks canAgentRun(). Register config reload via the reload option in definePluginEntry. Wire dormant detection from config.",
+    "Create extensions/gpu-broker/index.test.ts testing the plugin registration: verify service is registered, tools are registered with correct names, config reload calls broker.applyConfig"
+  ],
+  "acceptance_criteria": [
+    "extensions/gpu-broker/ directory exists with all required files (package.json, tsconfig.json, openclaw.plugin.json, index.ts, src/types.ts, src/broker.ts, src/gpu-snapshot.ts, src/broker.test.ts, index.test.ts)",
+    "GpuBroker class implements all 5 states with correct transitions",
+    "Unit tests in src/broker.test.ts pass with mocked GPU snapshots covering: state transitions, lease integrity, auto-expiry, claim rejection, canAgentRun correctness, ghost-claim behavior",
+    "Plugin entry registers a service, 4 tools (gpu.status, gpu.release, gpu.reclaim, gpu.handoff), and handles config/reload",
+    "index.test.ts passes confirming registration works correctly",
+    "No imports from other extensions or core src/** - only openclaw/plugin-sdk/* imports used"
+  ],
+  "verification": [
+    "Run: cd /projects/sandbox/creative-claw && pnpm install",
+    "Run: cd /projects/sandbox/creative-claw && node scripts/run-vitest.mjs extensions/gpu-broker"
+  ],
+  "blocked_reason": null,
+  "findings": "All 30 tests pass (25 broker unit tests + 5 registration tests). The vitest runner via scripts/run-vitest.mjs can time out at 120s due to plugin compilation overhead; using npx vitest run directly with --no-file-parallelism works reliably with a 300s timeout. pnpm-lock.yaml updated as expected when adding new workspace package. The reload.onConfigChange pattern uses a stored broker reference on the api object rather than a module-level variable to keep the closure clean."
+}

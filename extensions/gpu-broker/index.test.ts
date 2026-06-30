@@ -63,22 +63,8 @@ describe("gpu-broker plugin registration", () => {
     expect(plugin.description).toContain("VRAM");
   });
 
-  it("config reload calls broker.applyConfig", () => {
-    const registerService = vi.fn();
-    const api = createTestPluginApi({
-      pluginConfig: { pollMs: 3000 },
-      registerService,
-      registerTool: vi.fn(),
-      registerHttpRoute: vi.fn(),
-      registerCli: vi.fn(),
-      registerControlUiDescriptor: vi.fn(),
-    });
-
-    plugin.register(api);
-
-    // Verify reload is defined
-    expect(plugin.reload).toBeDefined();
-    expect(plugin.reload?.onConfigChange).toBeTypeOf("function");
+  it("does not define a reload.onConfigChange (config changes require gateway restart)", () => {
+    expect(plugin.reload).toBeUndefined();
   });
 
   it("service start and stop functions are callable", async () => {

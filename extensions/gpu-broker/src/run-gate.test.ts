@@ -103,17 +103,18 @@ describe("createRunGate", () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  it("transitions to agent-active on first permitted call from idle", () => {
+  it("does not transition state on permitted call (gate is advisory-only)", () => {
     broker = new GpuBroker({ logger, snapshotFn });
     expect(broker.getCurrentState()).toBe("idle");
 
     const gate = createRunGate(broker, logger);
     gate();
 
-    expect(broker.getCurrentState()).toBe("agent-active");
+    // Gate no longer drives state transitions; it only checks canAgentRun()
+    expect(broker.getCurrentState()).toBe("idle");
   });
 
-  it("does not transition from agent-active to agent-active on repeated calls", () => {
+  it("does not transition from agent-active on repeated calls", () => {
     broker = new GpuBroker({ logger, snapshotFn });
     broker.enterAgentActive();
     const gate = createRunGate(broker, logger);

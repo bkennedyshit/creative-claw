@@ -85,9 +85,8 @@ async function snapshotViaOllama(ollamaUrl: string): Promise<GpuSnapshot | null>
     }
 
     const usedMb = Math.round(usedBytes / (1024 * 1024));
-    // Ollama does not report total VRAM, so we cannot compute free.
-    // Return a partial snapshot with freeMb as 0 (caller uses usedMb for threshold).
-    return { totalMb: 0, usedMb, freeMb: 0, timestamp: Date.now() };
+    // Ollama does not report total VRAM capacity, so totalMb and freeMb are unknown.
+    return { totalMb: null, usedMb, freeMb: null, timestamp: Date.now() };
   } catch {
     return null;
   }

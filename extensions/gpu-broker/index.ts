@@ -39,15 +39,9 @@ export default definePluginEntry({
   id: "gpu-broker",
   name: "GPU Broker",
   description: "VRAM arbitration service for local GPU resource management",
-  reload: {
-    onConfigChange(api) {
-      const broker = (api as unknown as { __gpuBroker?: GpuBroker }).__gpuBroker;
-      if (broker) {
-        const newConfig = resolveConfig(api.config);
-        broker.applyConfig(newConfig);
-      }
-    },
-  },
+  // Config reload: the reload field supports restartPrefixes/hotPrefixes/noopPrefixes,
+  // not arbitrary callbacks. Config changes currently require a gateway restart.
+  // TODO: Wire config reload when a proper mechanism (e.g. api.registerReload) is available.
   register(api) {
     const config = resolveConfig(api.pluginConfig);
     const broker = new GpuBroker({
@@ -55,9 +49,6 @@ export default definePluginEntry({
       logger: api.logger,
       snapshotFn: snapshotGpu,
     });
-
-    // Store broker reference for reload access
-    (api as unknown as { __gpuBroker: GpuBroker }).__gpuBroker = broker;
 
     // Register as a gateway-lifetime service
     api.registerService({
@@ -199,9 +190,10 @@ export default definePluginEntry({
     });
 
     // Agent-run gate: before_model_resolve hook via typed api.on()
+    // NOTE: This gate is advisory-only. See src/run-gate.ts for details.
     let warmupDone = false;
     const runGate = createRunGate(broker, api.logger);
-    api.on("before_model_resolve", async () => {
+    api.on("before_model_resolve", async (_event, _ctx) => {
       const result = runGate();
       // Trigger warmup recalibration after the first permitted agent run
       if (!warmupDone && broker.getCurrentState() === "agent-active") {

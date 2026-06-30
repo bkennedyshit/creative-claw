@@ -19,12 +19,12 @@ export interface GpuBrokerConfig {
 
 /** A point-in-time GPU VRAM snapshot. */
 export interface GpuSnapshot {
-  /** Total GPU VRAM in megabytes. */
-  totalMb: number;
+  /** Total GPU VRAM in megabytes, or null if not available (e.g. Ollama-only). */
+  totalMb: number | null;
   /** Used GPU VRAM in megabytes. */
   usedMb: number;
-  /** Free GPU VRAM in megabytes. */
-  freeMb: number;
+  /** Free GPU VRAM in megabytes, or null if not available (e.g. Ollama-only). */
+  freeMb: number | null;
   /** Timestamp when this snapshot was captured. */
   timestamp: number;
 }
