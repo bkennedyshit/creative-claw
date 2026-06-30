@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "feature": "gpu-broker-integration",
+  "specType": "feature",
+  "workflowType": "requirements-first",
+  "createdAt": "2026-06-30",
+  "description": "Port Polymathes' GPU/VRAM broker (cooperative GPU arbitration + Ollama eviction + external-pressure ghost-claim) into Creative Claw (the OpenClaw fork) as a native code plugin, so the agent releases VRAM for the user's editing/render workflows and the C++ creative engines, and reclaims it after."
+}

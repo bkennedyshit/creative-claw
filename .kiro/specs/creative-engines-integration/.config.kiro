@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "feature": "creative-engines-integration",
+  "specType": "feature",
+  "workflowType": "requirements-first",
+  "createdAt": "2026-06-30",
+  "description": "Wire the four compiled C++ creative engines (image/audio/video/vector) and their batch + node-graph surfaces into Creative Claw (the OpenClaw fork) as native agent capabilities — engine ops callable by name, single-image stacking + batch flows, the agentic edit session, honesty preserved — without per-session MCP process spawning (long-lived in-process/service path)."
+}

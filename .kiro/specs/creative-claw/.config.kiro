@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "feature": "creative-claw",
+  "specType": "feature",
+  "workflowType": "requirements-first",
+  "createdAt": "2026-06-30",
+  "description": "Master umbrella spec for Creative Claw: a local-first agentic creative suite forking OpenClaw (the spine) and transplanting Polymathes' GPU broker + visual memory and the four compiled-C++ creative engines (image/audio/video/vector) with their batch + node-graph + agentic-edit surfaces. Defines the unified product, sequences the three integration specs (gpu-broker → visual-memory → creative-engines), and settles cross-cutting decisions: native-desktop vs browser shell, packaging/provisioning, the unified agent experience, and the Stage-1→Stage-2 product arc."
+}

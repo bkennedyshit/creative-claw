@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "feature": "visual-memory-integration",
+  "specType": "feature",
+  "workflowType": "requirements-first",
+  "createdAt": "2026-06-30",
+  "description": "Rewrite Polymathes' Mneme visual-memory engine from Python to native TypeScript inside Creative Claw (the OpenClaw fork): CLIP image/text embeddings, a SQLite vector store, path-as-metadata creator-aware indexing, and natural-language + reverse-image media search — exposed as native agent tools (no Python sidecar, no MCP boundary). Preserves the optional native CUDA+TensorRT C++ binary as a fast-path delegate."
+}
