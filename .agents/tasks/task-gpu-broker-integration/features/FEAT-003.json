@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-003",
+  "type": "fix",
+  "description": "Address review findings: remove dead reload.onConfigChange field, simplify agent-active state transition in run gate, fix hook handler arity mismatch, make Ollama snapshot fields nullable, add advisory-only comment to run gate.",
+  "status": "completed",
+  "steps": [
+    "Remove the reload.onConfigChange field from definePluginEntry in index.ts. Remove the __gpuBroker monkeypatch. Add a comment that config changes require gateway restart until a proper reload mechanism is implemented.",
+    "Simplify the run gate: remove the enterAgentActive() call from createRunGate so the gate only checks canAgentRun() without transitioning states. Keep enterAgentActive/exitAgentActive methods on the broker class for future use. Update index.ts to not rely on state transition in the gate.",
+    "Fix the before_model_resolve hook handler in index.ts to accept (_event, _ctx) parameters instead of empty args.",
+    "Update GpuSnapshot type to use null for totalMb and freeMb when data is unavailable. Update snapshotViaOllama to return null for those fields instead of 0.",
+    "Add a code comment to the run gate documenting the advisory-only nature of the gate.",
+    "Update tests to reflect changes: fix run-gate.test.ts to not expect state transitions, fix index.test.ts to remove reload.onConfigChange test, update degradation tests if needed for nullable snapshot fields."
+  ],
+  "acceptance_criteria": [
+    "No reload.onConfigChange field in the plugin entry",
+    "Run gate does not call enterAgentActive()",
+    "before_model_resolve handler accepts (_event, _ctx) parameters",
+    "GpuSnapshot uses null for totalMb and freeMb when Ollama-only",
+    "Run gate has advisory-only documentation comment",
+    "All 54 tests still pass"
+  ],
+  "verification": [
+    "Run: cd /projects/sandbox/creative-claw && npx vitest run --project extensions extensions/gpu-broker"
+  ],
+  "blocked_reason": null,
+  "findings": "All 54 tests pass after fixes. Removed reload.onConfigChange dead code and __gpuBroker monkeypatch. Simplified run gate to only check canAgentRun() without driving state transitions. Fixed hook handler arity to (_event, _ctx). Changed GpuSnapshot.totalMb and freeMb to number|null, Ollama path now returns null instead of 0. Added advisory-only documentation to run gate. The enterAgentActive/exitAgentActive methods remain on the broker class for future use."
+}

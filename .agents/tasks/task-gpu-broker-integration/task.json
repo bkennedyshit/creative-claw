@@ -1,0 +1,14 @@
+{
+  "task_id": "task-gpu-broker-integration",
+  "task_description": "Implement the GPU Broker integration as a native TS code plugin at extensions/gpu-broker/. Port the GpuBroker state-machine class (idle|agent-active|user-claimed|draining|dormant) with lease model, ghost-claim, snapshot fallback, register 4 GPU tools (gpu.status, gpu.release, gpu.reclaim, gpu.handoff), wire agent-run gate, warmup recalibration, config/reload, and operator surfaces. Tests split into always-runnable (mocked) and GPU-gated (skip-with-reason).",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "skipped",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 54 tests pass across 5 test files (broker: 25, run-gate: 8, degradation: 8, warmup: 4, registration: 9). Two review passes completed (v1 found 5 issues, v2 found 3 follow-up issues) - all addressed. Tests exercise real state-machine logic with mocked snapshots and would fail if implementation were reverted. Full build skipped due to sandbox resource constraints."
+  }
+}

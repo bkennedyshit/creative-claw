@@ -1,0 +1,33 @@
+{
+  "project_type": "TypeScript pnpm monorepo - AI gateway (OpenClaw) with plugin extensions",
+  "language": "TypeScript (ESM, strict)",
+  "build_system": "pnpm workspace with tsdown bundler; extensions are workspace packages under extensions/*",
+  "test_framework": "vitest with colocated *.test.ts files; e2e tests use *.e2e.test.ts; live tests gated by OPENCLAW_LIVE_TEST=1",
+  "build_command": "pnpm build",
+  "test_command": "pnpm test extensions/gpu-broker",
+  "verification_instructions": "1. Run pnpm install to confirm workspace resolves. 2. Run pnpm test extensions/gpu-broker to run unit tests. 3. Confirm no type errors with pnpm build or targeted typecheck.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "1. pnpm install (hoisted node_modules). 2. Node 22.19+. 3. pnpm build for full build.",
+  "environment_constraints": "Network available (COMMON_DEPENDENCIES). No GPU/Ollama in sandbox - GPU-gated tests must skip-with-reason. No pnpm check or full suite - use targeted tests only.",
+  "contribution_requirements": "TS ESM strict. No @ts-nocheck. Use zod/typebox for schemas. Prefer defineToolPlugin for tool plugins. Extensions must not use raw registerHook - use api.on() typed hook API instead. Plugin production code must not import from other extensions or core src/**. Extensions use openclaw/plugin-sdk/* imports. Bundled plugin boundary invariants enforced. American English.",
+  "key_patterns": "Tool plugins use defineToolPlugin() from openclaw/plugin-sdk/tool-plugin with TypeBox schemas. Service plugins use definePluginEntry() with api.registerService(). Manifest is openclaw.plugin.json. Package.json has openclaw.extensions field pointing to entry. tsconfig extends ../tsconfig.package-boundary.base.json. Typed hooks use api.on('hook_name', handler). Tests use vitest with vi.fn() mocks.",
+  "relevant_files": [
+    "extensions/comfy/index.ts",
+    "extensions/comfy/openclaw.plugin.json",
+    "extensions/comfy/package.json",
+    "extensions/comfy/tsconfig.json",
+    "extensions/llm-task/index.ts",
+    "extensions/llm-task/openclaw.plugin.json",
+    "extensions/llm-task/package.json",
+    "extensions/browser/plugin-registration.ts",
+    "extensions/active-memory/index.ts",
+    "src/plugin-sdk/tool-plugin.ts",
+    "src/plugin-sdk/tool-plugin.test.ts",
+    "src/plugin-sdk/plugin-entry.ts",
+    "src/plugin-sdk/plugin-test-api.ts",
+    "src/plugins/hook-before-agent-start.types.ts",
+    "src/plugins/hook-types.ts",
+    ".kiro/specs/gpu-broker-integration/tasks.md"
+  ],
+  "directory_structure": "Root: src/ (core), extensions/ (plugins), packages/ (shared libs), ui/ (control UI), test/ (test infra), docs/, scripts/. Each extension is a self-contained workspace package with index.ts entry, openclaw.plugin.json manifest, package.json, tsconfig.json."
+}

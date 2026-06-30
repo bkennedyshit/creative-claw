@@ -1,0 +1,44 @@
+{
+  "id": "gpu-broker",
+  "activation": {
+    "onStartup": true
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "ollamaUrl": {
+        "type": "string",
+        "description": "Base URL for the Ollama API (e.g. http://127.0.0.1:11434)."
+      },
+      "pollMs": {
+        "type": "integer",
+        "minimum": 500,
+        "description": "Interval in milliseconds between GPU snapshot polls."
+      },
+      "externalClaimThresholdMb": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "VRAM usage threshold (MB) above which external pressure triggers a ghost-claim."
+      },
+      "defaultHoldMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "description": "Default lease hold duration in milliseconds before auto-expiry."
+      },
+      "dormant": {
+        "type": "boolean",
+        "description": "When true the broker skips all polling and permits all agent runs."
+      }
+    }
+  },
+  "contracts": {
+    "tools": [
+      "gpu.status",
+      "gpu.release",
+      "gpu.reclaim",
+      "gpu.handoff"
+    ]
+  }
+}
