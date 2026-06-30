@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Wire the agent-run gate, warmup recalibration hook, operator surfaces (CLI metadata, HTTP route, control UI descriptor), and honest degradation tests. This completes the GPU broker plugin's integration with the OpenClaw runtime.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "In extensions/gpu-broker/index.ts, wire the agent-run gate using the before_model_resolve typed hook (api.on). When broker state is user-claimed or draining and the resolved provider is a local-LLM provider (ollama), the hook should log a warning via the logger. Note: bundled plugins use api.on() not raw registerHook. The gate should always permit in dormant mode.",
     "Create extensions/gpu-broker/src/run-gate.ts exporting a createRunGate(broker, logger) function that returns the hook handler. The handler checks broker.canAgentRun() and if not allowed, logs the reason. For the before_model_resolve hook, if the broker denies the run, override the provider to a non-local fallback or log a warning (since before_model_resolve can suggest model overrides but cannot block runs directly).",
@@ -25,5 +25,5 @@
     "Run: cd /projects/sandbox/creative-claw && node scripts/run-vitest.mjs extensions/gpu-broker"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 54 tests pass (8 run-gate, 4 warmup, 8 degradation, 25 broker, 9 registration). The api.on() typed hook API works as a no-op on the test plugin API - tests verify it is called correctly by spying on the function. HTTP route uses auth: gateway. CLI uses parentPath: ['gpu'] with descriptors. Control UI descriptor registered on 'session' surface. The warmup recalibration is triggered on first idle-to-agent-active transition inside the before_model_resolve hook handler."
 }
