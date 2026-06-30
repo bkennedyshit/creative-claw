@@ -47,8 +47,12 @@ function snapshotViaNvidiaSmi(): Promise<GpuSnapshot | null> {
 
 /** Shape of a model entry from Ollama /api/ps response. */
 interface OllamaPsModel {
+  /** Bytes of model data loaded into GPU VRAM (preferred source). */
   size_vram?: number;
+  /** Total model file size in bytes (heuristic fallback). */
   size?: number;
+  /** Some Ollama versions expose total_size alongside size. */
+  total_size?: number;
 }
 
 /**
@@ -69,8 +73,13 @@ async function snapshotViaOllama(ollamaUrl: string): Promise<GpuSnapshot | null>
     let usedBytes = 0;
     for (const model of models) {
       if (typeof model.size_vram === "number" && model.size_vram > 0) {
+        // Preferred: exact VRAM allocation reported by Ollama
         usedBytes += model.size_vram;
+      } else if (typeof model.total_size === "number" && model.total_size > 0) {
+        // Fallback: total_size heuristic (older Ollama versions)
+        usedBytes += model.total_size;
       } else if (typeof model.size === "number" && model.size > 0) {
+        // Last resort: generic size field
         usedBytes += model.size;
       }
     }

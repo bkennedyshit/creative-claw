@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Wire the agent-run gate, warmup recalibration hook, operator surfaces (CLI metadata, HTTP route, control UI descriptor), and honest degradation tests. This completes the GPU broker plugin's integration with the OpenClaw runtime.",
+  "status": "in_progress",
+  "steps": [
+    "In extensions/gpu-broker/index.ts, wire the agent-run gate using the before_model_resolve typed hook (api.on). When broker state is user-claimed or draining and the resolved provider is a local-LLM provider (ollama), the hook should log a warning via the logger. Note: bundled plugins use api.on() not raw registerHook. The gate should always permit in dormant mode.",
+    "Create extensions/gpu-broker/src/run-gate.ts exporting a createRunGate(broker, logger) function that returns the hook handler. The handler checks broker.canAgentRun() and if not allowed, logs the reason. For the before_model_resolve hook, if the broker denies the run, override the provider to a non-local fallback or log a warning (since before_model_resolve can suggest model overrides but cannot block runs directly).",
+    "Create extensions/gpu-broker/src/run-gate.test.ts testing: gate permits when broker state is idle/agent-active/dormant, gate denies (logs warning) when state is user-claimed/draining, gate always permits in dormant mode regardless of underlying state",
+    "Create extensions/gpu-broker/src/warmup.ts exporting a recalibrateAfterWarmup(broker, logger) function. This calls broker.recalibrateBaseline() to update the baseline VRAM measurement after a model has been loaded. Wire this to be called after the first idle->agent-active transition.",
+    "Create extensions/gpu-broker/src/warmup.test.ts testing: after recalibration, the warmed model's VRAM footprint is included in the baseline and does not trigger a ghost-claim",
+    "In extensions/gpu-broker/index.ts, register operator surfaces: api.registerControlUiDescriptor with a simple GPU state display, and api.registerHttpRoute for GET /gpu/state returning broker.getState() as JSON. Register CLI metadata via api.registerCli('gpu', {description, hasSubcommands: true}) with a status subcommand.",
+    "Create extensions/gpu-broker/src/degradation.test.ts testing honest degradation: when snapshotGpu returns null (no nvidia-smi, no Ollama /api/ps), broker still functions in degraded mode without crashing; state reports degraded; dormant mode when config.dormant is true",
+    "Update extensions/gpu-broker/src/gpu-snapshot.ts to handle the Ollama /api/ps response parsing - read model size_vram when available from the JSON response, fall back to total_size heuristic"
+  ],
+  "acceptance_criteria": [
+    "Agent-run gate hook is wired via api.on('before_model_resolve') and correctly checks canAgentRun()",
+    "Run gate tests pass covering permit/deny scenarios",
+    "Warmup recalibration function exists and test proves recalibrated baseline does not trigger ghost-claim",
+    "Operator surfaces registered: HTTP route /gpu/state, CLI 'gpu' command, control UI descriptor",
+    "Honest degradation tests pass: no crash when GPU sources unavailable, dormant mode works",
+    "All tests in extensions/gpu-broker pass via node scripts/run-vitest.mjs extensions/gpu-broker"
+  ],
+  "verification": [
+    "Run: cd /projects/sandbox/creative-claw && node scripts/run-vitest.mjs extensions/gpu-broker"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

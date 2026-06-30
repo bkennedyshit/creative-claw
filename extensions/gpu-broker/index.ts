@@ -2,7 +2,9 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { GpuBroker } from "./src/broker.js";
 import { snapshotGpu } from "./src/gpu-snapshot.js";
+import { createRunGate } from "./src/run-gate.js";
 import type { GpuBrokerConfig } from "./src/types.js";
+import { recalibrateAfterWarmup } from "./src/warmup.js";
 
 const DEFAULT_CONFIG: GpuBrokerConfig = {
   ollamaUrl: "http://127.0.0.1:11434",
@@ -194,6 +196,57 @@ export default definePluginEntry({
           text: `GPU handed off. Token: ${token}`,
         };
       },
+    });
+
+    // Agent-run gate: before_model_resolve hook via typed api.on()
+    let warmupDone = false;
+    const runGate = createRunGate(broker, api.logger);
+    api.on("before_model_resolve", async () => {
+      const result = runGate();
+      // Trigger warmup recalibration after the first permitted agent run
+      if (!warmupDone && broker.getCurrentState() === "agent-active") {
+        warmupDone = true;
+        await recalibrateAfterWarmup(broker, api.logger);
+      }
+      return result ?? {};
+    });
+
+    // Operator surface: HTTP route for GPU state introspection
+    api.registerHttpRoute({
+      path: "/gpu/state",
+      auth: "gateway",
+      handler(_req, res) {
+        const state = broker.getState();
+        const body = JSON.stringify(state);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(body);
+        return true;
+      },
+    });
+
+    // Operator surface: CLI command for GPU status
+    api.registerCli(
+      (ctx) => {
+        ctx.program
+          .command("status")
+          .description("Show current GPU broker state")
+          .action(() => {
+            const state = broker.getState();
+            ctx.logger.info(JSON.stringify(state, null, 2));
+          });
+      },
+      {
+        parentPath: ["gpu"],
+        descriptors: [{ name: "gpu", description: "GPU broker commands", hasSubcommands: true }],
+      },
+    );
+
+    // Operator surface: Control UI descriptor for GPU state display
+    api.registerControlUiDescriptor({
+      id: "gpu-broker-state",
+      surface: "session",
+      label: "GPU State",
+      description: "Displays the current GPU broker state and VRAM usage.",
     });
   },
 });

@@ -20,6 +20,9 @@ describe("gpu-broker plugin registration", () => {
       pluginConfig: {},
       registerService,
       registerTool: vi.fn(),
+      registerHttpRoute: vi.fn(),
+      registerCli: vi.fn(),
+      registerControlUiDescriptor: vi.fn(),
     });
 
     plugin.register(api);
@@ -37,6 +40,9 @@ describe("gpu-broker plugin registration", () => {
       pluginConfig: {},
       registerService: vi.fn(),
       registerTool,
+      registerHttpRoute: vi.fn(),
+      registerCli: vi.fn(),
+      registerControlUiDescriptor: vi.fn(),
     });
 
     plugin.register(api);
@@ -63,6 +69,9 @@ describe("gpu-broker plugin registration", () => {
       pluginConfig: { pollMs: 3000 },
       registerService,
       registerTool: vi.fn(),
+      registerHttpRoute: vi.fn(),
+      registerCli: vi.fn(),
+      registerControlUiDescriptor: vi.fn(),
     });
 
     plugin.register(api);
@@ -78,6 +87,9 @@ describe("gpu-broker plugin registration", () => {
       pluginConfig: {},
       registerService,
       registerTool: vi.fn(),
+      registerHttpRoute: vi.fn(),
+      registerCli: vi.fn(),
+      registerControlUiDescriptor: vi.fn(),
     });
 
     plugin.register(api);
@@ -90,5 +102,85 @@ describe("gpu-broker plugin registration", () => {
     // Service start/stop should not throw
     await expect(service.start()).resolves.not.toThrow();
     expect(() => service.stop()).not.toThrow();
+  });
+
+  it("registers the before_model_resolve hook via api.on()", () => {
+    const on = vi.fn();
+    const api = createTestPluginApi({
+      pluginConfig: {},
+      registerService: vi.fn(),
+      registerTool: vi.fn(),
+      registerHttpRoute: vi.fn(),
+      registerCli: vi.fn(),
+      registerControlUiDescriptor: vi.fn(),
+      on,
+    });
+
+    plugin.register(api);
+
+    expect(on).toHaveBeenCalledTimes(1);
+    expect(on).toHaveBeenCalledWith("before_model_resolve", expect.any(Function));
+  });
+
+  it("registers an HTTP route at /gpu/state", () => {
+    const registerHttpRoute = vi.fn();
+    const api = createTestPluginApi({
+      pluginConfig: {},
+      registerService: vi.fn(),
+      registerTool: vi.fn(),
+      registerHttpRoute,
+      registerCli: vi.fn(),
+      registerControlUiDescriptor: vi.fn(),
+    });
+
+    plugin.register(api);
+
+    expect(registerHttpRoute).toHaveBeenCalledTimes(1);
+    const routeParams = registerHttpRoute.mock.calls[0]?.[0] as { path: string; auth: string };
+    expect(routeParams.path).toBe("/gpu/state");
+    expect(routeParams.auth).toBe("gateway");
+    expect(routeParams).toHaveProperty("handler");
+  });
+
+  it("registers a CLI command with gpu parent path", () => {
+    const registerCli = vi.fn();
+    const api = createTestPluginApi({
+      pluginConfig: {},
+      registerService: vi.fn(),
+      registerTool: vi.fn(),
+      registerHttpRoute: vi.fn(),
+      registerCli,
+      registerControlUiDescriptor: vi.fn(),
+    });
+
+    plugin.register(api);
+
+    expect(registerCli).toHaveBeenCalledTimes(1);
+    const args = registerCli.mock.calls[0] as [unknown, { parentPath: string[] }];
+    expect(args[1].parentPath).toEqual(["gpu"]);
+  });
+
+  it("registers a control UI descriptor for GPU state", () => {
+    const registerControlUiDescriptor = vi.fn();
+    const api = createTestPluginApi({
+      pluginConfig: {},
+      registerService: vi.fn(),
+      registerTool: vi.fn(),
+      registerHttpRoute: vi.fn(),
+      registerCli: vi.fn(),
+      registerControlUiDescriptor,
+    });
+
+    plugin.register(api);
+
+    expect(registerControlUiDescriptor).toHaveBeenCalledTimes(1);
+    const descriptor = registerControlUiDescriptor.mock.calls[0]?.[0] as {
+      id: string;
+      surface: string;
+      label: string;
+    };
+    expect(descriptor.id).toBe("gpu-broker-state");
+    expect(descriptor.surface).toBe("session");
+    expect(descriptor.label).toBe("GPU State");
   });
 });
