@@ -9,6 +9,6 @@
     "tests": "pass",
     "test_quality": "pass",
     "docker_build": "skipped",
-    "summary": "All 54 tests pass across 5 test files (broker: 25, run-gate: 8, degradation: 8, warmup: 4, registration: 9). Tests cover: state machine transitions, lease token integrity, auto-expiry, ghost-claim trigger/release, canAgentRun gate, warmup recalibration, honest degradation with null snapshots, config reload, plugin registration. Full build skipped due to sandbox resource constraints (vitest already resolves and compiles the test graph). Docker build not applicable."
+    "summary": "All 54 tests pass across 5 test files (broker: 25, run-gate: 8, degradation: 8, warmup: 4, registration: 9). Two review passes completed (v1 found 5 issues, v2 found 3 follow-up issues) - all addressed. Tests exercise real state-machine logic with mocked snapshots and would fail if implementation were reverted. Full build skipped due to sandbox resource constraints."
   }
 }
