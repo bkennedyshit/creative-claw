@@ -5,6 +5,7 @@ import { normalizeLowercaseStringOrEmpty } from "./string-coerce.ts";
 
 export const TAB_GROUPS = [
   { label: "chat", tabs: ["chat"] },
+  { label: "creative", tabs: ["creativeStudio"] },
   {
     label: "control",
     tabs: ["overview", "activity", "workboard", "instances", "sessions", "usage", "cron"],
@@ -31,6 +32,7 @@ export type Tab =
   | "nodes"
   | "chat"
   | "config"
+  | "creativeStudio"
   | "communications"
   | "appearance"
   | "automation"
@@ -69,6 +71,7 @@ const TAB_PATHS: Record<Tab, string> = {
   nodes: "/nodes",
   chat: "/chat",
   config: "/config",
+  creativeStudio: "/creative",
   communications: "/communications",
   appearance: "/appearance",
   automation: "/automation",
@@ -209,6 +212,8 @@ export function iconForTab(tab: Tab): IconName {
       return "monitor";
     case "config":
       return "settings";
+    case "creativeStudio":
+      return "spark";
     case "communications":
       return "send";
     case "appearance":

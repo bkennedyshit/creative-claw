@@ -269,3 +269,22 @@ extensions/diffs-language-pack/assets/viewer-runtime.js
 /.opengrep-out/
 /.crabbox-artifacts
 .comux*
+
+# ── Creative Claw: native engine runtime artifacts ───────────────────────────
+# Provisioned locally, never committed. The four `libomni_*_bridge` DLLs are
+# compiled C++ engines; `onnxruntime*.dll` and `models/` are the ONNX Runtime
+# 1.26 sidecar + neural model weights (~1.1 GB total). See
+# extensions/creative-engines/binaries/README.md for how to provision them.
+extensions/creative-engines/binaries/*.dll
+extensions/creative-engines/binaries/*.so
+extensions/creative-engines/binaries/*.dylib
+extensions/creative-engines/binaries/*.lib
+extensions/creative-engines/binaries/*.exp
+extensions/creative-engines/binaries/models/
+
+# ── Local engineering working notes ──────────────────────────────────────────
+# Session-scoped diagnosis reports. Useful locally, but they reference absolute
+# developer paths and are not project documentation. FORK_DELTA.md and
+# extensions/creative-engines/binaries/README.md are the durable docs.
+BOOT_DIAGNOSIS.md
+HONESTY_FIXES.md

@@ -1,0 +1,220 @@
+/* Control UI styles for the Creative Studio switching view. */
+
+.creative-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.creative-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.creative-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.creative-tab:hover {
+  border-color: var(--accent);
+}
+
+.creative-tab--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast, #fff);
+}
+
+.creative-tab__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.creative-tab__dot--ok {
+  background: var(--ok);
+}
+
+.creative-tab__dot--off {
+  background: var(--danger);
+}
+
+.creative-studio__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .creative-studio__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.creative-studio__main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.creative-panel__head,
+.creative-gpu__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.creative-panel__unavailable {
+  margin-top: 12px;
+}
+
+.creative-panel__catalog {
+  margin-top: 16px;
+}
+
+.creative-ops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.creative-op {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.creative-op__label {
+  font-weight: 500;
+}
+
+.creative-op__id {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.creative-op__params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.creative-run__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.creative-run__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.creative-run__result {
+  font-size: 13px;
+}
+
+.creative-run__result--ok {
+  color: var(--ok);
+}
+
+.creative-run__result--err {
+  color: var(--danger);
+}
+
+.creative-gpu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.creative-gpu__meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-2, var(--border));
+  overflow: hidden;
+}
+
+.creative-gpu__meter-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.creative-gpu__stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.creative-gpu__models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.creative-recent__strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 0;
+  margin-top: 8px;
+}
+
+.creative-recent__item {
+  flex: 0 0 auto;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.creative-recent__thumb {
+  height: 90px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  background: var(--surface);
+}
+
+.creative-recent__path {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

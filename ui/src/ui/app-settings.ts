@@ -29,6 +29,7 @@ import { loadAgentSkills, type AgentSkillsState } from "./controllers/agent-skil
 import { loadAgents, type AgentsState } from "./controllers/agents.ts";
 import { loadChannels, type ChannelsState } from "./controllers/channels.ts";
 import { loadConfig, loadConfigSchema, type ConfigState } from "./controllers/config.ts";
+import type { CreativeStudioController } from "./controllers/creative-studio.ts";
 import {
   loadCronJobsPage,
   loadCronRuns,
@@ -168,6 +169,7 @@ type SettingsAppHost = SettingsHost &
     overviewLogLines: string[];
     attentionItems: AttentionItem[];
     hello: { auth?: { role?: string; scopes?: string[] } } | null;
+    creativeStudio: CreativeStudioController;
   };
 
 export function applySettings(host: SettingsHost, next: UiSettings) {
@@ -487,6 +489,9 @@ export async function refreshActiveTab(host: SettingsHost, opts?: { chatStartup?
       case "nodes":
         await loadNodes(app);
         await Promise.allSettled([loadDevices(app), loadConfig(app), loadExecApprovals(app)]);
+        break;
+      case "creativeStudio":
+        await app.creativeStudio.refresh();
         break;
       case "dreams":
         host.selectedAgentId = resolveDreamingAgentIdForSession(host);

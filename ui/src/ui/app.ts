@@ -100,6 +100,7 @@ import {
   refreshVisibleToolsEffectiveForCurrentSession as refreshVisibleToolsEffectiveForCurrentSessionInternal,
 } from "./controllers/agents.ts";
 import { loadAssistantIdentity as loadAssistantIdentityInternal } from "./controllers/assistant-identity.ts";
+import { CreativeStudioController } from "./controllers/creative-studio.ts";
 import type { DevicePairingList } from "./controllers/devices.ts";
 import type {
   DreamingStatus,
@@ -208,6 +209,7 @@ function resolveOnboardingMode(): boolean {
 
 export class OpenClawApp extends LitElement {
   readonly i18nController = new I18nController(this);
+  readonly creativeStudio = new CreativeStudioController(this);
   clientInstanceId = generateUUID();
   connectGeneration = 0;
   @state() settings: UiSettings = loadSettings();

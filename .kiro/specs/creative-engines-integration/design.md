@@ -96,7 +96,18 @@ Expose the node-graph executor as `creative.graph.run` (Req 5). Two paths (OQ4):
 
 ### Component 6: Provider registration (`src/providers.ts`)
 
-Additively register engines on OpenClaw media seams where they map (Req 6): image → `registerImageGenerationProvider` + `registerMediaUnderstandingProvider`; audio → `registerMusicGenerationProvider`/speech; video → `registerVideoGenerationProvider`; vector → tools only. Must not break existing providers (comfy) and must route to the real C++ engine (Req 6.2). Capabilities without a clean seam (vector path ops, edit session) stay on `registerTool` (Req 6.3).
+**CORRECTED — no provider is registered.** The original design mapped image →
+`registerImageGenerationProvider` + `registerMediaUnderstandingProvider`, audio →
+`registerMusicGenerationProvider`, video → `registerVideoGenerationProvider`.
+None of those seams actually maps: verified against the shipping DLLs, the
+image/audio/video catalogs expose 155 / 45 / 46 EDITING ops and no `generate` op,
+so a prompt-to-media provider cannot route to the real C++ engine (Req 6.2). The
+registrations that shipped failed 100% of the time (`unknown op 'generate'`) and
+the media-understanding one was an id with no analysis hook, which the host
+runner skips. All of them — plus the corresponding `openclaw.plugin.json`
+contract declarations — were removed. `registerProviders` is now an explicit,
+documented no-op, and EVERY engine capability is exposed through `registerTool`
+(Req 6.3).
 
 ### Component 7: GPU-broker cooperation (`src/gpu-coop.ts`)
 

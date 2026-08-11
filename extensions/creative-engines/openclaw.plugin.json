@@ -1,0 +1,156 @@
+{
+  "id": "creative-engines",
+  "activation": { "onStartup": true },
+  "enabledByDefault": true,
+  "contracts": {
+    "mediaUnderstandingProviders": ["creative-engines"],
+    "tools": [
+      "image.list_ops",
+      "image.op_info",
+      "image.apply",
+      "image.apply_chain",
+      "image.batch",
+      "image.edit_session.plan",
+      "image.edit_session.preview",
+      "image.edit_session.confirm",
+      "image.edit_session.revert",
+      "audio.list_ops",
+      "audio.op_info",
+      "audio.apply",
+      "audio.apply_chain",
+      "audio.batch",
+      "video.list_ops",
+      "video.op_info",
+      "video.apply",
+      "video.apply_chain",
+      "video.batch",
+      "vector.list_ops",
+      "vector.op_info",
+      "vector.apply",
+      "vector.apply_chain",
+      "vector.batch"
+    ]
+  },
+  "commandAliases": [
+    {
+      "name": "creative",
+      "description": "Drive the native image/audio/video/vector engines from the operator side"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "image": {
+        "type": "object",
+        "properties": {
+          "binaryPath": {
+            "type": "string",
+            "description": "Path to the image engine library (.dll/.so/.dylib) or a directory containing it. Defaults to the bundled binaries dir."
+          }
+        }
+      },
+      "audio": {
+        "type": "object",
+        "properties": {
+          "binaryPath": {
+            "type": "string",
+            "description": "Path to the audio engine library (.dll/.so/.dylib) or a directory containing it."
+          }
+        }
+      },
+      "video": {
+        "type": "object",
+        "properties": {
+          "binaryPath": {
+            "type": "string",
+            "description": "Path to the video engine library (.dll/.so/.dylib) or a directory containing it."
+          }
+        }
+      },
+      "vector": {
+        "type": "object",
+        "properties": {
+          "binaryPath": {
+            "type": "string",
+            "description": "Path to the vector engine library (.dll/.so/.dylib) or a directory containing it."
+          }
+        }
+      },
+      "codec": {
+        "type": "object",
+        "description": "Media codec configuration (ffmpeg is used only to decode/encode audio and video; the operations run in-process on the C++ engines).",
+        "properties": {
+          "ffmpegPath": {
+            "type": "string",
+            "description": "ffmpeg binary path, or a directory containing ffmpeg/ffprobe (e.g. C:/ffmpeg/bin). Defaults to ffmpeg on PATH."
+          },
+          "ffprobePath": {
+            "type": "string",
+            "description": "ffprobe binary path. Defaults alongside ffmpeg."
+          }
+        }
+      },
+      "mediaUnderstanding": {
+        "type": "object",
+        "description": "Keyframe video understanding (media-understanding provider id 'creative-engines'). The vision model is normally taken from tools.media.video.models[].model; these keys are overrides.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Set false to not register describeVideo at all. Default true."
+          },
+          "visionModel": {
+            "type": "string",
+            "description": "Vision model ref used to describe keyframes, e.g. 'ollama/qwen2.5vl:7b'. Overrides tools.media.* model resolution."
+          },
+          "visionProvider": {
+            "type": "string",
+            "description": "Provider used when visionModel has no 'provider/' prefix. Default 'ollama'."
+          },
+          "maxFrames": {
+            "type": "number",
+            "description": "Maximum keyframes extracted and described per video. Default 6, hard cap 24. Each frame is one vision call (~2-20s)."
+          },
+          "sceneThreshold": {
+            "type": "number",
+            "description": "ffmpeg scene-cut sensitivity 0-1 for detect_scenes. Default 0.3."
+          },
+          "framePrompt": {
+            "type": "string",
+            "description": "Prompt sent with each keyframe."
+          },
+          "frameTimeoutMs": {
+            "type": "number",
+            "description": "Per-frame vision timeout in ms. Always bounded by the host budget from tools.media.video.timeoutSeconds. Default 120000."
+          },
+          "maxCharsPerFrame": {
+            "type": "number",
+            "description": "Trim each frame description to this many characters. 0 disables trimming. Default 320."
+          },
+          "transcribeNarration": {
+            "type": "boolean",
+            "description": "Fold the clip's spoken content into the description: the video engine's extract_audio op demuxes a WAV and the HOST transcribes it with whatever is configured under tools.media.audio.models[]. Default true. With no transcriber configured the output carries one 'Narration: NOT transcribed' line and the keyframe description is unaffected."
+          },
+          "narrationLanguage": {
+            "type": "string",
+            "description": "Language hint passed to the host audio pipeline, e.g. 'en'. Omit to let the transcriber auto-detect."
+          },
+          "maxCharsNarration": {
+            "type": "number",
+            "description": "Trim the folded transcript to this many characters. 0 disables trimming. Default 4000. Note the host also trims the whole answer to tools.media.video.maxChars (default 500) — raise that to see both the transcript and every keyframe."
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "image.binaryPath": { "label": "Image Engine Library", "help": "Path to libomni_image_bridge.(dll/so/dylib) or its directory" },
+    "audio.binaryPath": { "label": "Audio Engine Library", "help": "Path to libomni_audio_bridge.(dll/so/dylib) or its directory" },
+    "video.binaryPath": { "label": "Video Engine Library", "help": "Path to libomni_video_bridge.(dll/so/dylib) or its directory" },
+    "vector.binaryPath": { "label": "Vector Engine Library", "help": "Path to omni_vector_bridge.(dll/so/dylib) or its directory" },
+    "codec.ffmpegPath": { "label": "ffmpeg Path", "help": "ffmpeg/ffprobe location for audio & video transcode (e.g. C:/ffmpeg/bin)" },
+    "mediaUnderstanding.visionModel": { "label": "Keyframe Vision Model", "help": "e.g. ollama/qwen2.5vl:7b — describes extracted keyframes" },
+    "mediaUnderstanding.maxFrames": { "label": "Max Keyframes", "help": "Vision calls per video (each 2-20s). Default 6" },
+    "mediaUnderstanding.transcribeNarration": { "label": "Include Spoken Narration", "help": "Transcribe the clip's audio through tools.media.audio.models[] and fold it into the description" },
+    "mediaUnderstanding.narrationLanguage": { "label": "Narration Language", "help": "Language hint for transcription, e.g. en" }
+  }
+}

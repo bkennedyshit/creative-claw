@@ -1,0 +1,64 @@
+{
+  "id": "gpu-broker",
+  "activation": {
+    "onStartup": true
+  },
+  "enabledByDefault": true,
+  "contracts": {
+    "tools": ["gpu.status", "gpu.release", "gpu.reclaim", "gpu.handoff"]
+  },
+  "commandAliases": [
+    {
+      "name": "gpu",
+      "description": "Inspect and control the cooperative GPU broker"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "ollamaBaseUrl": {
+        "type": "string",
+        "default": "http://127.0.0.1:11434"
+      },
+      "pollIntervalMs": {
+        "type": "number",
+        "default": 15000
+      },
+      "externalClaimThresholdMb": {
+        "type": "number",
+        "default": 10000
+      },
+      "defaultLeaseHoldMs": {
+        "type": "number",
+        "default": 3600000
+      },
+      "dormantOverride": {
+        "type": "boolean",
+        "default": false
+      }
+    }
+  },
+  "uiHints": {
+    "ollamaBaseUrl": {
+      "label": "Ollama Base URL",
+      "help": "Base URL for the local Ollama instance used for model eviction."
+    },
+    "pollIntervalMs": {
+      "label": "Poll Interval (ms)",
+      "help": "How often to poll nvidia-smi for VRAM usage."
+    },
+    "externalClaimThresholdMb": {
+      "label": "External Claim Threshold (MB)",
+      "help": "VRAM pressure above baseline+ollama that triggers a ghost claim."
+    },
+    "defaultLeaseHoldMs": {
+      "label": "Default Lease Hold (ms)",
+      "help": "How long a user lease is held before auto-expiry."
+    },
+    "dormantOverride": {
+      "label": "Dormant Override",
+      "help": "Force dormant mode regardless of detected provider."
+    }
+  }
+}

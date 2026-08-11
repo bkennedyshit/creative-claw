@@ -542,6 +542,10 @@ describe("scripts/run-vitest", () => {
       "--config=test/vitest/vitest.contracts-plugin.config.ts",
       "--config=test/vitest/vitest.infra.config.ts",
       "--config=test/vitest/vitest.gateway-core.config.ts",
+      // Real local vision + ASR inference and ONNX Runtime CPU sessions: the
+      // lane is legitimately silent for minutes, and the 120s/300s budgets
+      // SIGKILLed healthy runs mid-inference.
+      "--config=test/vitest/vitest.extensions.config.ts",
     ]) {
       expect(resolveRunVitestSpawnEnv({ PATH: "/usr/bin" }, ["run", configArg])).toEqual({
         PATH: "/usr/bin",
@@ -577,6 +581,13 @@ describe("scripts/run-vitest", () => {
         "/repo/test/vitest/vitest.full-core-contracts.config.ts",
       ]),
     ).toBe(DEFAULT_LONG_RUNNING_VITEST_NO_OUTPUT_TIMEOUT_MS);
+    expect(
+      resolveDefaultVitestNoOutputTimeoutMs([
+        "run",
+        "--config",
+        "/repo/test/vitest/vitest.extensions.config.ts",
+      ]),
+    ).toBe(DEFAULT_EXTRA_LONG_RUNNING_VITEST_NO_OUTPUT_TIMEOUT_MS);
     expect(
       resolveDefaultVitestNoOutputTimeoutMs([
         "run",

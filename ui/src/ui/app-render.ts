@@ -674,6 +674,10 @@ const lazyAgents = createLazyView(() => import("./views/agents.ts"), notifyLazyV
 const lazyActivity = createLazyView(() => import("./views/activity.ts"), notifyLazyViewChanged);
 const lazyChannels = createLazyView(() => import("./views/channels.ts"), notifyLazyViewChanged);
 const lazyCron = createLazyView(() => import("./views/cron.ts"), notifyLazyViewChanged);
+const lazyCreativeStudio = createLazyView(
+  () => import("./views/creative-studio.ts"),
+  notifyLazyViewChanged,
+);
 const lazyDebug = createLazyView(() => import("./views/debug.ts"), notifyLazyViewChanged);
 const lazyInstances = createLazyView(() => import("./views/instances.ts"), notifyLazyViewChanged);
 const lazyLogs = createLazyView(() => import("./views/logs.ts"), notifyLazyViewChanged);
@@ -3664,6 +3668,22 @@ export function renderApp(state: AppViewState) {
                 },
               });
             })
+          : nothing}
+        ${state.tab === "creativeStudio"
+          ? renderLazyView(lazyCreativeStudio, (m) =>
+              m.renderCreativeStudio({
+                activeMedia: state.creativeStudio.activeMedia,
+                onMediaChange: (media) => state.creativeStudio.setActiveMedia(media),
+                engines: state.creativeStudio.engines,
+                gpu: state.creativeStudio.gpu,
+                recentOutputs: state.creativeStudio.recentOutputs,
+                runForm: state.creativeStudio.runForm,
+                onRunFormChange: (patch) => state.creativeStudio.updateRunForm(patch),
+                onRunOp: () => void state.creativeStudio.runOp(),
+                running: state.creativeStudio.running,
+                lastResult: state.creativeStudio.lastResult,
+              }),
+            )
           : nothing}
         ${state.tab === "nodes"
           ? renderLazyView(lazyNodes, (m) =>
