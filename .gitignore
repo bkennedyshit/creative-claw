@@ -287,4 +287,5 @@ extensions/creative-engines/binaries/models/
 # developer paths and are not project documentation. FORK_DELTA.md and
 # extensions/creative-engines/binaries/README.md are the durable docs.
 BOOT_DIAGNOSIS.md
+HANDOFF.md
 HONESTY_FIXES.md
