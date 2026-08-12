@@ -116,6 +116,12 @@ export interface CreativeEnginesConfig {
   vector?: Partial<EngineConfig>;
   codec?: CodecConfig;
   /**
+   * CUDA 12 / cuDNN 9 discovery for ORT's CUDA execution provider. Optional in
+   * every sense: with no CUDA present the ONNX ops run on the CPU provider and
+   * say so. See `./ffi/loader.ts` `ensureCudaProviderDependencies`.
+   */
+  cuda?: import("./ffi/loader.js").CudaDiscoveryConfig;
+  /**
    * Keyframe video-understanding options. Deliberately thin: the vision model
    * itself is normally taken from config the user already owns
    * (`tools.media.video.models[].model`), so `visionModel` here is only an

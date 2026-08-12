@@ -35,8 +35,22 @@ export {
   ortSidecarStatus,
   isOnnxRuntimeReady,
   onnxUnavailableReason,
+  CUDA_PROVIDER_DEPENDENCIES,
+  configureCudaProviderDependencies,
+  ensureCudaProviderDependencies,
+  cudaCandidateDirectories,
+  cudaProviderDependencyStatus,
+  cudaProviderDependenciesResolved,
+  describeCudaProviderDependencies,
 } from "./ffi/loader.js";
-export type { KoffiLib, LoadResult, OrtSidecarStatus } from "./ffi/loader.js";
+export type {
+  KoffiLib,
+  LoadResult,
+  OrtSidecarStatus,
+  CudaDiscoveryConfig,
+  CudaDependencyStatus,
+  CudaLibraryResolution,
+} from "./ffi/loader.js";
 export { NativeDispatch } from "./ffi/dispatch.js";
 export { imageBindings, ONNX_OPS } from "./ffi/image-bindings.js";
 export { audioBindings } from "./ffi/audio-bindings.js";
@@ -68,8 +82,15 @@ export { registerBatchTools } from "./tools/batch.js";
 export { registerEditSessionTools } from "./image/edit-session.js";
 export { registerProviders } from "./providers.js";
 
-export { registerCreativeSurface, buildCreativeCommand, collectEngineOps, CREATIVE_STUDIO_DESCRIPTOR } from "./surface.js";
+export {
+  registerCreativeSurface,
+  buildCreativeCommand,
+  collectEngineOps,
+  collectAcceleratorStatus,
+  CREATIVE_STUDIO_DESCRIPTOR,
+} from "./surface.js";
 export type {
+  AcceleratorStatus,
   CreativeSurfaceApi,
   CreativeEngineRecord,
   CreativeSurfaceRegistration,

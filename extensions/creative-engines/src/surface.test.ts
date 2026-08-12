@@ -5,6 +5,7 @@ import type { EngineRuntime } from "./runtime/engine-runtime.js";
 import {
   CREATIVE_STUDIO_DESCRIPTOR,
   buildCreativeCommand,
+  collectAcceleratorStatus,
   collectEngineOps,
   registerCreativeSurface,
   type CreativeEngineRecord,
@@ -85,13 +86,13 @@ describe("registerCreativeSurface — registration", () => {
 });
 
 describe("buildCreativeCommand — subcommands", () => {
-  it("mounts a 'creative' command with list-ops/apply/batch/graph subcommands", () => {
+  it("mounts a 'creative' command with list-ops/apply/batch/onnx-status/graph subcommands", () => {
     const program = new Command();
     const creative = buildCreativeCommand(program, makeEngines());
 
     expect(creative.name()).toBe("creative");
     const subNames = creative.commands.map((c) => c.name()).sort();
-    expect(subNames).toEqual(["apply", "batch", "graph", "list-ops"]);
+    expect(subNames).toEqual(["apply", "batch", "graph", "list-ops", "onnx-status"]);
   });
 
   it("is what the CLI registrar wires onto the program", () => {
@@ -104,7 +105,33 @@ describe("buildCreativeCommand — subcommands", () => {
 
     const creative = program.commands.find((c) => c.name() === "creative");
     expect(creative).toBeTruthy();
-    expect(creative?.commands.map((c) => c.name()).sort()).toEqual(["apply", "batch", "graph", "list-ops"]);
+    expect(creative?.commands.map((c) => c.name()).sort()).toEqual([
+      "apply",
+      "batch",
+      "graph",
+      "list-ops",
+      "onnx-status",
+    ]);
+  });
+});
+
+describe("collectAcceleratorStatus — operator diagnostics", () => {
+  /**
+   * Reads memoized process state only, so it must be safe with nothing loaded
+   * (the common case for `openclaw creative onnx-status` on a fresh CLI
+   * process) and must not overstate what a resolved dependency set means.
+   */
+  it("reports honestly with no engine loaded and never claims acceleration is active", () => {
+    const status = collectAcceleratorStatus();
+
+    // No native library is loaded to answer this, so the ORT state may legitimately
+    // be "not-attempted" here; the sidecar FILES are reported separately.
+    expect(["loaded", "unavailable", "not-attempted"]).toContain(status.onnxRuntime.state);
+    expect(["searched", "disabled", "unsupported-platform"]).toContain(status.cuda.state);
+    expect(status.summary.length).toBeGreaterThan(0);
+    expect(status.note).toMatch(/can LOAD the CUDA execution provider/u);
+    expect(status.note).toMatch(/falling back to CPU provider/u);
+    expect(JSON.stringify(status)).not.toMatch(/GPU acceleration is active/u);
   });
 });
 

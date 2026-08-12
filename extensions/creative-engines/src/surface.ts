@@ -4,6 +4,13 @@ import type { EngineRuntime } from "./runtime/engine-runtime.js";
 import type { Graph } from "./graph/types.js";
 import type { Step } from "./types.js";
 import { PipelineExecutor } from "./graph/executor.js";
+import {
+  cudaProviderDependencyStatus,
+  describeCudaProviderDependencies,
+  ensureCudaProviderDependencies,
+  ortSidecarStatus,
+  resolveBinaryPath,
+} from "./ffi/loader.js";
 
 /**
  * Operator surface for the creative engines (tasks.md 9.1).
@@ -143,6 +150,15 @@ export function buildCreativeCommand(program: Command, engines: CreativeEngineRe
     );
 
   creative
+    .command("onnx-status")
+    .description(
+      "Report the ONNX Runtime sidecar state and the CUDA 12 / cuDNN 9 provider-dependency discovery (which libraries were found, where, and which are missing).",
+    )
+    .action(() => {
+      printJson(collectAcceleratorStatus());
+    });
+
+  creative
     .command("graph")
     .description("Execute a node-graph of engine operations from a JSON file.")
     .argument("<file>", "Path to a graph JSON file ({ id, nodes, connections })")
@@ -185,6 +201,60 @@ export function collectEngineOps(engines: CreativeEngineRecord, only?: EngineNam
     });
   }
   return summaries;
+}
+
+/** What `creative onnx-status` prints. */
+export interface AcceleratorStatus {
+  onnxRuntime: ReturnType<typeof ortSidecarStatus>;
+  /**
+   * Whether the ORT sidecar FILES are present, checked without loading them.
+   * In a short-lived CLI process nothing has mapped ORT, so `onnxRuntime.state`
+   * is legitimately `not-attempted` there and this is the useful signal.
+   */
+  onnxRuntimeFiles: { core?: string; providersShared?: string; providersCuda?: string };
+  cuda: ReturnType<typeof cudaProviderDependencyStatus>;
+  /** One-line human summary of the CUDA state, in every state. */
+  summary: string;
+  /**
+   * Deliberately conservative wording. Resolved dependencies mean ORT CAN load
+   * `onnxruntime_providers_cuda.dll`; they do not prove a session was created on
+   * the GPU. The engine's own log line is the authority on that, so this reads
+   * as a capability, never as "GPU acceleration is active".
+   */
+  note: string;
+}
+
+/**
+ * Snapshot the accelerator diagnostics.
+ *
+ * Never loads a native library: the ORT state is read from the memo and the
+ * sidecar files are only stat'ed. It DOES run the CUDA dependency discovery when
+ * it has not run yet, because otherwise `openclaw creative onnx-status` in a
+ * fresh CLI process could only ever answer "not attempted", which is useless for
+ * debugging. Discovery is filesystem probing plus this process's own library
+ * search path, and it is memoized, so triggering it here is idempotent and
+ * cannot change what a gateway already decided.
+ */
+export function collectAcceleratorStatus(): AcceleratorStatus {
+  ensureCudaProviderDependencies();
+  return {
+    onnxRuntime: ortSidecarStatus(),
+    onnxRuntimeFiles: {
+      ...(resolveBinaryPath("onnxruntime") ? { core: resolveBinaryPath("onnxruntime") } : {}),
+      ...(resolveBinaryPath("onnxruntime_providers_shared")
+        ? { providersShared: resolveBinaryPath("onnxruntime_providers_shared") }
+        : {}),
+      ...(resolveBinaryPath("onnxruntime_providers_cuda")
+        ? { providersCuda: resolveBinaryPath("onnxruntime_providers_cuda") }
+        : {}),
+    },
+    cuda: cudaProviderDependencyStatus(),
+    summary: describeCudaProviderDependencies(),
+    note:
+      "Resolved dependencies mean ORT can LOAD the CUDA execution provider, not that any given session ran on the GPU. " +
+      "The engine logs '[omni][onnx_model_host] ... CUDA execution provider unavailable ...; falling back to CPU provider' " +
+      "when it does not, and neural ops work either way.",
+  };
 }
 
 function resolveEngine(engines: CreativeEngineRecord, name: string): EngineRuntime {

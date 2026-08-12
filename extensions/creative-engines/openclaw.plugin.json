@@ -76,6 +76,21 @@
           }
         }
       },
+      "cuda": {
+        "type": "object",
+        "description": "CUDA 12 / cuDNN 9 discovery for ONNX Runtime's CUDA execution provider (onnxruntime_providers_cuda.dll needs cublas64_12, cublasLt64_12, cudart64_12, cudnn64_9 and cufft64_11). Purely an optimization: when a dependency is not found the neural ops run on the CPU provider and report the fallback. Windows only today.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Discover the CUDA 12 / cuDNN 9 dependency directories and add them to the process library search path before ONNX Runtime is loaded. Default true. Set false to force the CPU provider."
+          },
+          "searchPaths": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Directories searched FIRST, in order, ahead of the built-in candidates (bundled binaries dir, Ollama's lib/ollama/cuda_v12, Python site-packages nvidia/*/bin + torch/lib + ctranslate2, a CUDA 12 toolkit bin). Each required DLL is resolved independently, so they may legitimately come from different directories."
+          }
+        }
+      },
       "codec": {
         "type": "object",
         "description": "Media codec configuration (ffmpeg is used only to decode/encode audio and video; the operations run in-process on the C++ engines).",
@@ -148,6 +163,8 @@
     "video.binaryPath": { "label": "Video Engine Library", "help": "Path to libomni_video_bridge.(dll/so/dylib) or its directory" },
     "vector.binaryPath": { "label": "Vector Engine Library", "help": "Path to omni_vector_bridge.(dll/so/dylib) or its directory" },
     "codec.ffmpegPath": { "label": "ffmpeg Path", "help": "ffmpeg/ffprobe location for audio & video transcode (e.g. C:/ffmpeg/bin)" },
+    "cuda.enabled": { "label": "GPU Acceleration for Neural Ops", "help": "Find CUDA 12 / cuDNN 9 and let ONNX Runtime use the CUDA provider. Off = CPU provider (~3.5x slower, always works). Run 'openclaw creative onnx-status' to see what was found" },
+    "cuda.searchPaths": { "label": "CUDA Search Paths", "help": "Extra directories holding cublas64_12/cublasLt64_12/cudart64_12/cudnn64_9/cufft64_11, searched before the built-in candidates" },
     "mediaUnderstanding.visionModel": { "label": "Keyframe Vision Model", "help": "e.g. ollama/qwen2.5vl:7b — describes extracted keyframes" },
     "mediaUnderstanding.maxFrames": { "label": "Max Keyframes", "help": "Vision calls per video (each 2-20s). Default 6" },
     "mediaUnderstanding.transcribeNarration": { "label": "Include Spoken Narration", "help": "Transcribe the clip's audio through tools.media.audio.models[] and fold it into the description" },

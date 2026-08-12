@@ -10,6 +10,7 @@ import { registerBatchTools } from "./src/tools/batch.js";
 import { registerEditSessionTools } from "./src/image/edit-session.js";
 import { registerProviders } from "./src/providers.js";
 import { registerCreativeSurface } from "./src/surface.js";
+import { configureCudaProviderDependencies } from "./src/ffi/loader.js";
 
 /** Structural view of the config-reading seams this plugin uses. */
 interface PluginConfigApi {
@@ -27,6 +28,13 @@ export default definePluginEntry({
     const configApi: PluginConfigApi = api;
     const config = (configApi.getPluginConfig?.() ?? configApi.pluginConfig ?? {}) as CreativeEnginesConfig;
     const codec = config.codec;
+
+    // Hand the CUDA block to the loader BEFORE any engine starts. Discovery
+    // itself runs inside the ONNX Runtime preload (first engine start), so the
+    // config has to be recorded here — register() is the only point that has it.
+    // Purely an optimization: with nothing found, ONNX ops run on the CPU
+    // provider and say so.
+    configureCudaProviderDependencies(config.cuda);
 
     // Initialize engine runtimes. Each loads its native library in-process.
     const imageEngine = new ImageEngineRuntime(config.image, codec);

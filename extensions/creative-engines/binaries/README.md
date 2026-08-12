@@ -61,7 +61,7 @@ and bare spellings for each platform.
 | --- | --- | --- |
 | `onnxruntime.dll` | **1.26** (API 26) | Verified good: `1.26.20260508.3.8c546c3` |
 | `onnxruntime_providers_shared.dll` | same build as above | Optional in the strict sense — without it ORT runs CPU-only — but ship it |
-| `onnxruntime_providers_cuda.dll` | same build as above | ~285 MB; only useful with the CUDA 11 runtime installed (see below) |
+| `onnxruntime_providers_cuda.dll` | same build as above | ~285 MB; only useful with a **CUDA 12 + cuDNN 9** runtime resolvable (see below) |
 
 Keep all three from the **same** ORT build. A mismatched trio fails to load the
 execution provider and silently drops to CPU.
@@ -100,10 +100,69 @@ That directory holds a matching `onnxruntime.dll`,
 `models/` tree. Copy the DLLs into this directory and the model files into
 `binaries/models/`.
 
-## CUDA: currently inactive, and honestly reported
+## CUDA: auto-discovered, optional, and honestly reported
 
-`onnxruntime_providers_cuda.dll` for this ORT build depends on the **CUDA 11**
-runtime. With `cufft64_11.dll` (and friends) absent, ORT logs
+### It is CUDA 12 + cuDNN 9, not CUDA 11
+
+`dumpbin /DEPENDENTS onnxruntime_providers_cuda.dll` (CRT/KERNEL32 elided):
+
+```
+cublas64_12.dll  cublasLt64_12.dll  cudart64_12.dll  cudnn64_9.dll
+cufft64_11.dll   onnxruntime_providers_shared.dll
+```
+
+`cufft64_11.dll` is a **CUDA 12** library, not a CUDA 11 one: CUDA 11.8 ships
+`cufft64_10.dll`, and cuFFT's soname only bumps to 11 in CUDA 12. A CUDA 11.8
+toolkit satisfies none of these five. In particular **do not trust `CUDA_PATH`**
+— NVIDIA points it at whichever toolkit was installed last, and on the
+development machine that is `...\CUDA\v11.8`, which is useless here. The loader
+deliberately ignores `CUDA_PATH` and only looks at versioned `CUDA_PATH_V12_*`
+variables and explicit `v12.*` toolkit directories.
+
+`cudnn64_9.dll` is a ~0.4 MB **shim**: its only static import is KERNEL32, and it
+`LoadLibrary`s `cudnn_ops64_9.dll`, `cudnn_graph64_9.dll`,
+`cudnn_engines_precompiled64_9.dll` and friends by base name at runtime (~990 MB
+in total). Whatever satisfies it has to make the whole **directory** searchable,
+not just that one file.
+
+### Nothing is vendored here for it
+
+`cublasLt64_12.dll` alone is ~660 MB and the cuDNN set is ~990 MB, so vendoring
+would add ~2 GB to this directory. Instead `src/ffi/loader.ts`
+(`ensureCudaProviderDependencies`) resolves **each** library independently and
+prepends the directories that actually contain them to `process.env.PATH` before
+ORT is mapped. Unlike `onnxruntime.dll`, PATH is sufficient for these: none of
+the five exist in System32, so there is no System32-wins-the-search problem.
+
+Ordered candidate directories:
+
+1. `creative-engines.cuda.searchPaths` from plugin config, in order.
+2. `CREATIVE_ENGINES_CUDA_SEARCH_PATHS` (PATH-delimited), same semantics.
+3. **This directory** — so vendoring stays possible if you want it.
+4. Ollama's `lib\ollama\cuda_v12`.
+5. Python `site-packages`: `nvidia\<pkg>\bin` (the CUDA 12 wheels), then
+   `torch\lib`, then `ctranslate2`. The interpreter is derived (venv/conda,
+   `python.exe` on PATH, the default per-user install), never hardcoded.
+6. A CUDA **12** toolkit `bin`, and a standalone cuDNN 9 `bin`.
+
+On the development machine the five resolve from three different places, which
+is exactly why resolution is per-library:
+
+```
+cublas64_12.dll    <LOCALAPPDATA>\Programs\Ollama\lib\ollama\cuda_v12
+cublasLt64_12.dll  <LOCALAPPDATA>\Programs\Ollama\lib\ollama\cuda_v12
+cudart64_12.dll    <LOCALAPPDATA>\Programs\Ollama\lib\ollama\cuda_v12
+cudnn64_9.dll      <site-packages>\torch\lib
+cufft64_11.dll     <site-packages>\nvidia\cufft\bin      (nvidia-cufft-cu12)
+```
+
+`pip install nvidia-cufft-cu12` is enough to supply `cufft64_11.dll` if nothing
+else on the machine has it.
+
+### It is an optimization, never a requirement
+
+Discovery cannot fail the load, gate an op, or throw. When any dependency is
+missing ORT logs
 
 ```
 Error loading "...onnxruntime_providers_cuda.dll" which depends on
@@ -112,12 +171,61 @@ Error loading "...onnxruntime_providers_cuda.dll" which depends on
 (...); falling back to CPU provider.
 ```
 
-and every neural op then runs on the **CPU provider**. That is the state on the
-development machine today: the ops work, they are just not GPU-accelerated, and
-VRAM usage stays flat. Install the CUDA 11 runtime to change that. Nothing in
-this plugin claims GPU acceleration is active — the GPU broker claim is wired
-around the ONNX ops so it is correct once CUDA is available, not because it is
-doing anything for VRAM right now.
+and every neural op runs on the **CPU provider** — slower, same result, still
+`ok: true`. That fallback is a supported state and is reported, not hidden.
+Verified both ways on the development machine (5 warm `remove_background` passes
+on one 4032x3024 JPEG, `u2net.onnx`):
+
+| Provider | Cold pass | Warm passes | VRAM delta |
+| --- | --- | --- | --- |
+| CUDA (all 5 resolved) | ~1.7-1.9 s | ~605-650 ms | **+771 MB** |
+| CPU (`cuda.enabled: false`, or `cufft64_11.dll` renamed away) | ~1.6-1.7 s | ~856-945 ms | ~0 MB |
+
+Read those numbers carefully: ~760 ms of every call is the sharp JPEG decode +
+PNG encode both providers pay identically (measured with `grayscale`, a pure C++
+op on the same image through the same dispatch path), so the **end-to-end**
+speedup on a large photo is only ~1.4x even though the inference itself is much
+faster. A small input, or a chain that decodes once, sees more of it.
+
+Inspect what was found:
+
+```
+openclaw creative onnx-status
+```
+
+It prints the ONNX Runtime sidecar state, which sidecar files exist, and per
+library the directory it came from or that it is missing. It reports a
+**capability** — ORT can load the CUDA provider — not a claim that any particular
+session ran on the GPU, and it never loads a native library to answer. In a
+short-lived CLI process nothing has mapped ORT yet, so `onnxRuntime.state` is
+`not-attempted` there while the CUDA block is fully populated: the command runs
+the discovery itself (idempotent, filesystem probing plus this process's own
+search path) so it can answer something useful.
+
+Force the CPU path (useful for comparison, or on a machine where the discovered
+CUDA is the wrong one):
+
+```jsonc
+{ "plugins": { "creative-engines": { "cuda": { "enabled": false } } } }
+```
+
+### The GPU broker claim
+
+`withGpuClaim` wraps the ONNX ops at the single dispatch chokepoint, and that is
+now genuinely load-bearing: the ops really do consume ~740-770 MB of VRAM once
+the CUDA provider loads. It is deliberately NOT wrapped around the keyframe
+vision call — `release()` evicts every resident Ollama model, which is the very
+model that call is about to use. There is a test that greps for this; do not
+"fix" it.
+
+### Platform support
+
+Windows only, on purpose. On Linux/macOS the sonames differ entirely
+(`libcublas.so.12`, `libcudnn.so.9`, `libcufft.so.11`; there is no macOS CUDA at
+all) and `LD_LIBRARY_PATH`/`DYLD_LIBRARY_PATH` are read once at process start, so
+mutating them in-process does not affect a later `dlopen`. Discovery reports an
+explicit `unsupported-platform` no-op there rather than pretending; provision the
+CUDA 12 / cuDNN 9 runtime on the system loader path instead.
 
 ## Verifying a fresh provision
 
@@ -130,3 +238,9 @@ when this directory is not fully provisioned, and runs a real `remove_background
 inference plus a real GPU-broker lease when it is. Point
 `CREATIVE_ENGINES_NEURAL_FIXTURE` at a real photograph to also assert the alpha
 matte contains both cut-away and kept pixels.
+
+`src/ffi/cuda-discovery.test.ts` covers the discovery itself with synthetic
+directories, so it runs anywhere and needs no CUDA. On a machine that is supposed
+to have CUDA 12 + cuDNN 9, set `CREATIVE_ENGINES_EXPECT_CUDA=1` to turn a silent
+CPU fallback into a test failure. No wall-clock speed is asserted anywhere —
+that flakes; provider selection and the diagnostics are asserted instead.

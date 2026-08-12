@@ -35,7 +35,14 @@ import {
 import { ImageEngineRuntime } from "../runtime/image.js";
 import { decodeImageRGBA } from "./codec.js";
 import { ONNX_OPS } from "./image-bindings.js";
-import { resolveBinaryPath } from "./loader.js";
+import {
+  CUDA_PROVIDER_DEPENDENCIES,
+  cudaProviderDependenciesResolved,
+  cudaProviderDependencyStatus,
+  describeCudaProviderDependencies,
+  resolveBinaryPath,
+} from "./loader.js";
+import { collectAcceleratorStatus } from "../surface.js";
 
 const enginePath = resolveBinaryPath("omni_image_bridge");
 const ortPath = resolveBinaryPath("onnxruntime");
@@ -253,6 +260,89 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
       broker.stop();
     }
   }, 120_000);
+
+  /**
+   * The CUDA discovery has to have RUN by the time an engine is up, because it
+   * is wired into the ONNX Runtime preload. What it found is machine-dependent,
+   * so the always-on assertion is only that the state is one of the honest ones
+   * and that a neural op works in every one of them.
+   *
+   * NO SPEED ASSERTION. GPU vs CPU wall clock depends on the machine, the image
+   * and what else is running; asserting a number here would flake. Provider
+   * selection and the diagnostics are the stable, meaningful contract.
+   */
+  it("reports a resolved CUDA dependency state once an engine has started, and the op works in every state", async () => {
+    const runtime = new ImageEngineRuntime();
+    await runtime.start();
+    try {
+      const status = cudaProviderDependencyStatus();
+      // eslint-disable-next-line no-console
+      console.log(`[cuda] ${describeCudaProviderDependencies()}`);
+      expect(status.state).not.toBe("not-attempted");
+      expect(["searched", "disabled", "unsupported-platform"]).toContain(status.state);
+
+      if (status.state === "searched") {
+        // Every required library is accounted for, found or not.
+        expect(status.libraries.map((entry) => entry.library)).toEqual([...CUDA_PROVIDER_DEPENDENCIES]);
+        for (const entry of status.libraries) {
+          if (entry.directory) expect(existsSync(join(entry.directory, entry.library))).toBe(true);
+        }
+        expect(status.complete).toBe(status.missing.length === 0);
+        // Only directories that actually hold a required library get added.
+        for (const dir of status.addedDirectories) {
+          expect(status.libraries.some((entry) => entry.directory === dir)).toBe(true);
+        }
+        // eslint-disable-next-line no-console
+        console.log(
+          `[cuda] resolved: ${status.libraries
+            .map((entry) => `${entry.library}=${entry.directory ?? "MISSING"}`)
+            .join("\n            ")}`,
+        );
+      }
+
+      // The whole point: GPU is an optimization, so the op succeeds regardless.
+      const output = join(tempDir, "cuda-state-rb.png");
+      const result = await runtime.apply(syntheticInput, "remove_background", output, {});
+      expect(result.ok, result.reason).toBe(true);
+
+      // The operator-facing diagnostics report the same state, and never claim
+      // acceleration is active.
+      const diagnostics = collectAcceleratorStatus();
+      expect(diagnostics.cuda).toEqual(status);
+      expect(diagnostics.onnxRuntime.state).toBe("loaded");
+      expect(diagnostics.note).toMatch(/not that any given session ran on the GPU/u);
+    } finally {
+      await runtime.shutdown();
+    }
+  }, 120_000);
+
+  /**
+   * Opt-in lane for a machine that is SUPPOSED to have CUDA 12 + cuDNN 9. Set
+   * `CREATIVE_ENGINES_EXPECT_CUDA=1` to turn a silent CPU fallback into a
+   * failure. Off by default so CI and CUDA-less machines stay green.
+   */
+  it.skipIf(process.env.CREATIVE_ENGINES_EXPECT_CUDA !== "1")(
+    "resolves every CUDA provider dependency when CREATIVE_ENGINES_EXPECT_CUDA=1",
+    async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const status = cudaProviderDependencyStatus();
+        expect(status.state).toBe("searched");
+        if (status.state !== "searched") return;
+        expect(status.missing, describeCudaProviderDependencies()).toEqual([]);
+        expect(status.complete).toBe(true);
+        expect(cudaProviderDependenciesResolved()).toBe(true);
+        expect(status.addedDirectories.length).toBeGreaterThan(0);
+
+        const result = await runtime.apply(syntheticInput, "remove_background", join(tempDir, "expect-cuda.png"), {});
+        expect(result.ok, result.reason).toBe(true);
+      } finally {
+        await runtime.shutdown();
+      }
+    },
+    120_000,
+  );
 
   it("shutdown returns promptly once ONNX Runtime is mapped, and reports the skipped unload", async () => {
     const runtime = new ImageEngineRuntime();

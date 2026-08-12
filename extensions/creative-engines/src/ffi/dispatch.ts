@@ -303,12 +303,23 @@ export class NativeDispatch {
    * Run `fn` under GPU cooperation when appropriate.
    *
    * ONNX ops go through `withGpuClaim` because they are the ops that can hold
-   * VRAM; pure C++ ops take the direct path. Note the honest current state:
-   * with `cufft64_11.dll` (CUDA 11 runtime) absent, ORT's CUDA execution
-   * provider fails to load and every neural op actually runs on the CPU
-   * provider, so no VRAM is claimed today. The claim is wired at the single
-   * dispatch chokepoint so it is correct the moment the CUDA dependencies are
-   * provisioned; it does not make GPU acceleration active by itself.
+   * VRAM; pure C++ ops take the direct path.
+   *
+   * THE CLAIM IS NOW GENUINELY LOAD-BEARING. Once the CUDA 12 / cuDNN 9
+   * dependencies resolve (see `ffi/loader.ts`
+   * `ensureCudaProviderDependencies`), ORT loads
+   * `onnxruntime_providers_cuda.dll` and a `remove_background` really does
+   * allocate on the device — measured at ~740 MB of VRAM for the u2net session,
+   * held until the session is torn down. Before that it was correct-but-inert.
+   * It is still only an optimization: when a dependency is missing ORT reports
+   * the CUDA provider unavailable, falls back to the CPU provider, and the op
+   * runs anyway (~2.2 s vs ~0.63 s warm) — so this path must never assume the
+   * GPU is in play.
+   *
+   * The claim wraps the ONNX ops ONLY, never the keyframe vision call: that
+   * call is an Ollama model, and `release()` evicts every resident Ollama model,
+   * i.e. the very model the call is about to use. See
+   * `media/video-understanding.ts` and the grep test in `providers.test.ts`.
    *
    * With no broker published, `withGpuClaim` just runs `fn` (see gpu-coop.ts).
    */

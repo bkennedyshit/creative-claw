@@ -12,8 +12,8 @@
  */
 
 import koffi from "koffi";
-import { existsSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** A loaded koffi library handle. `func(prototype)` binds a C export. */
@@ -94,6 +94,477 @@ export function resolveBinaryPath(stem: string, configuredPath?: string): string
   return undefined;
 }
 
+// ── CUDA 12 / cuDNN 9 provider-dependency discovery ─────────────────────────
+//
+// WHY THIS EXISTS (this one IS an optimization, and must never be more):
+//
+// `onnxruntime_providers_cuda.dll` in `binaries/` links, per
+// `dumpbin /DEPENDENTS` (CRT/KERNEL32 elided):
+//
+//   cublas64_12.dll  cublasLt64_12.dll  cudart64_12.dll  cudnn64_9.dll
+//   cufft64_11.dll   onnxruntime_providers_shared.dll
+//
+// That is **CUDA 12 + cuDNN 9**, not CUDA 11. `cufft64_11.dll` is a CUDA 12
+// library: CUDA 11.8 ships `cufft64_10.dll` and cuFFT's soname only bumps to 11
+// in CUDA 12. A machine whose `CUDA_PATH` points at an 11.x toolkit therefore
+// satisfies nothing here, and `CUDA_PATH` is deliberately NOT consulted below.
+//
+// When any of those five are unresolvable, ORT logs
+//
+//   Error loading "...onnxruntime_providers_cuda.dll" which depends on
+//   "cufft64_11.dll" which is missing. (Error 126)
+//   [omni][onnx_model_host] model 'segment': CUDA execution provider
+//   unavailable (...); falling back to CPU provider.
+//
+// and every neural op runs on the CPU provider. That fallback is a FEATURE and
+// is preserved: nothing here can fail the load, gate an op, or throw.
+//
+// PATH IS SUFFICIENT FOR THESE, unlike `onnxruntime.dll` itself. None of the
+// five exist in System32, so the System32-wins-the-search problem that forces
+// the absolute-path preload below does not apply — prepending the directories
+// that hold them to `process.env.PATH` before ORT is mapped is enough, and it is
+// also what makes the whole cuDNN directory resolvable. That matters:
+// `cudnn64_9.dll` is a ~0.4 MB shim that `LoadLibrary`s `cudnn_ops64_9.dll`,
+// `cudnn_graph64_9.dll`, `cudnn_engines_precompiled64_9.dll` and friends by BASE
+// NAME at runtime (its only static import is KERNEL32), so the directory has to
+// be on the search path, not just the one file.
+//
+// Nothing is vendored into `binaries/` for this: `cublasLt64_12.dll` alone is
+// ~660 MB and the cuDNN set is ~990 MB. Discovery plus a config override keeps
+// the repo ~2 GB smaller, and `binaries/` is still searched first among the
+// built-in candidates so vendoring stays possible for anyone who wants it.
+
+/** Plugin config block (`creative-engines.cuda`) for this discovery. */
+export interface CudaDiscoveryConfig {
+  /**
+   * Set false to skip discovery entirely and stay on the CPU provider. Default
+   * true. Useful to reproduce the CPU path on a machine that does have CUDA 12.
+   */
+  enabled?: boolean;
+  /**
+   * Directories searched FIRST, in the given order, ahead of every built-in
+   * candidate. Point these at a CUDA 12 / cuDNN 9 install on an unusual layout.
+   */
+  searchPaths?: string[];
+}
+
+/** Where one required library was found, or that it was not found at all. */
+export interface CudaLibraryResolution {
+  /** File name searched for, e.g. `cufft64_11.dll`. */
+  library: string;
+  /** Directory it was found in. Absent when the library was not found. */
+  directory?: string;
+}
+
+/** Outcome of the process-wide CUDA dependency discovery. */
+export type CudaDependencyStatus =
+  | { state: "not-attempted" }
+  | { state: "disabled"; reason: string }
+  | { state: "unsupported-platform"; platform: NodeJS.Platform; reason: string }
+  | {
+      state: "searched";
+      /** True only when every required library resolved. */
+      complete: boolean;
+      /** Per-library outcome, in the documented required order. */
+      libraries: CudaLibraryResolution[];
+      /** Libraries that were not found anywhere. */
+      missing: string[];
+      /** Directories prepended to `PATH`, in the order they were prepended. */
+      addedDirectories: string[];
+      /** Every candidate directory that existed and was searched, in order. */
+      searchedDirectories: string[];
+      /**
+       * Why the resolved directories could not be published to the OS loader
+       * search path, when that failed. Present means the libraries were FOUND
+       * but ORT still will not be able to load the provider, so `complete` is
+       * false: reporting "found" as "usable" there would be a lie.
+       */
+      searchPathError?: string;
+      /** One-line human summary, safe to print in diagnostics. */
+      summary: string;
+    };
+
+/**
+ * The libraries `onnxruntime_providers_cuda.dll` imports, minus
+ * `onnxruntime_providers_shared.dll` (which ships in `binaries/` and is loaded
+ * by absolute path) and the CRT. Verified with `dumpbin /DEPENDENTS`.
+ */
+export const CUDA_PROVIDER_DEPENDENCIES = [
+  "cublas64_12.dll",
+  "cublasLt64_12.dll",
+  "cudart64_12.dll",
+  "cudnn64_9.dll",
+  "cufft64_11.dll",
+] as const;
+
+/** Env override for {@link CudaDiscoveryConfig.searchPaths}, same semantics. */
+const CUDA_SEARCH_PATHS_ENV = "CREATIVE_ENGINES_CUDA_SEARCH_PATHS";
+
+/** Process-wide memo; `undefined` means discovery has never run. */
+let cudaStatus: CudaDependencyStatus | undefined;
+/** Config handed in by the plugin entry before any engine starts. */
+let cudaConfig: CudaDiscoveryConfig | undefined;
+
+/** Immediate subdirectories of `parent`, or [] when it is not readable. */
+function subdirectories(parent: string): string[] {
+  try {
+    return readdirSync(parent, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(parent, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+/** Absolute, de-duplicated (case-insensitively), existing directories only. */
+function uniqueExistingDirs(candidates: Iterable<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const dirs: string[] = [];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const abs = resolve(candidate);
+    const key = abs.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (isDirectory(abs)) dirs.push(abs);
+  }
+  return dirs;
+}
+
+/** Split a `PATH`-style list, dropping empties and stray quotes. */
+function splitPathList(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(delimiter)
+    .map((entry) => entry.trim().replace(/^"|"$/gu, ""))
+    .filter((entry) => entry.length > 0);
+}
+
+/**
+ * Python `site-packages` roots, DERIVED — no interpreter version is hardcoded
+ * and no user profile path is either. The NVIDIA CUDA 12 wheels
+ * (`nvidia-cufft-cu12`, ...), `torch` and `ctranslate2` all ship the runtime
+ * DLLs this provider needs, so these are the most likely place to find them on
+ * a developer machine that never installed a CUDA toolkit.
+ */
+function pythonSitePackagesRoots(): string[] {
+  const roots: string[] = [];
+  const push = (root: string | undefined): void => {
+    if (root) roots.push(root);
+  };
+
+  // An active venv/conda env wins: it is the interpreter the user is using.
+  push(process.env.VIRTUAL_ENV ? join(process.env.VIRTUAL_ENV, "Lib", "site-packages") : undefined);
+  push(process.env.CONDA_PREFIX ? join(process.env.CONDA_PREFIX, "Lib", "site-packages") : undefined);
+  push(process.env.PYTHONHOME ? join(process.env.PYTHONHOME, "Lib", "site-packages") : undefined);
+
+  // Whatever interpreter is on PATH, found without spawning it: a Python
+  // install directory contains `python.exe`, and its `Scripts` sibling is the
+  // entry `py -m pip`/the installer adds.
+  for (const entry of splitPathList(process.env.PATH)) {
+    const dir = entry.replace(/[\\/]+$/u, "");
+    if (!dir) continue;
+    if (/[\\/]scripts$/iu.test(dir)) {
+      push(join(dirname(dir), "Lib", "site-packages"));
+      continue;
+    }
+    if (existsSync(join(dir, "python.exe"))) push(join(dir, "Lib", "site-packages"));
+  }
+
+  // Default per-user installs (`%LOCALAPPDATA%\Programs\Python\Python3xx`) and
+  // the per-user site dir (`%APPDATA%\Python\Python3xx\site-packages`). Newest
+  // version first, which is where a freshly `pip install`ed wheel lands.
+  const localPrograms = process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "Python") : undefined;
+  if (localPrograms) {
+    for (const dir of subdirectories(localPrograms).sort().reverse()) push(join(dir, "Lib", "site-packages"));
+  }
+  const roamingPython = process.env.APPDATA ? join(process.env.APPDATA, "Python") : undefined;
+  if (roamingPython) {
+    for (const dir of subdirectories(roamingPython).sort().reverse()) push(join(dir, "site-packages"));
+  }
+  return roots;
+}
+
+/** Ollama install roots. Ollama ships a complete CUDA 12 runtime subset. */
+function ollamaRoots(): string[] {
+  const roots: string[] = [];
+  const push = (root: string | undefined): void => {
+    if (root) roots.push(root);
+  };
+  push(process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "Ollama") : undefined);
+  push(process.env.ProgramFiles ? join(process.env.ProgramFiles, "Ollama") : undefined);
+  push(process.env["ProgramFiles(x86)"] ? join(process.env["ProgramFiles(x86)"]!, "Ollama") : undefined);
+  for (const entry of splitPathList(process.env.PATH)) {
+    if (existsSync(join(entry, "ollama.exe"))) push(entry);
+  }
+  return roots;
+}
+
+/**
+ * `bin` directories of CUDA **12** toolkits and standalone cuDNN 9 installs.
+ *
+ * `CUDA_PATH` is deliberately not read: NVIDIA points it at whichever toolkit
+ * was installed last, and on this machine that is 11.8 — a trap, since 11.8
+ * satisfies none of the five libraries above. The versioned `CUDA_PATH_V12_*`
+ * variables and an explicit `v12.*` directory scan are unambiguous.
+ */
+function cuda12ToolkitBins(): string[] {
+  const bins: string[] = [];
+  for (const [name, value] of Object.entries(process.env)) {
+    if (/^CUDA_PATH_V12(_\d+)?$/iu.test(name) && value) bins.push(join(value, "bin"));
+  }
+  const programFiles = process.env.ProgramFiles;
+  if (programFiles) {
+    const toolkitRoot = join(programFiles, "NVIDIA GPU Computing Toolkit", "CUDA");
+    for (const dir of subdirectories(toolkitRoot).sort().reverse()) {
+      if (/[\\/]v12(\.|$)/iu.test(dir)) bins.push(join(dir, "bin"));
+    }
+    // Standalone cuDNN 9 installer: `...\NVIDIA\CUDNN\v9.x\bin` and a
+    // per-CUDA-major subdirectory beneath it.
+    const cudnnRoot = join(programFiles, "NVIDIA", "CUDNN");
+    for (const dir of subdirectories(cudnnRoot).sort().reverse()) {
+      const bin = join(dir, "bin");
+      bins.push(bin);
+      for (const sub of subdirectories(bin).sort().reverse()) bins.push(sub);
+    }
+  }
+  return bins;
+}
+
+/**
+ * The ORDERED candidate directory list. Documented here because this list, and
+ * its order, is the whole contract:
+ *
+ *   1. `cuda.searchPaths` from plugin config, in the order given.
+ *   2. `CREATIVE_ENGINES_CUDA_SEARCH_PATHS` (PATH-delimited), same semantics.
+ *   3. The bundled `binaries/` directory — so vendoring stays possible.
+ *   4. Ollama's `lib\ollama\cuda_v12` (cublas / cublasLt / cudart).
+ *   5. Python `site-packages`: `nvidia\<pkg>\bin` (the CUDA 12 wheels, e.g.
+ *      `nvidia\cufft\bin`), then `torch\lib` and `ctranslate2` (cuDNN 9).
+ *   6. A CUDA **12** toolkit `bin`, and a standalone cuDNN 9 `bin`.
+ *
+ * Only directories that exist are returned, de-duplicated, absolute.
+ */
+export function cudaCandidateDirectories(config?: CudaDiscoveryConfig): string[] {
+  const candidates: (string | undefined)[] = [];
+  for (const path of config?.searchPaths ?? []) candidates.push(path);
+  for (const path of splitPathList(process.env[CUDA_SEARCH_PATHS_ENV])) candidates.push(path);
+  candidates.push(bundledBinariesDir());
+  for (const root of ollamaRoots()) candidates.push(join(root, "lib", "ollama", "cuda_v12"));
+  for (const site of pythonSitePackagesRoots()) {
+    for (const pkg of subdirectories(join(site, "nvidia"))) candidates.push(join(pkg, "bin"));
+    candidates.push(join(site, "torch", "lib"));
+    candidates.push(join(site, "ctranslate2"));
+  }
+  for (const bin of cuda12ToolkitBins()) candidates.push(bin);
+  return uniqueExistingDirs(candidates);
+}
+
+/**
+ * Publish `value` as the process's REAL `PATH`, not just Node's JS-side view.
+ *
+ * MEASURED, and the reason this function exists: inside a Node WORKER THREAD
+ * `process.env` is a per-thread copy, so assigning `process.env.PATH` does not
+ * reach the environment block Windows' loader reads and a later
+ * `LoadLibrary("cublasLt64_12.dll")` still fails. On the main thread Node's
+ * setter does call `SetEnvironmentVariableW` for you, so this is a no-op there.
+ *
+ * Proven with a two-way probe on this machine (bare-name `koffi.load` of
+ * `cublasLt64_12.dll` after prepending its directory):
+ *   main thread,   process.env only ............ OK
+ *   worker thread, process.env only ............ FAILED (module not found)
+ *   worker thread, + SetEnvironmentVariableW ... OK
+ *
+ * Without it, the CUDA provider silently fell back to the CPU provider in the
+ * Vitest `pool: "threads"` lanes while working fine in the gateway — the exact
+ * kind of context-dependent half-truth this plugin must not ship.
+ *
+ * Best-effort: returns the failure reason instead of throwing, and the CPU
+ * provider path is unaffected either way.
+ */
+function publishProcessSearchPath(value: string): string | undefined {
+  try {
+    const kernel32 = koffi.load("kernel32.dll") as unknown as KoffiLib;
+    const setEnv = kernel32.func("int __stdcall SetEnvironmentVariableW(str16 name, str16 value)");
+    const ok = Number(setEnv("PATH", value));
+    return ok === 0 ? "SetEnvironmentVariableW('PATH') returned 0" : undefined;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
+}
+
+/** True when `dir` is already on `process.env.PATH` (case-insensitive). */
+function alreadyOnPath(dir: string): boolean {
+  const target = dir.toLowerCase().replace(/[\\/]+$/u, "");
+  return splitPathList(process.env.PATH).some((entry) => entry.toLowerCase().replace(/[\\/]+$/u, "") === target);
+}
+
+/**
+ * Record the plugin's `cuda` config for the discovery that runs when the first
+ * engine starts. A no-op once discovery has already run, so the reported state
+ * always matches the state actually applied to the process.
+ */
+export function configureCudaProviderDependencies(config: CudaDiscoveryConfig | undefined): void {
+  if (cudaStatus) return;
+  cudaConfig = config;
+}
+
+/**
+ * Resolve each required CUDA 12 / cuDNN 9 library independently and prepend the
+ * directories that actually contain them to `process.env.PATH`.
+ *
+ * Per-library resolution is the point: on a real machine `cublas*`/`cudart`
+ * come from Ollama, `cufft` from an NVIDIA pip wheel and `cudnn` from `torch`.
+ * A single "CUDA directory" assumption finds none of them.
+ *
+ * Idempotent, memoized, and NEVER throws or fails. A partial or empty result
+ * leaves the CPU provider path exactly as it was.
+ */
+export function ensureCudaProviderDependencies(config?: CudaDiscoveryConfig): CudaDependencyStatus {
+  if (cudaStatus) return cudaStatus;
+  const effective = config ?? cudaConfig;
+
+  if (effective?.enabled === false) {
+    cudaStatus = {
+      state: "disabled",
+      reason:
+        "CUDA provider dependency discovery is disabled by config (creative-engines.cuda.enabled = false); " +
+        "ONNX ops run on the CPU provider.",
+    };
+    return cudaStatus;
+  }
+
+  // WINDOWS-ONLY BY DESIGN, not by oversight. Two reasons, neither of which is
+  // a small edit: (a) the sonames differ entirely (`libcublas.so.12`,
+  // `libcudnn.so.9`, `libcufft.so.11`, and `libcufft.11.dylib` does not exist
+  // at all — there is no macOS CUDA); (b) glibc's loader reads
+  // `LD_LIBRARY_PATH` ONCE at process start, so mutating it from inside the
+  // process does not affect a later `dlopen`, and the same is true of
+  // `DYLD_LIBRARY_PATH`. Doing this honestly on POSIX means a re-exec or
+  // `dlopen`ing every dependency by absolute path first, which is a separate
+  // change with its own verification. Until that is done and MEASURED on those
+  // platforms, this reports an honest no-op instead of pretending.
+  if (process.platform !== "win32") {
+    cudaStatus = {
+      state: "unsupported-platform",
+      platform: process.platform,
+      reason:
+        `CUDA provider dependency discovery is implemented and verified on win32 only (running on ${process.platform}). ` +
+        "On Linux/macOS the sonames differ and LD_LIBRARY_PATH/DYLD_LIBRARY_PATH are read at process start, so an " +
+        "in-process PATH-style fix does not work; provision the CUDA 12 / cuDNN 9 runtime on the system loader path " +
+        "instead. ONNX ops otherwise run on the CPU provider.",
+    };
+    return cudaStatus;
+  }
+
+  const searchedDirectories = cudaCandidateDirectories(effective);
+  const libraries: CudaLibraryResolution[] = [];
+  const missing: string[] = [];
+  const wanted: string[] = [];
+
+  for (const library of CUDA_PROVIDER_DEPENDENCIES) {
+    const directory = searchedDirectories.find((dir) => existsSync(join(dir, library)));
+    if (directory) {
+      libraries.push({ library, directory });
+      if (!wanted.includes(directory)) wanted.push(directory);
+    } else {
+      libraries.push({ library });
+      missing.push(library);
+    }
+  }
+
+  const addedDirectories: string[] = [];
+  for (const dir of wanted) {
+    if (alreadyOnPath(dir)) continue;
+    addedDirectories.push(dir);
+  }
+  let searchPathError: string | undefined;
+  if (addedDirectories.length > 0) {
+    const updated = `${addedDirectories.join(delimiter)}${delimiter}${process.env.PATH ?? ""}`;
+    process.env.PATH = updated;
+    // Also write the real process environment, which is what the Windows loader
+    // reads. Required inside worker threads; harmless on the main thread.
+    searchPathError = publishProcessSearchPath(updated);
+  }
+
+  const found = CUDA_PROVIDER_DEPENDENCIES.length - missing.length;
+  const complete = missing.length === 0 && !searchPathError;
+  const base =
+    `CUDA 12 / cuDNN 9 provider dependencies: ${found}/${CUDA_PROVIDER_DEPENDENCIES.length} resolved; ` +
+    `${addedDirectories.length} directory/ies added to the library search path`;
+  const fallbackTail =
+    "ORT will report the CUDA execution provider unavailable and fall back to the CPU provider; " +
+    "ONNX ops still work, just slower.";
+  let summary: string;
+  if (searchPathError) {
+    summary = `${base}, but publishing the search path to the OS failed (${searchPathError}). ${fallbackTail}`;
+  } else if (missing.length > 0) {
+    summary = `${base}; missing ${missing.join(", ")}. ${fallbackTail}`;
+  } else {
+    summary = `${base}. ORT can load onnxruntime_providers_cuda.dll.`;
+  }
+
+  cudaStatus = {
+    state: "searched",
+    complete,
+    libraries,
+    missing,
+    addedDirectories,
+    searchedDirectories,
+    summary,
+    ...(searchPathError ? { searchPathError } : {}),
+  };
+  return cudaStatus;
+}
+
+/** Current discovery state without triggering it. */
+export function cudaProviderDependencyStatus(): CudaDependencyStatus {
+  return cudaStatus ?? { state: "not-attempted" };
+}
+
+/**
+ * Whether every dependency of the CUDA execution provider resolved.
+ *
+ * NOTE this is NOT "GPU acceleration is active": it says the provider's imports
+ * can be satisfied, not that ORT chose the provider or that a session was
+ * created on it. ORT's own log line remains the authority on that, and the CPU
+ * fallback stays reported.
+ */
+export function cudaProviderDependenciesResolved(): boolean {
+  const status = cudaProviderDependencyStatus();
+  return status.state === "searched" && status.complete;
+}
+
+/** Human-readable one-liner for diagnostics, in every state. */
+export function describeCudaProviderDependencies(): string {
+  const status = cudaProviderDependencyStatus();
+  switch (status.state) {
+    case "not-attempted":
+      return "CUDA provider dependency discovery has not run yet (no engine started in this process).";
+    case "disabled":
+      return status.reason;
+    case "unsupported-platform":
+      return status.reason;
+    case "searched":
+      return status.summary;
+  }
+}
+
+/**
+ * Test-only: forget the memoized state so a fresh discovery can be exercised.
+ *
+ * Also re-publishes the CURRENT `process.env.PATH` to the real process
+ * environment. A test that restores `process.env.PATH` cannot undo
+ * {@link publishProcessSearchPath} by itself from inside a worker thread, and
+ * leaving a truncated PATH in the real environment would sabotage anything that
+ * spawns a child process later in the same worker (ffmpeg, ffprobe, python).
+ */
+export function __resetCudaProviderDependenciesForTests(): void {
+  cudaStatus = undefined;
+  cudaConfig = undefined;
+  if (process.platform === "win32") publishProcessSearchPath(process.env.PATH ?? "");
+}
+
 // ── ONNX Runtime sidecar preload ────────────────────────────────────────────
 //
 // WHY THIS EXISTS (this is a process-crash guard, not an optimization):
@@ -166,6 +637,13 @@ function sidecarDir(configuredPath?: string): string {
  */
 export function preloadOnnxRuntime(configuredPath?: string): OrtSidecarStatus {
   if (ortStatus) return ortStatus;
+
+  // Make the CUDA 12 / cuDNN 9 dependencies of `onnxruntime_providers_cuda.dll`
+  // resolvable BEFORE ORT is mapped, so the provider's imports can be satisfied
+  // whenever ORT gets around to loading it (session creation). Best-effort and
+  // non-throwing: an incomplete result only means the CPU provider, which is a
+  // supported, honestly-reported state — see the section above.
+  ensureCudaProviderDependencies();
 
   const dir = sidecarDir(configuredPath);
   const corePath = resolveBinaryPath(ORT_STEM, dir);
