@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 /**
  * ONNX gating + GPU-claim routing at the dispatch chokepoint.
  *
@@ -19,13 +22,10 @@
  * reflects process-wide preload state that a unit test must not depend on.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { clearGpuBroker, setGpuBroker } from "../gpu-coop.js";
 import type { EngineBindingModule, OnnxOpSpec } from "./binding-types.js";
 import { buildPrototype } from "./binding-types.js";
 import type { KoffiLib } from "./loader.js";
-import { clearGpuBroker, setGpuBroker } from "../gpu-coop.js";
 
 vi.mock("./loader.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./loader.js")>();
@@ -41,7 +41,11 @@ const { NativeDispatch } = await import("./dispatch.js");
 const PNG_4X4_RGBA_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAM0lEQVR4nBXIMREAQRDDsK8XWIAFWGqz8s+p1HeHOezhDr8LJtjg8qKYYovri2GGHW74A/xIKPGjpQFDAAAAAElFTkSuQmCC";
 
-const SEGMENT_SPEC: OnnxOpSpec = { modelId: "segment", modelFile: "u2net.onnx", modelEnvVar: "OMNI_SEG_MODEL" };
+const SEGMENT_SPEC: OnnxOpSpec = {
+  modelId: "segment",
+  modelFile: "u2net.onnx",
+  modelEnvVar: "OMNI_SEG_MODEL",
+};
 
 /** Minimal image binding module: one ONNX-backed op and one pure CPU op. */
 const testBindings: EngineBindingModule = {
@@ -124,10 +128,16 @@ function dispatchWithModel() {
 
 describe("neural ops are gated when the ONNX Runtime sidecar is unavailable", () => {
   it("fails honestly and never reaches the C++ bridge", async () => {
-    ortReason = "ONNX Runtime sidecar not found in 'X' (looked for libonnxruntime.dll / onnxruntime.dll).";
+    ortReason =
+      "ONNX Runtime sidecar not found in 'X' (looked for libonnxruntime.dll / onnxruntime.dll).";
     const dispatch = dispatchWithModel();
 
-    const result = await dispatch.applyOp(inputPng, "remove_background", join(tempDir, "out.png"), {});
+    const result = await dispatch.applyOp(
+      inputPng,
+      "remove_background",
+      join(tempDir, "out.png"),
+      {},
+    );
 
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("onnx_unavailable");
@@ -174,7 +184,12 @@ describe("neural ops are gated when the model file is missing", () => {
   it("names the resolved path and the env override", async () => {
     const dispatch = new NativeDispatch(testBindings, makeLib(), undefined, libWithoutModel);
 
-    const result = await dispatch.applyOp(inputPng, "remove_background", join(tempDir, "out.png"), {});
+    const result = await dispatch.applyOp(
+      inputPng,
+      "remove_background",
+      join(tempDir, "out.png"),
+      {},
+    );
 
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("onnx_model_missing");
@@ -189,7 +204,12 @@ describe("neural ops are gated when the model file is missing", () => {
     process.env[SEGMENT_SPEC.modelEnvVar] = override;
 
     const dispatch = new NativeDispatch(testBindings, makeLib(), undefined, libWithoutModel);
-    const result = await dispatch.applyOp(inputPng, "remove_background", join(tempDir, "out.png"), {});
+    const result = await dispatch.applyOp(
+      inputPng,
+      "remove_background",
+      join(tempDir, "out.png"),
+      {},
+    );
 
     expect(result.ok, result.reason).toBe(true);
     expect(ffiCalls[0]).toContain("bridge_remove_background");
@@ -261,7 +281,12 @@ describe("GPU cooperation is routed to the ops that contend for VRAM", () => {
     });
     const dispatch = dispatchWithModel();
 
-    const result = await dispatch.applyOp("does-not-exist.png", "remove_background", join(tempDir, "out.png"), {});
+    const result = await dispatch.applyOp(
+      "does-not-exist.png",
+      "remove_background",
+      join(tempDir, "out.png"),
+      {},
+    );
 
     expect(result.ok).toBe(false);
     expect(order).toEqual(["release", "reclaim"]);

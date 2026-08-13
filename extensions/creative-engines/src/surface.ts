@@ -1,9 +1,5 @@
 import { readFile } from "node:fs/promises";
 import type { Command } from "commander";
-import type { EngineRuntime } from "./runtime/engine-runtime.js";
-import type { Graph } from "./graph/types.js";
-import type { Step } from "./types.js";
-import { PipelineExecutor } from "./graph/executor.js";
 import {
   cudaProviderDependencyStatus,
   describeCudaProviderDependencies,
@@ -11,6 +7,10 @@ import {
   ortSidecarStatus,
   resolveBinaryPath,
 } from "./ffi/loader.js";
+import { PipelineExecutor } from "./graph/executor.js";
+import type { Graph } from "./graph/types.js";
+import type { EngineRuntime } from "./runtime/engine-runtime.js";
+import type { Step } from "./types.js";
 
 /**
  * Operator surface for the creative engines (tasks.md 9.1).
@@ -81,7 +81,9 @@ export function registerCreativeSurface(
         buildCreativeCommand(program, engines);
       },
       {
-        descriptors: [{ name: "creative", description: CREATIVE_CLI_DESCRIPTION, hasSubcommands: true }],
+        descriptors: [
+          { name: "creative", description: CREATIVE_CLI_DESCRIPTION, hasSubcommands: true },
+        ],
       },
     );
     registration.cli = true;
@@ -106,7 +108,11 @@ export function buildCreativeCommand(program: Command, engines: CreativeEngineRe
     .command("list-ops")
     .description("List available operations per engine and their availability.")
     .argument("[engine]", "Restrict to a single engine (image|audio|video|vector)")
-    .action((engine: string | undefined) => {
+    .action(async (engine: string | undefined) => {
+      // Start on demand first: this command runs in a standalone CLI process
+      // where the gateway service never ran, and without this every engine
+      // reported available:false with zero ops on a healthy install.
+      await startEnginesForListing(engines, engine as EngineName | undefined);
       const summaries = collectEngineOps(engines, engine as EngineName | undefined);
       printJson(summaries);
     });
@@ -119,12 +125,20 @@ export function buildCreativeCommand(program: Command, engines: CreativeEngineRe
     .argument("<op>", "Operation id")
     .argument("<output>", "Output file path")
     .option("--params <json>", "JSON object of operation parameters", "{}")
-    .action(async (engine: string, input: string, op: string, output: string, opts: { params?: string }) => {
-      const runtime = resolveEngine(engines, engine);
-      const params = parseJsonOption(opts.params, "--params") as Record<string, unknown>;
-      const result = await runtime.apply(input, op, output, params);
-      printJson(result);
-    });
+    .action(
+      async (
+        engine: string,
+        input: string,
+        op: string,
+        output: string,
+        opts: { params?: string },
+      ) => {
+        const runtime = resolveEngine(engines, engine);
+        const params = parseJsonOption(opts.params, "--params") as Record<string, unknown>;
+        const result = await runtime.apply(input, op, output, params);
+        printJson(result);
+      },
+    );
 
   creative
     .command("batch")
@@ -174,18 +188,43 @@ export function buildCreativeCommand(program: Command, engines: CreativeEngineRe
 }
 
 /**
+ * Start the engines a `list-ops` invocation is about to report on.
+ *
+ * Availability is only knowable after a load attempt, and in a standalone CLI
+ * process nothing has attempted one (`start()` is a gateway service). Failures
+ * are swallowed on purpose: `loadEngine` already reports a missing binary
+ * through `reason()`, which is exactly what the summary prints.
+ */
+export async function startEnginesForListing(
+  engines: CreativeEngineRecord,
+  only?: EngineName,
+): Promise<void> {
+  const names = only ? [only] : ENGINE_NAMES;
+  await Promise.all(
+    names.map(async (name) => {
+      await engines[name]?.ensureStarted().catch(() => {});
+    }),
+  );
+}
+
+/**
  * Summarize each engine's availability and op ids. Availability is reported
  * honestly; op listing degrades to an empty list when an engine has no loaded
  * dispatch (never started / missing binary) rather than throwing.
  */
-export function collectEngineOps(engines: CreativeEngineRecord, only?: EngineName): EngineOpsSummary[] {
+export function collectEngineOps(
+  engines: CreativeEngineRecord,
+  only?: EngineName,
+): EngineOpsSummary[] {
   const names = only ? [only] : ENGINE_NAMES;
   const summaries: EngineOpsSummary[] = [];
   for (const name of names) {
     const engine = engines[name];
-    if (!engine) continue;
+    if (!engine) {
+      continue;
+    }
     const available = engine.isAvailable();
-    let ops: string[] = [];
+    let ops: string[];
     try {
       ops = engine.listOps().ops.map((op) => op.id);
     } catch {
@@ -266,16 +305,23 @@ function resolveEngine(engines: CreativeEngineRecord, name: string): EngineRunti
 }
 
 function parseJsonOption(value: string | undefined, flag: string): unknown {
-  if (value === undefined || value === "") return undefined;
+  if (value === undefined || value === "") {
+    return undefined;
+  }
   try {
     return JSON.parse(value);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`invalid JSON for ${flag}: ${message}`);
+    throw new Error(`invalid JSON for ${flag}: ${message}`, { cause: err });
   }
 }
 
-function manifestSummary(manifest: { total_items: number; succeeded: number; failed: number; output_dir: string }) {
+function manifestSummary(manifest: {
+  total_items: number;
+  succeeded: number;
+  failed: number;
+  output_dir: string;
+}) {
   return {
     total: manifest.total_items,
     succeeded: manifest.succeeded,

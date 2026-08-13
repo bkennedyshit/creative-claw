@@ -45,23 +45,23 @@ bridge. Do not remove that gate.
 
 ### Engine libraries (required, one per engine you want available)
 
-| File | Engine | Notes |
-| --- | --- | --- |
-| `libomni_image_bridge.dll` | image | The only bridge that links ONNX Runtime |
-| `libomni_audio_bridge.dll` | audio | Pure C++ DSP, no ONNX |
-| `libomni_video_bridge.dll` | video | Pure C++ per-frame ops + ffmpeg pipeline ops, no ONNX |
-| `libomni_vector_bridge.dll` | vector | Pure C++, no ONNX |
+| File                        | Engine | Notes                                                 |
+| --------------------------- | ------ | ----------------------------------------------------- |
+| `libomni_image_bridge.dll`  | image  | The only bridge that links ONNX Runtime               |
+| `libomni_audio_bridge.dll`  | audio  | Pure C++ DSP, no ONNX                                 |
+| `libomni_video_bridge.dll`  | video  | Pure C++ per-frame ops + ffmpeg pipeline ops, no ONNX |
+| `libomni_vector_bridge.dll` | vector | Pure C++, no ONNX                                     |
 
 Use `.so` on Linux and `.dylib` on macOS; the loader tries both the `lib`-prefixed
 and bare spellings for each platform.
 
 ### ONNX Runtime sidecar (required for the neural ops only)
 
-| File | Required version | Notes |
-| --- | --- | --- |
-| `onnxruntime.dll` | **1.26** (API 26) | Verified good: `1.26.20260508.3.8c546c3` |
-| `onnxruntime_providers_shared.dll` | same build as above | Optional in the strict sense — without it ORT runs CPU-only — but ship it |
-| `onnxruntime_providers_cuda.dll` | same build as above | ~285 MB; only useful with a **CUDA 12 + cuDNN 9** runtime resolvable (see below) |
+| File                               | Required version    | Notes                                                                            |
+| ---------------------------------- | ------------------- | -------------------------------------------------------------------------------- |
+| `onnxruntime.dll`                  | **1.26** (API 26)   | Verified good: `1.26.20260508.3.8c546c3`                                         |
+| `onnxruntime_providers_shared.dll` | same build as above | Optional in the strict sense — without it ORT runs CPU-only — but ship it        |
+| `onnxruntime_providers_cuda.dll`   | same build as above | ~285 MB; only useful with a **CUDA 12 + cuDNN 9** runtime resolvable (see below) |
 
 Keep all three from the **same** ORT build. A mismatched trio fails to load the
 execution provider and silently drops to CPU.
@@ -73,13 +73,13 @@ when set and non-empty, otherwise `models/<file>` **relative to the loaded
 module's own directory** (i.e. this directory), independent of the working
 directory.
 
-| Model file | Env override | Model | Ops that use it |
-| --- | --- | --- | --- |
-| `u2net.onnx` | `OMNI_SEG_MODEL` | U2Net segmentation | `remove_background`, `get_foreground_mask`, `blur_background`, `segment_foreground` |
-| `depth_anything_v2_small.onnx` (+ its `.onnx_data`) | `OMNI_DEPTH_MODEL` | Depth Anything v2 (small) | `neural_generate_depth_map`, `neural_depth_blur` |
-| `colorization.onnx` | `OMNI_COLORIZE_MODEL` | Zhang et al. eccv16 colorization | `neural_colorize` |
-| `fbcnn.onnx` | `OMNI_RESTORE_MODEL` | FBCNN blind compression-artifact removal | `neural_remove_compression_artifacts` |
-| `face_parsing.onnx` | `OMNI_FACE_MODEL` | YuNet face detector (despite the file name) | `neural_smooth_skin` |
+| Model file                                          | Env override          | Model                                       | Ops that use it                                                                     |
+| --------------------------------------------------- | --------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `u2net.onnx`                                        | `OMNI_SEG_MODEL`      | U2Net segmentation                          | `remove_background`, `get_foreground_mask`, `blur_background`, `segment_foreground` |
+| `depth_anything_v2_small.onnx` (+ its `.onnx_data`) | `OMNI_DEPTH_MODEL`    | Depth Anything v2 (small)                   | `neural_generate_depth_map`, `neural_depth_blur`                                    |
+| `colorization.onnx`                                 | `OMNI_COLORIZE_MODEL` | Zhang et al. eccv16 colorization            | `neural_colorize`                                                                   |
+| `fbcnn.onnx`                                        | `OMNI_RESTORE_MODEL`  | FBCNN blind compression-artifact removal    | `neural_remove_compression_artifacts`                                               |
+| `face_parsing.onnx`                                 | `OMNI_FACE_MODEL`     | YuNet face detector (despite the file name) | `neural_smooth_skin`                                                                |
 
 `depth_anything_v2_small.onnx` uses ONNX external-data format: the companion
 `.onnx_data` file must sit next to it or session creation fails.
@@ -176,10 +176,10 @@ and every neural op runs on the **CPU provider** — slower, same result, still
 Verified both ways on the development machine (5 warm `remove_background` passes
 on one 4032x3024 JPEG, `u2net.onnx`):
 
-| Provider | Cold pass | Warm passes | VRAM delta |
-| --- | --- | --- | --- |
-| CUDA (all 5 resolved) | ~1.7-1.9 s | ~605-650 ms | **+771 MB** |
-| CPU (`cuda.enabled: false`, or `cufft64_11.dll` renamed away) | ~1.6-1.7 s | ~856-945 ms | ~0 MB |
+| Provider                                                      | Cold pass  | Warm passes | VRAM delta  |
+| ------------------------------------------------------------- | ---------- | ----------- | ----------- |
+| CUDA (all 5 resolved)                                         | ~1.7-1.9 s | ~605-650 ms | **+771 MB** |
+| CPU (`cuda.enabled: false`, or `cufft64_11.dll` renamed away) | ~1.6-1.7 s | ~856-945 ms | ~0 MB       |
 
 Read those numbers carefully: ~760 ms of every call is the sharp JPEG decode +
 PNG encode both providers pay identically (measured with `grayscale`, a pure C++

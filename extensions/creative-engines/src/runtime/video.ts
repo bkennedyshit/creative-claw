@@ -1,6 +1,6 @@
-import type { EngineConfig } from "../types.js";
 import type { CodecConfig } from "../ffi/codec.js";
 import { videoBindings } from "../ffi/video-bindings.js";
+import type { EngineConfig } from "../types.js";
 import { EngineRuntime } from "./engine-runtime.js";
 
 /**

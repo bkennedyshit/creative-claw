@@ -5,8 +5,8 @@
  * keeps working and wins over the published handle.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { clearGpuBroker, setGpuBroker, withGpuClaim } from "./gpu-coop.js";
 import { GPU_BROKER_HANDLE_KEY, readGpuBrokerHandle } from "./gpu-broker-handle.js";
+import { clearGpuBroker, setGpuBroker, withGpuClaim } from "./gpu-coop.js";
 
 function slot(): Record<string, unknown> {
   return globalThis as unknown as Record<string, unknown>;

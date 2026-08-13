@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 /**
  * REAL end-to-end keyframe video understanding — real native video engine, real
  * ffmpeg/ffprobe, real local vision model over Ollama, real video file.
@@ -28,9 +29,8 @@
  *   4. The temp working directory is removed.
  */
 import { existsSync, readdirSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import { describeImageFileWithModel } from "openclaw/plugin-sdk/media-understanding-runtime";
@@ -63,7 +63,9 @@ function ffprobeRunnable(): boolean {
  * one that fails: it was observed skipping inside the full lane while passing
  * when run alone, and the lane still reported a green 26 files / 276 tests.
  */
-async function ollamaModelStatus(model: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+async function ollamaModelStatus(
+  model: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
   let response: Response;
   try {
     response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
@@ -74,7 +76,10 @@ async function ollamaModelStatus(model: string): Promise<{ ok: true } | { ok: fa
     };
   }
   if (!response.ok) {
-    return { ok: false, reason: `Ollama at ${OLLAMA_BASE_URL} answered /api/tags with HTTP ${response.status}` };
+    return {
+      ok: false,
+      reason: `Ollama at ${OLLAMA_BASE_URL} answered /api/tags with HTTP ${response.status}`,
+    };
   }
   const body = (await response.json()) as { models?: Array<{ name?: string }> };
   const names = (body.models ?? []).map((entry) => entry.name).filter(Boolean);
@@ -195,7 +200,9 @@ const progressLogger = {
 function startHeartbeat(label: string): () => void {
   const startedAt = Date.now();
   const timer = setInterval(() => {
-    progressLogger.debug(`${label} still running after ${Math.round((Date.now() - startedAt) / 1000)}s`);
+    progressLogger.debug(
+      `${label} still running after ${Math.round((Date.now() - startedAt) / 1000)}s`,
+    );
   }, 30_000);
   timer.unref?.();
   return () => {
@@ -210,119 +217,107 @@ afterAll(async () => {
 });
 
 describe.skipIf(!READY)("creative-engines describeVideo (live)", () => {
-  it(
-    "extracts real keyframes and describes them with the local vision model, timestamps intact",
-    async () => {
-      await engine.start();
-      started = true;
-      expect(engine.isAvailable()).toBe(true);
+  it("extracts real keyframes and describes them with the local vision model, timestamps intact", async () => {
+    await engine.start();
+    started = true;
+    expect(engine.isAvailable()).toBe(true);
 
-      const cfg = liveConfig();
-      const provider = createVideoUnderstandingProvider({
-        videoEngine: engine,
-        ...(CODEC ? { codec: CODEC } : {}),
-        resolveConfig: () => cfg,
-        describeImage: (params) => describeImageFileWithModel(params),
-        logger: progressLogger,
-        pluginConfig: { maxFrames: 3, frameTimeoutMs: 600_000 },
-      })!;
+    const cfg = liveConfig();
+    const provider = createVideoUnderstandingProvider({
+      videoEngine: engine,
+      ...(CODEC ? { codec: CODEC } : {}),
+      resolveConfig: () => cfg,
+      describeImage: (params) => describeImageFileWithModel(params),
+      logger: progressLogger,
+      pluginConfig: { maxFrames: 3, frameTimeoutMs: 600_000 },
+    })!;
 
-      const before = new Set(
-        readdirSync(tmpdir()).filter((entry) => entry.startsWith(TEMP_PREFIX)),
-      );
+    const before = new Set(readdirSync(tmpdir()).filter((entry) => entry.startsWith(TEMP_PREFIX)));
 
-      const stopHeartbeat = startHeartbeat("describeVideo");
-      let result: Awaited<ReturnType<NonNullable<typeof provider.describeVideo>>>;
-      try {
-        result = await provider.describeVideo!({
+    const stopHeartbeat = startHeartbeat("describeVideo");
+    let result: Awaited<ReturnType<NonNullable<typeof provider.describeVideo>>>;
+    try {
+      result = await provider.describeVideo!({
+        buffer: await readFile(FIXTURE!),
+        fileName: basename(FIXTURE!),
+        mime: "video/mp4",
+        apiKey: "openclaw-local-no-auth",
+        auth: { kind: "none", source: "live test" },
+        model: `ollama/${VISION_MODEL}`,
+        timeoutMs: 900_000,
+      });
+    } finally {
+      stopHeartbeat();
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(`[video-understanding.live] result:\n${result.text}`);
+
+    expect(result.model).toContain(VISION_MODEL);
+    expect(result.text).toContain(basename(FIXTURE!));
+    expect(result.text).toContain(`by ollama/${VISION_MODEL}`);
+
+    // Real timestamped observations, each with real model prose behind it.
+    const observations = [...result.text.matchAll(/^\[t=([\d.]+)s \| [\d:.]+\] (.+)$/gmu)];
+    expect(observations.length).toBeGreaterThanOrEqual(2);
+    const seconds = observations.map((match) => Number(match[1]));
+    expect(seconds).toEqual(seconds.toSorted((a, b) => a - b));
+    expect(new Set(seconds).size).toBe(seconds.length);
+    for (const match of observations) {
+      // A real description, not a placeholder.
+      const text = match[2]!;
+      expect(text.length).toBeGreaterThan(40);
+      expect(text).not.toMatch(/^(?:n\/a|unknown|no description)$/iu);
+    }
+
+    // Timestamps are inside the clip and directly usable as engine params.
+    const duration = Number(/\((\d+(?:\.\d+)?)s\)/u.exec(result.text)?.[1] ?? Number.NaN);
+    expect(Number.isFinite(duration)).toBe(true);
+    for (const second of seconds) {
+      expect(second).toBeGreaterThanOrEqual(0);
+      expect(second).toBeLessThan(duration);
+    }
+    expect(result.text).toContain("cut_clip {start_sec,end_sec}");
+
+    // Temp frames cleaned up.
+    const after = readdirSync(tmpdir()).filter(
+      (entry) => entry.startsWith(TEMP_PREFIX) && !before.has(entry),
+    );
+    expect(after).toEqual([]);
+  }, 900_000);
+
+  it("fails explicitly instead of fabricating a description when the vision endpoint is unreachable", async () => {
+    await engine.start();
+    started = true;
+    const cfg = liveConfig();
+    // Point the provider at a closed port: the frames are still real, the
+    // vision call cannot succeed, and the provider must throw naming it.
+    const unreachable = structuredClone(cfg);
+    (unreachable.models!.providers as Record<string, { baseUrl: string }>).ollama.baseUrl =
+      "http://127.0.0.1:1";
+    const provider = createVideoUnderstandingProvider({
+      videoEngine: engine,
+      ...(CODEC ? { codec: CODEC } : {}),
+      resolveConfig: () => unreachable,
+      describeImage: (params) => describeImageFileWithModel(params),
+      logger: progressLogger,
+      pluginConfig: { maxFrames: 2, frameTimeoutMs: 20_000 },
+    })!;
+
+    const stopHeartbeat = startHeartbeat("describeVideo (unreachable endpoint)");
+    try {
+      await expect(
+        provider.describeVideo!({
           buffer: await readFile(FIXTURE!),
           fileName: basename(FIXTURE!),
           mime: "video/mp4",
           apiKey: "openclaw-local-no-auth",
-          auth: { kind: "none", source: "live test" },
           model: `ollama/${VISION_MODEL}`,
-          timeoutMs: 900_000,
-        });
-      } finally {
-        stopHeartbeat();
-      }
-
-      // eslint-disable-next-line no-console
-      console.log(`[video-understanding.live] result:\n${result.text}`);
-
-      expect(result.model).toContain(VISION_MODEL);
-      expect(result.text).toContain(basename(FIXTURE!));
-      expect(result.text).toContain(`by ollama/${VISION_MODEL}`);
-
-      // Real timestamped observations, each with real model prose behind it.
-      const observations = [...result.text.matchAll(/^\[t=([\d.]+)s \| [\d:.]+\] (.+)$/gmu)];
-      expect(observations.length).toBeGreaterThanOrEqual(2);
-      const seconds = observations.map((match) => Number(match[1]));
-      expect(seconds).toEqual(seconds.toSorted((a, b) => a - b));
-      expect(new Set(seconds).size).toBe(seconds.length);
-      for (const match of observations) {
-        // A real description, not a placeholder.
-        const text = match[2]!;
-        expect(text.length).toBeGreaterThan(40);
-        expect(text).not.toMatch(/^(?:n\/a|unknown|no description)$/iu);
-      }
-
-      // Timestamps are inside the clip and directly usable as engine params.
-      const duration = Number(
-        /\((\d+(?:\.\d+)?)s\)/u.exec(result.text)?.[1] ?? Number.NaN,
-      );
-      expect(Number.isFinite(duration)).toBe(true);
-      for (const second of seconds) {
-        expect(second).toBeGreaterThanOrEqual(0);
-        expect(second).toBeLessThan(duration);
-      }
-      expect(result.text).toContain("cut_clip {start_sec,end_sec}");
-
-      // Temp frames cleaned up.
-      const after = readdirSync(tmpdir()).filter(
-        (entry) => entry.startsWith(TEMP_PREFIX) && !before.has(entry),
-      );
-      expect(after).toEqual([]);
-    },
-    900_000,
-  );
-
-  it(
-    "fails explicitly instead of fabricating a description when the vision endpoint is unreachable",
-    async () => {
-      await engine.start();
-      started = true;
-      const cfg = liveConfig();
-      // Point the provider at a closed port: the frames are still real, the
-      // vision call cannot succeed, and the provider must throw naming it.
-      const unreachable = structuredClone(cfg);
-      (unreachable.models!.providers as Record<string, { baseUrl: string }>).ollama.baseUrl =
-        "http://127.0.0.1:1";
-      const provider = createVideoUnderstandingProvider({
-        videoEngine: engine,
-        ...(CODEC ? { codec: CODEC } : {}),
-        resolveConfig: () => unreachable,
-        describeImage: (params) => describeImageFileWithModel(params),
-        logger: progressLogger,
-        pluginConfig: { maxFrames: 2, frameTimeoutMs: 20_000 },
-      })!;
-
-      const stopHeartbeat = startHeartbeat("describeVideo (unreachable endpoint)");
-      try {
-        await expect(
-          provider.describeVideo!({
-            buffer: await readFile(FIXTURE!),
-            fileName: basename(FIXTURE!),
-            mime: "video/mp4",
-            apiKey: "openclaw-local-no-auth",
-            model: `ollama/${VISION_MODEL}`,
-            timeoutMs: 120_000,
-          }),
-        ).rejects.toThrow(/described 0 of \d+ keyframes/u);
-      } finally {
-        stopHeartbeat();
-      }
-    },
-    300_000,
-  );
+          timeoutMs: 120_000,
+        }),
+      ).rejects.toThrow(/described 0 of \d+ keyframes/u);
+    } finally {
+      stopHeartbeat();
+    }
+  }, 300_000);
 });

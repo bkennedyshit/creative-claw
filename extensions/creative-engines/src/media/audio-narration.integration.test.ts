@@ -190,49 +190,45 @@ const stubDescribeImage = async (params: { model: string }) => ({
 });
 
 describe.skipIf(!READY)("creative-engines audio perception (live)", () => {
-  it(
-    "demuxes a real WAV with the engine and reaches the HOST's CLI audio seam with config alone",
-    async () => {
-      const video = await ensureEngine();
-      const workDir = await mkdtemp(join(tmpdir(), "creative-engines-asr-live-"));
-      try {
-        const wavPath = join(workDir, "narration.wav");
-        const extracted = await video.apply(FIXTURE!, "extract_audio", wavPath, {});
-        expect(extracted.ok).toBe(true);
-        const bytes = (await stat(wavPath)).size;
-        expect(bytes).toBeGreaterThan(1024);
+  it("demuxes a real WAV with the engine and reaches the HOST's CLI audio seam with config alone", async () => {
+    const video = await ensureEngine();
+    const workDir = await mkdtemp(join(tmpdir(), "creative-engines-asr-live-"));
+    try {
+      const wavPath = join(workDir, "narration.wav");
+      const extracted = await video.apply(FIXTURE!, "extract_audio", wavPath, {});
+      expect(extracted.ok).toBe(true);
+      const bytes = (await stat(wavPath)).size;
+      expect(bytes).toBeGreaterThan(1024);
 
-        const result = await transcribeAudioFile({
-          filePath: wavPath,
-          cfg: audioCliConfig(ASR_COMMAND, ASR_ARGS),
-          mime: "audio/wav",
-        });
+      const result = await transcribeAudioFile({
+        filePath: wavPath,
+        cfg: audioCliConfig(ASR_COMMAND, ASR_ARGS),
+        mime: "audio/wav",
+      });
 
-        // eslint-disable-next-line no-console
-        console.log(
-          `[audio-narration.integration] ${basename(FIXTURE!)} transcript: ${JSON.stringify(result.text)}`,
-        );
+      // eslint-disable-next-line no-console
+      console.log(
+        `[audio-narration.integration] ${basename(FIXTURE!)} transcript: ${JSON.stringify(result.text)}`,
+      );
 
-        const text = (result.text ?? "").trim();
-        if (text) {
-          // The clip had speech: the transcript must come from the CLI entry.
-          expect(result.provider).toBe("cli");
-          expect(result.model).toBe(ASR_COMMAND);
-          expect(text).not.toMatch(/^(?:n\/a|unknown|no transcript|error)$/iu);
-        } else {
-          // The clip had no speech. That is a legitimate outcome and the host must
-          // record it as an empty-output SKIP, never as a successful transcript.
-          expect(result.decision?.outcome).not.toBe("success");
-          const attempts = result.decision?.attachments?.flatMap((a) => a.attempts ?? []) ?? [];
-          expect(attempts.length).toBeGreaterThan(0);
-          expect(attempts.every((attempt) => attempt.outcome !== "success")).toBe(true);
-        }
-      } finally {
-        await rm(workDir, { recursive: true, force: true });
+      const text = (result.text ?? "").trim();
+      if (text) {
+        // The clip had speech: the transcript must come from the CLI entry.
+        expect(result.provider).toBe("cli");
+        expect(result.model).toBe(ASR_COMMAND);
+        expect(text).not.toMatch(/^(?:n\/a|unknown|no transcript|error)$/iu);
+      } else {
+        // The clip had no speech. That is a legitimate outcome and the host must
+        // record it as an empty-output SKIP, never as a successful transcript.
+        expect(result.decision?.outcome).not.toBe("success");
+        const attempts = result.decision?.attachments?.flatMap((a) => a.attempts ?? []) ?? [];
+        expect(attempts.length).toBeGreaterThan(0);
+        expect(attempts.every((attempt) => attempt.outcome !== "success")).toBe(true);
       }
-    },
-    900_000,
-  );
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
+  }, 900_000);
 
   it.skipIf(!NARRATION_READY)(
     "folds the real transcript into describeVideo with timestamps inside the clip",
@@ -293,65 +289,57 @@ describe.skipIf(!READY)("creative-engines audio perception (live)", () => {
     900_000,
   );
 
-  it(
-    "names the missing transcriber instead of fabricating narration",
-    async () => {
-      const video = await ensureEngine();
-      // A command that cannot exist: the WAV is real, the transcription cannot
-      // happen, and the output must say so.
-      const cfg = audioCliConfig("openclaw-no-such-transcriber-binary", ["{{MediaPath}}"]);
-      const provider = createVideoUnderstandingProvider({
-        videoEngine: video,
-        ...(CODEC ? { codec: CODEC } : {}),
-        resolveConfig: () => cfg,
-        describeImage: stubDescribeImage,
-        transcribeAudio: (params) => transcribeAudioFile(params),
-        pluginConfig: { visionModel: "ollama/stub-vision", maxFrames: 1 },
-      })!;
+  it("names the missing transcriber instead of fabricating narration", async () => {
+    const video = await ensureEngine();
+    // A command that cannot exist: the WAV is real, the transcription cannot
+    // happen, and the output must say so.
+    const cfg = audioCliConfig("openclaw-no-such-transcriber-binary", ["{{MediaPath}}"]);
+    const provider = createVideoUnderstandingProvider({
+      videoEngine: video,
+      ...(CODEC ? { codec: CODEC } : {}),
+      resolveConfig: () => cfg,
+      describeImage: stubDescribeImage,
+      transcribeAudio: (params) => transcribeAudioFile(params),
+      pluginConfig: { visionModel: "ollama/stub-vision", maxFrames: 1 },
+    })!;
 
-      const result = await provider.describeVideo!({
-        buffer: await readFile(FIXTURE!),
-        fileName: basename(FIXTURE!),
-        mime: "video/mp4",
-        apiKey: "openclaw-local-no-auth",
-        timeoutMs: 300_000,
-      });
+    const result = await provider.describeVideo!({
+      buffer: await readFile(FIXTURE!),
+      fileName: basename(FIXTURE!),
+      mime: "video/mp4",
+      apiKey: "openclaw-local-no-auth",
+      timeoutMs: 300_000,
+    });
 
-      expect(result.text).toContain("Narration: NOT transcribed");
-      expect(result.text).not.toContain("SPOKEN");
-      // The keyframe half of the answer is unaffected.
-      expect(result.text).toContain("SEEN (keyframe descriptions, model-inferred):");
-    },
-    600_000,
-  );
+    expect(result.text).toContain("Narration: NOT transcribed");
+    expect(result.text).not.toContain("SPOKEN");
+    // The keyframe half of the answer is unaffected.
+    expect(result.text).toContain("SEEN (keyframe descriptions, model-inferred):");
+  }, 600_000);
 
-  it(
-    "detect_silence returns real silent-segment timestamps inside the clip",
-    async () => {
-      const video = await ensureEngine();
-      const durationSec = (await probeDurationSec(FIXTURE!, CODEC)) ?? 0;
-      const result = await video.analyze(FIXTURE!, "detect_silence", {
-        noise_db: -40,
-        min_duration: 0.5,
-      });
+  it("detect_silence returns real silent-segment timestamps inside the clip", async () => {
+    const video = await ensureEngine();
+    const durationSec = (await probeDurationSec(FIXTURE!, CODEC)) ?? 0;
+    const result = await video.analyze(FIXTURE!, "detect_silence", {
+      noise_db: -40,
+      min_duration: 0.5,
+    });
 
-      // eslint-disable-next-line no-console
-      console.log(`[audio-narration.integration] detect_silence: ${JSON.stringify(result.data)}`);
+    // eslint-disable-next-line no-console
+    console.log(`[audio-narration.integration] detect_silence: ${JSON.stringify(result.data)}`);
 
-      expect(result.ok).toBe(true);
-      const segments = (result.data as { segments?: Array<{ start: number; end: number | null }> })
-        .segments;
-      expect(Array.isArray(segments)).toBe(true);
-      for (const segment of segments ?? []) {
-        expect(Number.isFinite(segment.start)).toBe(true);
-        expect(segment.start).toBeGreaterThanOrEqual(0);
-        expect(segment.start).toBeLessThanOrEqual(durationSec + 1);
-        if (segment.end !== null) {
-          expect(segment.end).toBeGreaterThan(segment.start);
-          expect(segment.end).toBeLessThanOrEqual(durationSec + 1);
-        }
+    expect(result.ok).toBe(true);
+    const segments = (result.data as { segments?: Array<{ start: number; end: number | null }> })
+      .segments;
+    expect(Array.isArray(segments)).toBe(true);
+    for (const segment of segments ?? []) {
+      expect(Number.isFinite(segment.start)).toBe(true);
+      expect(segment.start).toBeGreaterThanOrEqual(0);
+      expect(segment.start).toBeLessThanOrEqual(durationSec + 1);
+      if (segment.end !== null) {
+        expect(segment.end).toBeGreaterThan(segment.start);
+        expect(segment.end).toBeLessThanOrEqual(durationSec + 1);
       }
-    },
-    300_000,
-  );
+    }
+  }, 300_000);
 });

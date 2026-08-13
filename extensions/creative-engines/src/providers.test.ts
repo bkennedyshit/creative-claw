@@ -1,15 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
 import { readFile } from "node:fs/promises";
-import type { ImageEngineRuntime } from "./runtime/image.js";
-import type { AudioEngineRuntime } from "./runtime/audio.js";
-import type { VideoEngineRuntime } from "./runtime/video.js";
-import { registerProviders } from "./providers.js";
+import { describe, it, expect, vi } from "vitest";
 import { setGpuBroker, withGpuClaim, withoutGpuClaim } from "./gpu-coop.js";
+import { registerProviders } from "./providers.js";
+import type { AudioEngineRuntime } from "./runtime/audio.js";
+import type { ImageEngineRuntime } from "./runtime/image.js";
+import type { VideoEngineRuntime } from "./runtime/video.js";
 
 const engines = {
   image: { isAvailable: () => true } as unknown as ImageEngineRuntime,
   audio: { isAvailable: () => true } as unknown as AudioEngineRuntime,
   video: {
+    ensureStarted: async () => {},
     isAvailable: () => true,
     reason: () => undefined,
     apply: async () => ({ ok: true }),
@@ -236,7 +237,11 @@ describe("gpu-coop — cooperation semantics", () => {
   it("reclaims the GPU even if the op throws (honors user claim on failure)", async () => {
     const reclaim = vi.fn(async () => {});
     setGpuBroker({ release: async () => {}, reclaim });
-    await expect(withGpuClaim(async () => { throw new Error("kaboom"); })).rejects.toThrow(/kaboom/);
+    await expect(
+      withGpuClaim(async () => {
+        throw new Error("kaboom");
+      }),
+    ).rejects.toThrow(/kaboom/);
     expect(reclaim).toHaveBeenCalledTimes(1);
   });
 
@@ -250,7 +255,10 @@ describe("gpu-coop — cooperation semantics", () => {
    * helpers, so the decision cannot regress by accident.
    */
   it("video understanding does not wrap the vision call in a GPU claim", async () => {
-    const source = await readFile(new URL("./media/video-understanding.ts", import.meta.url), "utf8");
+    const source = await readFile(
+      new URL("./media/video-understanding.ts", import.meta.url),
+      "utf8",
+    );
     expect(source).not.toMatch(/^\s*import\b.*gpu-coop/mu);
     expect(source).not.toMatch(/\bwithGpuClaim\s*\(/u);
   });

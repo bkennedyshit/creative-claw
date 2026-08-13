@@ -43,8 +43,12 @@ describe("image edit session — stacking + revert", () => {
     // Distinct content per path class → distinct sha256 hashes (real change).
     readFileMock.mockImplementation(async (p: unknown) => {
       const s = String(p);
-      if (s.includes("_v1")) return Buffer.from("edited-committed");
-      if (s.includes("_preview")) return Buffer.from("edited-preview");
+      if (s.includes("_v1")) {
+        return Buffer.from("edited-committed");
+      }
+      if (s.includes("_preview")) {
+        return Buffer.from("edited-preview");
+      }
       return Buffer.from("original");
     });
   });
@@ -52,26 +56,37 @@ describe("image edit session — stacking + revert", () => {
   it("commits a preview as a new working version, then reverts to the original", async () => {
     const t = tools(makeImageEngine());
 
-    const planned = (await t.get("image.edit_session.plan")!.execute("call-1", {
-      input: "/img.png",
-      instruction: "blur the photo",
-    })).details as { session_id: string; planned_steps: Step[] };
+    const planned = (
+      await t.get("image.edit_session.plan")!.execute("call-1", {
+        input: "/img.png",
+        instruction: "blur the photo",
+      })
+    ).details as { session_id: string; planned_steps: Step[] };
     expect(planned.planned_steps).toContainEqual({ op: "gaussian_blur", params: { radius: 3 } });
 
-    const confirmed = (await t.get("image.edit_session.confirm")!.execute("call-1", {
-      session_id: planned.session_id,
-      preview_path: "/img_preview.png",
-      steps: planned.planned_steps,
-    })).details as { ok: boolean; version: number; committed_path: string };
+    const confirmed = (
+      await t.get("image.edit_session.confirm")!.execute("call-1", {
+        session_id: planned.session_id,
+        preview_path: "/img_preview.png",
+        steps: planned.planned_steps,
+      })
+    ).details as { ok: boolean; version: number; committed_path: string };
     // Result becomes the working image at v1 (stacking).
     expect(confirmed.ok).toBe(true);
     expect(confirmed.version).toBe(1);
     expect(confirmed.committed_path).toContain("_v1");
 
-    const reverted = (await t.get("image.edit_session.revert")!.execute("call-1", {
-      session_id: planned.session_id,
-    })).details as { ok: boolean; version: number; reverted_to: string; discarded_versions: number };
-    expect(reverted).toMatchObject({ ok: true, version: 0, reverted_to: "/img.png", discarded_versions: 1 });
+    const reverted = (
+      await t.get("image.edit_session.revert")!.execute("call-1", {
+        session_id: planned.session_id,
+      })
+    ).details as { ok: boolean; version: number; reverted_to: string; discarded_versions: number };
+    expect(reverted).toMatchObject({
+      ok: true,
+      version: 0,
+      reverted_to: "/img.png",
+      discarded_versions: 1,
+    });
   });
 });
 
@@ -83,15 +98,19 @@ describe("image edit session — Anti_Fake_Guard", () => {
     readFileMock.mockImplementation(async () => Buffer.from("unchanged"));
     const t = tools(makeImageEngine());
 
-    const planned = (await t.get("image.edit_session.plan")!.execute("call-1", {
-      input: "/img.png",
-      instruction: "sharpen",
-    })).details as { session_id: string; planned_steps: Step[] };
+    const planned = (
+      await t.get("image.edit_session.plan")!.execute("call-1", {
+        input: "/img.png",
+        instruction: "sharpen",
+      })
+    ).details as { session_id: string; planned_steps: Step[] };
 
-    const preview = (await t.get("image.edit_session.preview")!.execute("call-1", {
-      session_id: planned.session_id,
-      steps: planned.planned_steps,
-    })).details as { ok: boolean; reason?: string };
+    const preview = (
+      await t.get("image.edit_session.preview")!.execute("call-1", {
+        session_id: planned.session_id,
+        steps: planned.planned_steps,
+      })
+    ).details as { ok: boolean; reason?: string };
 
     expect(preview.ok).toBe(false);
     expect(preview.reason).toBe("no_change_detected");
@@ -101,15 +120,19 @@ describe("image edit session — Anti_Fake_Guard", () => {
     readFileMock.mockImplementation(async () => Buffer.from("x"));
     const t = tools(makeImageEngine(false));
 
-    const planned = (await t.get("image.edit_session.plan")!.execute("call-1", {
-      input: "/img.png",
-      instruction: "blur",
-    })).details as { session_id: string; planned_steps: Step[] };
+    const planned = (
+      await t.get("image.edit_session.plan")!.execute("call-1", {
+        input: "/img.png",
+        instruction: "blur",
+      })
+    ).details as { session_id: string; planned_steps: Step[] };
 
-    const preview = (await t.get("image.edit_session.preview")!.execute("call-1", {
-      session_id: planned.session_id,
-      steps: planned.planned_steps,
-    })).details as { ok: boolean; reason?: string };
+    const preview = (
+      await t.get("image.edit_session.preview")!.execute("call-1", {
+        session_id: planned.session_id,
+        steps: planned.planned_steps,
+      })
+    ).details as { ok: boolean; reason?: string };
 
     expect(preview.ok).toBe(false);
     expect(preview.reason).toMatch(/not found|unavailable/i);

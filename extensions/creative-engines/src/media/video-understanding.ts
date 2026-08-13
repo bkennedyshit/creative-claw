@@ -164,6 +164,12 @@ export interface VideoUnderstandingPluginConfig {
 
 /** Structural view of the video engine seams this module uses. */
 export interface VideoEngineSeam {
+  /**
+   * Load the native library if it is not loaded yet. Required, not optional:
+   * `describeVideo` is reachable outside the gateway, where the engine service
+   * never ran, and an optional hook here is how the "not loaded" bug survived.
+   */
+  ensureStarted(): Promise<void>;
   isAvailable(): boolean;
   reason(): string | undefined;
   apply(
@@ -541,9 +547,7 @@ export function formatVideoDescription(params: {
     );
   }
   if (params.sceneCuts.length > 0) {
-    lines.push(
-      `Scene cuts at: ${params.sceneCuts.map((cut) => `${roundSec(cut)}s`).join(", ")}`,
-    );
+    lines.push(`Scene cuts at: ${params.sceneCuts.map((cut) => `${roundSec(cut)}s`).join(", ")}`);
   }
   // Kept in the HEADER, not the footer: if the host trims to
   // `tools.media.video.maxChars` the actionability hint must survive.
@@ -564,12 +568,16 @@ export function formatVideoDescription(params: {
     lines.push("SEEN (keyframe descriptions, model-inferred):");
   }
   for (const observation of params.observations) {
-    lines.push(`[t=${observation.timeSec}s | ${formatClock(observation.timeSec)}] ${observation.text}`);
+    lines.push(
+      `[t=${observation.timeSec}s | ${formatClock(observation.timeSec)}] ${observation.text}`,
+    );
   }
   if (params.failures.length > 0) {
     lines.push("");
     for (const failure of params.failures) {
-      lines.push(`[t=${failure.timeSec}s] NOT DESCRIBED (${failure.stage} failed): ${failure.reason}`);
+      lines.push(
+        `[t=${failure.timeSec}s] NOT DESCRIBED (${failure.stage} failed): ${failure.reason}`,
+      );
     }
   }
   if (params.budgetExhausted) {
@@ -754,7 +762,7 @@ export async function readNarration(params: {
         reason:
           `the host audio pipeline returned no transcript for a ${bytes}-byte WAV` +
           `${detail ? ` — ${detail}` : ""}. Configure a transcriber under ` +
-          "tools.media.audio.models[] (a local type:\"cli\" entry needs no API key).",
+          'tools.media.audio.models[] (a local type:"cli" entry needs no API key).',
       };
     }
     return {
@@ -778,6 +786,11 @@ export function createVideoUnderstandingProvider(
   }
 
   const describeVideo = async (req: VideoDescriptionRequest): Promise<VideoDescriptionResult> => {
+    // Load on demand before the gate. The engines' `start()` is a gateway
+    // service, so a standalone caller (or any host that resolves this provider
+    // before services run) used to hit the throw below with the DLL sitting
+    // right there on disk.
+    await deps.videoEngine.ensureStarted();
     if (!deps.videoEngine.isAvailable()) {
       throw new Error(
         "creative-engines cannot describe video: the native video engine " +
@@ -808,7 +821,8 @@ export function createVideoUnderstandingProvider(
 
     const probe = deps.probeDuration ?? probeDurationSec;
     const maxFrames = resolveMaxFrames(deps.pluginConfig);
-    const prompt = deps.pluginConfig?.framePrompt?.trim() || req.prompt?.trim() || DEFAULT_FRAME_PROMPT;
+    const prompt =
+      deps.pluginConfig?.framePrompt?.trim() || req.prompt?.trim() || DEFAULT_FRAME_PROMPT;
     const maxCharsPerFrame = deps.pluginConfig?.maxCharsPerFrame ?? DEFAULT_MAX_CHARS_PER_FRAME;
     const agentDir = deps.resolveAgentDir?.(cfg);
 
@@ -942,7 +956,9 @@ export function createVideoUnderstandingProvider(
       if (observations.length === 0 && !narration?.ok) {
         const detail =
           failures.length > 0
-            ? failures.map((failure) => `t=${failure.timeSec}s ${failure.stage}: ${failure.reason}`).join("; ")
+            ? failures
+                .map((failure) => `t=${failure.timeSec}s ${failure.stage}: ${failure.reason}`)
+                .join("; ")
             : "no keyframes were planned";
         const narrationDetail = narration
           ? `; narration ${narration.stage} failed: ${narration.reason}`

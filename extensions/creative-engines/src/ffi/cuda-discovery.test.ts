@@ -1,3 +1,7 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+import koffi from "koffi";
 /**
  * CUDA 12 / cuDNN 9 provider-dependency discovery.
  *
@@ -22,13 +26,9 @@
  * provider CAN be loaded, which is what the diagnostics report.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import koffi from "koffi";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
 import {
   CUDA_PROVIDER_DEPENDENCIES,
-  __resetCudaProviderDependenciesForTests,
+  resetCudaProviderDependenciesForTests,
   configureCudaProviderDependencies,
   cudaCandidateDirectories,
   cudaProviderDependenciesResolved,
@@ -64,12 +64,17 @@ function withoutHostCudaCandidates<T>(fn: () => T): T {
   const nowhere = join(tempRoot, "nowhere");
   mkdirSync(nowhere, { recursive: true });
   try {
-    for (const name of names) process.env[name] = name === "PATH" ? "" : nowhere;
+    for (const name of names) {
+      process.env[name] = name === "PATH" ? "" : nowhere;
+    }
     return fn();
   } finally {
     for (const [name, value] of saved) {
-      if (value === undefined) delete process.env[name];
-      else process.env[name] = value;
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
     }
   }
 }
@@ -78,12 +83,14 @@ function withoutHostCudaCandidates<T>(fn: () => T): T {
 function makeLibDir(name: string, libraries: readonly string[]): string {
   const dir = join(tempRoot, name);
   mkdirSync(dir, { recursive: true });
-  for (const library of libraries) writeFileSync(join(dir, library), "");
+  for (const library of libraries) {
+    writeFileSync(join(dir, library), "");
+  }
   return dir;
 }
 
 beforeEach(() => {
-  __resetCudaProviderDependenciesForTests();
+  resetCudaProviderDependenciesForTests();
   tempRoot = mkdtempSync(join(tmpdir(), "creative-cuda-"));
   originalPath = process.env.PATH;
   delete process.env.CREATIVE_ENGINES_CUDA_SEARCH_PATHS;
@@ -95,7 +102,7 @@ afterEach(() => {
   // do from inside a Vitest worker thread. Without that, a truncated PATH would
   // leak into every later child process in this worker.
   process.env.PATH = originalPath;
-  __resetCudaProviderDependenciesForTests();
+  resetCudaProviderDependenciesForTests();
   delete process.env.CREATIVE_ENGINES_CUDA_SEARCH_PATHS;
   rmSync(tempRoot, { recursive: true, force: true });
   // The extensions lane runs with `isolate: false`, so sibling test FILES in the
@@ -159,7 +166,9 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
 
     const status = ensureCudaProviderDependencies({ searchPaths: [a, b, c, unused] });
     expect(status.state).toBe("searched");
-    if (status.state !== "searched") return;
+    if (status.state !== "searched") {
+      return;
+    }
 
     expect(status.complete).toBe(true);
     expect(status.missing).toEqual([]);
@@ -199,7 +208,9 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
 
     const status = ensureCudaProviderDependencies({ searchPaths: [configured] });
     expect(status.state).toBe("searched");
-    if (status.state !== "searched") return;
+    if (status.state !== "searched") {
+      return;
+    }
     expect(status.searchedDirectories.slice(0, 2)).toEqual([configured, fromEnv]);
     // cudnn comes from the config dir because it is searched first; the rest
     // fall through to the env dir.
@@ -208,7 +219,11 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
   });
 
   it("never hard-fails when a dependency is missing, and names what is missing", () => {
-    const partial = makeLibDir("partial", ["cublas64_12.dll", "cublasLt64_12.dll", "cudart64_12.dll"]);
+    const partial = makeLibDir("partial", [
+      "cublas64_12.dll",
+      "cublasLt64_12.dll",
+      "cudart64_12.dll",
+    ]);
     // An empty configured path must not throw either.
     const empty = join(tempRoot, "does-not-exist");
 
@@ -219,7 +234,9 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
       ensureCudaProviderDependencies({ searchPaths: [partial, empty] }),
     );
     expect(status.state).toBe("searched");
-    if (status.state !== "searched") return;
+    if (status.state !== "searched") {
+      return;
+    }
 
     expect(status.complete).toBe(false);
     expect(status.missing).toContain("cudnn64_9.dll");
@@ -237,8 +254,12 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
   it("keeps complete and missing consistent on this machine, whatever is installed", () => {
     const status = ensureCudaProviderDependencies();
     expect(status.state).toBe("searched");
-    if (status.state !== "searched") return;
-    expect(status.complete).toBe(status.missing.length === 0 && status.searchPathError === undefined);
+    if (status.state !== "searched") {
+      return;
+    }
+    expect(status.complete).toBe(
+      status.missing.length === 0 && status.searchPathError === undefined,
+    );
     for (const entry of status.libraries) {
       expect(status.missing.includes(entry.library)).toBe(entry.directory === undefined);
     }
@@ -261,7 +282,9 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
     configureCudaProviderDependencies({ searchPaths: [dir] });
     const status = ensureCudaProviderDependencies();
     expect(status.state).toBe("searched");
-    if (status.state !== "searched") return;
+    if (status.state !== "searched") {
+      return;
+    }
     expect(status.searchedDirectories[0]).toBe(dir);
 
     // Too late now — the PATH has already been mutated.
@@ -280,8 +303,11 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
       expect(dirs).not.toContain(fake);
       expect(dirs).not.toContain(join(tempRoot, "bin"));
     } finally {
-      if (previous === undefined) delete process.env.CUDA_PATH;
-      else process.env.CUDA_PATH = previous;
+      if (previous === undefined) {
+        delete process.env.CUDA_PATH;
+      } else {
+        process.env.CUDA_PATH = previous;
+      }
     }
   });
 
@@ -299,12 +325,16 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
   it("makes a resolved library loadable by BARE NAME, proving the OS search path moved", () => {
     const status = ensureCudaProviderDependencies();
     expect(status.state).toBe("searched");
-    if (status.state !== "searched") return;
+    if (status.state !== "searched") {
+      return;
+    }
     const cudart = status.libraries.find((entry) => entry.library === "cudart64_12.dll");
     if (!cudart?.directory) {
       // No CUDA 12 on this machine: nothing to prove, and nothing to fail.
       // eslint-disable-next-line no-console
-      console.log("[cuda-discovery] cudart64_12.dll not present on this machine; bare-name load not exercised");
+      console.log(
+        "[cuda-discovery] cudart64_12.dll not present on this machine; bare-name load not exercised",
+      );
       return;
     }
     expect(status.searchPathError).toBeUndefined();
@@ -313,6 +343,10 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
 
   it("always searches the bundled binaries dir, so vendoring stays possible", () => {
     const dirs = cudaCandidateDirectories();
-    expect(dirs.some((dir) => dir.toLowerCase().endsWith(join("creative-engines", "binaries").toLowerCase()))).toBe(true);
+    expect(
+      dirs.some((dir) =>
+        dir.toLowerCase().endsWith(join("creative-engines", "binaries").toLowerCase()),
+      ),
+    ).toBe(true);
   });
 });

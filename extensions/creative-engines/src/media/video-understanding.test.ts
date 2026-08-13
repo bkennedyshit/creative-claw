@@ -94,6 +94,7 @@ function fakeDeps(options: FakeOptions = {}): FakeDeps {
   const describeFrame = describeImageOverride ?? defaultDescribe;
   const deps: VideoUnderstandingDeps = {
     videoEngine: {
+      ensureStarted: async () => {},
       isAvailable: () => true,
       reason: () => undefined,
       analyze: async () => ({ ok: true, data: { cuts: [] } }),
@@ -346,7 +347,9 @@ describe("formatVideoDescription with narration", () => {
       ...base,
       narration: { ok: false, stage: "transcribe", reason: "no transcriber configured" },
     });
-    expect(text).toContain("Narration: NOT transcribed (transcribe failed): no transcriber configured");
+    expect(text).toContain(
+      "Narration: NOT transcribed (transcribe failed): no transcriber configured",
+    );
     expect(text).not.toContain("SPOKEN");
   });
 
@@ -384,7 +387,9 @@ describe("createVideoUnderstandingProvider", () => {
   });
 
   it("registers nothing when the plugin config disables it", () => {
-    expect(createVideoUnderstandingProvider(fakeDeps({ pluginConfig: { enabled: false } }))).toBeNull();
+    expect(
+      createVideoUnderstandingProvider(fakeDeps({ pluginConfig: { enabled: false } })),
+    ).toBeNull();
   });
 
   it("extracts a thumbnail per planned timestamp and preserves them in the result", async () => {
@@ -403,7 +408,9 @@ describe("createVideoUnderstandingProvider", () => {
   });
 
   it("uses real scene cuts when detect_scenes returns them", async () => {
-    const deps = fakeDeps({ engine: { analyze: async () => ({ ok: true, data: { cuts: [4.5] } }) } });
+    const deps = fakeDeps({
+      engine: { analyze: async () => ({ ok: true, data: { cuts: [4.5] } }) },
+    });
     const provider = createVideoUnderstandingProvider(deps)!;
     const result = await provider.describeVideo!(videoRequest());
     expect(result.text).toContain("Scene cuts at: 4.5s");
@@ -418,6 +425,29 @@ describe("createVideoUnderstandingProvider", () => {
     for (const call of deps.applyCalls) {
       expect(existsSync(call.output)).toBe(false);
     }
+  });
+
+  it("starts the engine before the availability gate, so it works standalone", async () => {
+    // The engine `start()` is a gateway SERVICE, so in a standalone process the
+    // library is unloaded until something asks. This double reproduces exactly
+    // that: unavailable until ensureStarted() runs. If the provider checks
+    // isAvailable() first, it throws "not loaded" on a healthy install.
+    let started = false;
+    const deps = fakeDeps({
+      engine: {
+        ensureStarted: async () => {
+          started = true;
+        },
+        isAvailable: () => started,
+        reason: () => (started ? undefined : "libomni_video_bridge not loaded yet"),
+      },
+    });
+    const provider = createVideoUnderstandingProvider(deps)!;
+
+    const result = await provider.describeVideo!(videoRequest());
+
+    expect(started).toBe(true);
+    expect(result.text.length).toBeGreaterThan(0);
   });
 
   it("fails with a named reason when the native video engine is not loaded", async () => {
@@ -474,9 +504,7 @@ describe("createVideoUnderstandingProvider", () => {
     const provider = createVideoUnderstandingProvider(
       fakeDeps({ describeImage: async () => ({ text: "   " }) }),
     )!;
-    await expect(provider.describeVideo!(videoRequest())).rejects.toThrow(
-      /returned no text/,
-    );
+    await expect(provider.describeVideo!(videoRequest())).rejects.toThrow(/returned no text/);
   });
 
   it("fails when every thumbnail extraction fails", async () => {
@@ -546,7 +574,9 @@ describe("createVideoUnderstandingProvider", () => {
 
   it("still works when detect_scenes fails, falling back to even sampling", async () => {
     const deps = fakeDeps({
-      engine: { analyze: async () => ({ ok: false, reason: "analysis only implemented for video" }) },
+      engine: {
+        analyze: async () => ({ ok: false, reason: "analysis only implemented for video" }),
+      },
     });
     const provider = createVideoUnderstandingProvider(deps)!;
     const result = await provider.describeVideo!(videoRequest());
@@ -683,7 +713,9 @@ describe("createVideoUnderstandingProvider narration", () => {
     });
     const provider = createVideoUnderstandingProvider(deps)!;
     const result = await provider.describeVideo!(videoRequest());
-    expect(result.text).toContain("Narration: NOT transcribed (transcribe failed): spawn whisper ENOENT");
+    expect(result.text).toContain(
+      "Narration: NOT transcribed (transcribe failed): spawn whisper ENOENT",
+    );
     expect(result.text).toContain("SEEN (keyframe descriptions, model-inferred):");
   });
 

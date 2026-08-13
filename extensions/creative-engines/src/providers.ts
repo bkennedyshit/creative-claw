@@ -1,13 +1,13 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type { CodecConfig } from "./ffi/codec.js";
-import type { AudioEngineRuntime } from "./runtime/audio.js";
-import type { ImageEngineRuntime } from "./runtime/image.js";
-import type { VideoEngineRuntime } from "./runtime/video.js";
 import {
   createVideoUnderstandingProvider,
   type VideoUnderstandingPluginConfig,
 } from "./media/video-understanding.js";
+import type { AudioEngineRuntime } from "./runtime/audio.js";
+import type { ImageEngineRuntime } from "./runtime/image.js";
+import type { VideoEngineRuntime } from "./runtime/video.js";
 
 /**
  * Subset of the plugin API this module is allowed to touch. Kept as the
@@ -124,8 +124,7 @@ export function registerProviders(
     // narration instead of throwing during register().
     ...(typeof api.runtime?.mediaUnderstanding?.transcribeAudioFile === "function"
       ? {
-          transcribeAudio: (params) =>
-            api.runtime.mediaUnderstanding.transcribeAudioFile(params),
+          transcribeAudio: (params) => api.runtime.mediaUnderstanding.transcribeAudioFile(params),
         }
       : {}),
     logger: api.logger,

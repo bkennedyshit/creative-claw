@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 /**
  * Real neural ops end to end — REAL native engine, REAL ONNX Runtime, REAL
  * GPU broker. No mocks.
@@ -23,9 +26,6 @@
  * stronger assertion is only made on real input.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
 import { GpuBroker } from "../../../gpu-broker/src/broker.js";
 import {
   createGpuBrokerCoopHandle,
@@ -33,6 +33,7 @@ import {
   unpublishGpuBrokerHandle,
 } from "../../../gpu-broker/src/coop-handle.js";
 import { ImageEngineRuntime } from "../runtime/image.js";
+import { collectAcceleratorStatus } from "../surface.js";
 import { decodeImageRGBA } from "./codec.js";
 import { ONNX_OPS } from "./image-bindings.js";
 import {
@@ -42,20 +43,22 @@ import {
   describeCudaProviderDependencies,
   resolveBinaryPath,
 } from "./loader.js";
-import { collectAcceleratorStatus } from "../surface.js";
 
 const enginePath = resolveBinaryPath("omni_image_bridge");
 const ortPath = resolveBinaryPath("onnxruntime");
 
 /** Every distinct model the ONNX op catalog needs, resolved as the C++ host does. */
 function missingModels(): string[] {
-  if (!enginePath) return ["<engine library not found>"];
+  if (!enginePath) {
+    return ["<engine library not found>"];
+  }
   const modelsDir = join(dirname(enginePath), "models");
   const files = new Set([...ONNX_OPS.values()].map((spec) => spec.modelFile));
   return [...files].filter((file) => !existsSync(join(modelsDir, file)));
 }
 
-const MISSING = enginePath && ortPath ? missingModels() : ["<engine or onnxruntime sidecar not found>"];
+const MISSING =
+  enginePath && ortPath ? missingModels() : ["<engine or onnxruntime sidecar not found>"];
 const NEURAL_READY = MISSING.length === 0;
 
 if (!NEURAL_READY) {
@@ -65,7 +68,7 @@ if (!NEURAL_READY) {
 
 /** Optional real photograph for the stronger alpha assertions. */
 const FIXTURE = process.env.CREATIVE_ENGINES_NEURAL_FIXTURE;
-const HAVE_PHOTO = !!FIXTURE && existsSync(FIXTURE);
+const HAVE_PHOTO = Boolean(FIXTURE) && existsSync(FIXTURE);
 
 let tempDir: string;
 let syntheticInput: string;
@@ -73,7 +76,9 @@ let syntheticInput: string;
 beforeAll(async () => {
   tempDir = mkdtempSync(join(tmpdir(), "creative-neural-"));
   syntheticInput = join(tempDir, "synthetic-64x64.png");
-  if (!NEURAL_READY) return;
+  if (!NEURAL_READY) {
+    return;
+  }
   // A deterministic non-uniform image: a bright block on a dark field.
   const sharp = (await import("sharp")).default;
   const w = 64;
@@ -88,7 +93,9 @@ beforeAll(async () => {
       raw[i + 2] = inBlock ? 60 : 40;
     }
   }
-  await sharp(raw, { raw: { width: w, height: h, channels: 3 } }).png().toFile(syntheticInput);
+  await sharp(raw, { raw: { width: w, height: h, channels: 3 } })
+    .png()
+    .toFile(syntheticInput);
 });
 
 afterAll(() => {
@@ -113,9 +120,14 @@ async function comparePixels(inputPath: string, outputPath: string): Promise<Pix
   let alphaOpaque = 0;
   for (let i = 0; i < dst.data.length; i += 4) {
     const a = dst.data[i + 3]!;
-    if (a === 0) alphaZero++;
-    else if (a === 255) alphaOpaque++;
-    if (dst.data[i] !== 0 || dst.data[i + 1] !== 0 || dst.data[i + 2] !== 0 || a !== 0) nonZero++;
+    if (a === 0) {
+      alphaZero++;
+    } else if (a === 255) {
+      alphaOpaque++;
+    }
+    if (dst.data[i] !== 0 || dst.data[i + 1] !== 0 || dst.data[i + 2] !== 0 || a !== 0) {
+      nonZero++;
+    }
     if (
       i < src.data.length &&
       (dst.data[i] !== src.data[i] ||
@@ -140,7 +152,9 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
 
       const result = await runtime.apply(input, "remove_background", output, {});
       // eslint-disable-next-line no-console
-      console.log(`[remove_background] ok=${result.ok} ms=${result.duration_ms} reason=${result.reason ?? "-"}`);
+      console.log(
+        `[remove_background] ok=${result.ok} ms=${result.duration_ms} reason=${result.reason ?? "-"}`,
+      );
       expect(result.ok, result.reason).toBe(true);
       expect(existsSync(output)).toBe(true);
 
@@ -200,12 +214,18 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
             const r = decoded.data[i]!;
             const g = decoded.data[i + 1]!;
             const b = decoded.data[i + 2]!;
-            if (r !== g || g !== b) nonGray++;
-            if (y === decoded.height - 1 && (r !== 0 || g !== 0 || b !== 0)) lastRowNonZero++;
+            if (r !== g || g !== b) {
+              nonGray++;
+            }
+            if (y === decoded.height - 1 && (r !== 0 || g !== 0 || b !== 0)) {
+              lastRowNonZero++;
+            }
           }
         }
         // eslint-disable-next-line no-console
-        console.log(`[single-channel ${op}] nonGrayPixels=${nonGray} lastRowNonZero=${lastRowNonZero}/${decoded.width}`);
+        console.log(
+          `[single-channel ${op}] nonGrayPixels=${nonGray} lastRowNonZero=${lastRowNonZero}/${decoded.width}`,
+        );
         expect(nonGray).toBe(0);
         expect(lastRowNonZero).toBeGreaterThan(0);
       } finally {
@@ -231,7 +251,12 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
     await runtime.start();
     try {
       const cpuMark = broker.getHistory().length;
-      const cpu = await runtime.apply(syntheticInput, "grayscale", join(tempDir, "claim-gray.png"), {});
+      const cpu = await runtime.apply(
+        syntheticInput,
+        "grayscale",
+        join(tempDir, "claim-gray.png"),
+        {},
+      );
       expect(cpu.ok, cpu.reason).toBe(true);
       expect(broker.getHistory().length - cpuMark).toBe(0);
       expect(broker.getLease()).toBeNull();
@@ -240,15 +265,24 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
       let leaseOwner: string | undefined;
       const sampler = setInterval(() => {
         const lease = broker.getLease();
-        if (lease) leaseOwner = lease.owner;
+        if (lease) {
+          leaseOwner = lease.owner;
+        }
       }, 5);
-      const neural = await runtime.apply(syntheticInput, "remove_background", join(tempDir, "claim-rb.png"), {});
+      const neural = await runtime.apply(
+        syntheticInput,
+        "remove_background",
+        join(tempDir, "claim-rb.png"),
+        {},
+      );
       clearInterval(sampler);
 
       expect(neural.ok, neural.reason).toBe(true);
       const transitions = broker.getHistory().slice(neuralMark);
       // eslint-disable-next-line no-console
-      console.log(`[gpu-claim] transitions: ${transitions.map((t) => `${t.from}->${t.to}`).join(" | ")}`);
+      console.log(
+        `[gpu-claim] transitions: ${transitions.map((t) => `${t.from}->${t.to}`).join(" | ")}`,
+      );
       expect(transitions.map((t) => t.to)).toContain("draining");
       expect(transitions.map((t) => t.to)).toContain("user-claimed");
       expect(leaseOwner).toBe("creative-engines");
@@ -283,9 +317,13 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
 
       if (status.state === "searched") {
         // Every required library is accounted for, found or not.
-        expect(status.libraries.map((entry) => entry.library)).toEqual([...CUDA_PROVIDER_DEPENDENCIES]);
+        expect(status.libraries.map((entry) => entry.library)).toEqual([
+          ...CUDA_PROVIDER_DEPENDENCIES,
+        ]);
         for (const entry of status.libraries) {
-          if (entry.directory) expect(existsSync(join(entry.directory, entry.library))).toBe(true);
+          if (entry.directory) {
+            expect(existsSync(join(entry.directory, entry.library))).toBe(true);
+          }
         }
         expect(status.complete).toBe(status.missing.length === 0);
         // Only directories that actually hold a required library get added.
@@ -329,13 +367,20 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
       try {
         const status = cudaProviderDependencyStatus();
         expect(status.state).toBe("searched");
-        if (status.state !== "searched") return;
+        if (status.state !== "searched") {
+          return;
+        }
         expect(status.missing, describeCudaProviderDependencies()).toEqual([]);
         expect(status.complete).toBe(true);
         expect(cudaProviderDependenciesResolved()).toBe(true);
         expect(status.addedDirectories.length).toBeGreaterThan(0);
 
-        const result = await runtime.apply(syntheticInput, "remove_background", join(tempDir, "expect-cuda.png"), {});
+        const result = await runtime.apply(
+          syntheticInput,
+          "remove_background",
+          join(tempDir, "expect-cuda.png"),
+          {},
+        );
         expect(result.ok, result.reason).toBe(true);
       } finally {
         await runtime.shutdown();
@@ -347,14 +392,21 @@ describe.skipIf(!NEURAL_READY)("neural ops against the real ONNX Runtime", () =>
   it("shutdown returns promptly once ONNX Runtime is mapped, and reports the skipped unload", async () => {
     const runtime = new ImageEngineRuntime();
     await runtime.start();
-    const result = await runtime.apply(syntheticInput, "remove_background", join(tempDir, "shutdown-rb.png"), {});
+    const result = await runtime.apply(
+      syntheticInput,
+      "remove_background",
+      join(tempDir, "shutdown-rb.png"),
+      {},
+    );
     expect(result.ok, result.reason).toBe(true);
 
     const started = Date.now();
     await runtime.shutdown();
     const elapsed = Date.now() - started;
     // eslint-disable-next-line no-console
-    console.log(`[shutdown] returned in ${elapsed} ms; skipped=${runtime.unloadSkippedReason() ?? "-"}`);
+    console.log(
+      `[shutdown] returned in ${elapsed} ms; skipped=${runtime.unloadSkippedReason() ?? "-"}`,
+    );
     // The old path blocked indefinitely in FreeLibrary (killed at 120 s).
     expect(elapsed).toBeLessThan(5_000);
     expect(runtime.isAvailable()).toBe(false);

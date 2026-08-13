@@ -1,7 +1,7 @@
 import { Type } from "typebox";
+import { defineEngineTool, type EngineToolRegistrar } from "../define-tool.js";
 import type { EngineRuntime } from "../runtime/engine-runtime.js";
 import type { Step } from "../types.js";
-import { defineEngineTool, type EngineToolRegistrar } from "../define-tool.js";
 
 const ENGINE_NAMES = ["image", "audio", "video", "vector"] as const;
 
@@ -16,7 +16,9 @@ export function registerBatchTools(
 ): void {
   for (const name of ENGINE_NAMES) {
     const engine = engines[name];
-    if (!engine) continue;
+    if (!engine) {
+      continue;
+    }
 
     registerTool(
       defineEngineTool({
@@ -26,10 +28,16 @@ export function registerBatchTools(
           input_set: Type.Object(
             {
               glob: Type.Optional(Type.String({ description: "Glob pattern for input files" })),
-              folder: Type.Optional(Type.String({ description: "Folder path containing input files" })),
-              list: Type.Optional(Type.Array(Type.String(), { description: "Explicit list of file paths" })),
+              folder: Type.Optional(
+                Type.String({ description: "Folder path containing input files" }),
+              ),
+              list: Type.Optional(
+                Type.Array(Type.String(), { description: "Explicit list of file paths" }),
+              ),
             },
-            { description: "Input specification: glob pattern, folder path, or explicit file list" },
+            {
+              description: "Input specification: glob pattern, folder path, or explicit file list",
+            },
           ),
           pipeline: Type.Array(
             Type.Object({

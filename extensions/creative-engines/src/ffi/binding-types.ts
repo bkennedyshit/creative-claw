@@ -39,7 +39,14 @@ export interface FfiParam {
  * - `analysis`   — returns data, not media (histograms, detection).
  * - `special`    — stateful/handle/multi-buffer op not reachable via file apply.
  */
-export type OpKind = "filter" | "mask" | "resizing" | "generator" | "analysis" | "special" | "ffmpeg";
+export type OpKind =
+  | "filter"
+  | "mask"
+  | "resizing"
+  | "generator"
+  | "analysis"
+  | "special"
+  | "ffmpeg";
 
 /** A single compiled bridge function, described for generic dispatch. */
 export interface OpBinding {
@@ -158,12 +165,42 @@ export function cType(type: FfiType): string {
 
 /** Terse param constructors — used heavily by the binding catalogs. */
 export const P = {
-  int: (name: string, def: number, description?: string): FfiParam => ({ name, type: "int", default: def, description }),
-  float: (name: string, def: number, description?: string): FfiParam => ({ name, type: "float", default: def, description }),
-  double: (name: string, def: number, description?: string): FfiParam => ({ name, type: "double", default: def, description }),
-  u8: (name: string, def: number, description?: string): FfiParam => ({ name, type: "uint8", default: def, description }),
-  bool: (name: string, def: boolean, description?: string): FfiParam => ({ name, type: "bool", default: def, description }),
-  str: (name: string, def: string, description?: string): FfiParam => ({ name, type: "string", default: def, description }),
+  int: (name: string, def: number, description?: string): FfiParam => ({
+    name,
+    type: "int",
+    default: def,
+    description,
+  }),
+  float: (name: string, def: number, description?: string): FfiParam => ({
+    name,
+    type: "float",
+    default: def,
+    description,
+  }),
+  double: (name: string, def: number, description?: string): FfiParam => ({
+    name,
+    type: "double",
+    default: def,
+    description,
+  }),
+  u8: (name: string, def: number, description?: string): FfiParam => ({
+    name,
+    type: "uint8",
+    default: def,
+    description,
+  }),
+  bool: (name: string, def: boolean, description?: string): FfiParam => ({
+    name,
+    type: "bool",
+    default: def,
+    description,
+  }),
+  str: (name: string, def: string, description?: string): FfiParam => ({
+    name,
+    type: "string",
+    default: def,
+    description,
+  }),
 };
 
 export interface PrototypeOptions {
@@ -182,7 +219,11 @@ export interface PrototypeOptions {
  * This is exactly the string handed to `lib.func(...)`; generating it from
  * metadata keeps the ~200 bridge declarations correct and consistent.
  */
-export function buildPrototype(symbol: string, params: FfiParam[], opts: PrototypeOptions = {}): string {
+export function buildPrototype(
+  symbol: string,
+  params: FfiParam[],
+  opts: PrototypeOptions = {},
+): string {
   const leading = opts.leading ?? "uint8* pixels, int w, int h, int channels";
   const trailing = opts.trailing ?? "uint8* out";
   const restype = opts.restype ?? "void";

@@ -15,12 +15,13 @@ vi.mock("../ffi/codec.js", () => ({
   runCapture: vi.fn(async () => Buffer.alloc(0)),
 }));
 
-import { NativeDispatch } from "../ffi/dispatch.js";
-import { imageBindings } from "../ffi/image-bindings.js";
 import { audioBindings } from "../ffi/audio-bindings.js";
 import * as codec from "../ffi/codec.js";
+import { NativeDispatch } from "../ffi/dispatch.js";
+import { imageBindings } from "../ffi/image-bindings.js";
 import { loadEngine } from "../ffi/loader.js";
 import type { KoffiLib } from "../ffi/loader.js";
+import { EngineRuntime } from "./engine-runtime.js";
 
 /** A fake koffi library that records every bound prototype and every call. */
 function makeFakeLib(): { lib: KoffiLib; boundPrototypes: string[]; calls: unknown[][] } {
@@ -45,6 +46,72 @@ describe("loader (honest missing-binary handling)", () => {
     if (!result.available) {
       expect(result.reason).toMatch(/not found/i);
     }
+  });
+});
+
+describe("EngineRuntime — lazy start (works outside the gateway)", () => {
+  /**
+   * Uses a stem that cannot resolve on any machine, so this exercises the real
+   * start/shutdown wiring and the real loader without mapping a 300 MB bridge
+   * into the test worker.
+   */
+  class UnresolvableEngine extends EngineRuntime {
+    constructor() {
+      super({
+        engineName: "unresolvable",
+        bindings: { ...imageBindings, libraryStem: "definitely_missing_engine_bridge_xyz" },
+        config: { available: false },
+      });
+    }
+  }
+
+  it("loads on first apply() with no service start, rather than throwing", async () => {
+    const runtime = new UnresolvableEngine();
+    // Nothing started it — this is the standalone-CLI state that used to throw.
+    expect(runtime.isAvailable()).toBe(false);
+
+    const res = await runtime.apply("/in.png", "gaussian_blur", "/out.png", { sigma: 2 });
+
+    // A dispatcher now exists, so the failure is the honest "library missing"
+    // one from the loader, not "engine 'unresolvable' not started".
+    expect(res.ok).toBe(false);
+    expect(res.reason).toMatch(/unavailable/i);
+    expect(runtime.reason()).toMatch(/not found/i);
+  });
+
+  it("records the load reason after ensureStarted(), and is idempotent", async () => {
+    const runtime = new UnresolvableEngine();
+    expect(runtime.reason()).toBeUndefined(); // never attempted
+
+    await runtime.ensureStarted();
+    // Proof a load actually ran: only the loader produces this reason.
+    expect(runtime.reason()).toMatch(/not found/i);
+
+    const first = runtime.reason();
+    await runtime.ensureStarted();
+    expect(runtime.reason()).toBe(first);
+    expect(runtime.isAvailable()).toBe(false);
+  });
+
+  it("does NOT re-map the library after shutdown", async () => {
+    const runtime = new UnresolvableEngine();
+    await runtime.ensureStarted();
+    await runtime.shutdown();
+
+    // Re-mapping a bridge during teardown (ORT may still be mapped) trades a
+    // clean exit for a native crash, so ensureStarted must stay inert here.
+    await runtime.ensureStarted();
+    expect(runtime.reason()).toBe("engine shut down");
+    const apply = runtime.apply("/in.png", "gaussian_blur", "/out.png", {});
+    await expect(apply).rejects.toThrow(/not started/);
+  });
+
+  it("still allows an explicit restart via start()", async () => {
+    const runtime = new UnresolvableEngine();
+    await runtime.ensureStarted();
+    await runtime.shutdown();
+    await runtime.start();
+    expect(runtime.reason()).toMatch(/not found/i);
   });
 });
 
@@ -112,7 +179,11 @@ describe("NativeDispatch — binding + dispatch (image)", () => {
   it("routes mask filters to a single-channel mask encode", async () => {
     const { lib } = makeFakeLib();
     const dispatch = new NativeDispatch(imageBindings, lib, undefined, "/fake/lib.dll");
-    await dispatch.applyOp("/in.png", "magic_wand", "/mask.png", { start_x: 1, start_y: 2, tolerance: 40 });
+    await dispatch.applyOp("/in.png", "magic_wand", "/mask.png", {
+      start_x: 1,
+      start_y: 2,
+      tolerance: 40,
+    });
     expect(encodeMask).toHaveBeenCalledWith(expect.any(Buffer), 4, 8, "/mask.png");
     expect(encodeImage).not.toHaveBeenCalled();
   });
@@ -141,7 +212,10 @@ describe("NativeDispatch — binding + dispatch (audio)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    decodeAudio.mockResolvedValue({ samples: new Float32Array([0.1, 0.2, 0.3, 0.4]), sampleRate: 48000 });
+    decodeAudio.mockResolvedValue({
+      samples: new Float32Array([0.1, 0.2, 0.3, 0.4]),
+      sampleRate: 48000,
+    });
   });
 
   it("injects the real sample rate and calls an in-place op with no out buffer", async () => {
@@ -164,6 +238,8 @@ describe("NativeDispatch — binding + dispatch (audio)", () => {
     const { lib, boundPrototypes } = makeFakeLib();
     const dispatch = new NativeDispatch(audioBindings, lib, undefined, "/fake/audio.dll");
     await dispatch.applyOp("/in.wav", "pitch_shift", "/out.wav", { semitones: 3 });
-    expect(boundPrototypes[0]).toBe("void bridge_pitch_shift(float* samples, int n, float semitones, float* out)");
+    expect(boundPrototypes[0]).toBe(
+      "void bridge_pitch_shift(float* samples, int n, float semitones, float* out)",
+    );
   });
 });

@@ -14,7 +14,15 @@ type Tool = {
 function makeFakeEngine(name: string): EngineRuntime {
   const catalog: OpCatalog = {
     engine: name,
-    ops: [{ id: "gaussian_blur", name: "Gaussian Blur", description: "blur", params: [], supports_chain: true }],
+    ops: [
+      {
+        id: "gaussian_blur",
+        name: "Gaussian Blur",
+        description: "blur",
+        params: [],
+        supports_chain: true,
+      },
+    ],
   };
   return {
     engineName: name,
@@ -24,11 +32,23 @@ function makeFakeEngine(name: string): EngineRuntime {
     listOps: () => catalog,
     opInfo: (opId: string): OpInfo => {
       const info = catalog.ops.find((o) => o.id === opId);
-      if (!info) throw new Error(`unknown op '${opId}' for engine '${name}'`);
+      if (!info) {
+        throw new Error(`unknown op '${opId}' for engine '${name}'`);
+      }
       return info;
     },
-    apply: vi.fn(async (_input, _op, output) => ({ ok: true, output_path: output, engine_path: `/fake/${name}.dll`, duration_ms: 1 })),
-    applyChain: vi.fn(async (_input, _steps, output) => ({ ok: true, output_path: output, engine_path: `/fake/${name}.dll`, duration_ms: 1 })),
+    apply: vi.fn(async (_input, _op, output) => ({
+      ok: true,
+      output_path: output,
+      engine_path: `/fake/${name}.dll`,
+      duration_ms: 1,
+    })),
+    applyChain: vi.fn(async (_input, _steps, output) => ({
+      ok: true,
+      output_path: output,
+      engine_path: `/fake/${name}.dll`,
+      duration_ms: 1,
+    })),
   } as unknown as EngineRuntime;
 }
 
@@ -67,7 +87,10 @@ describe("registerOpsTools — execution", () => {
   it("list_ops reports engine_path alongside the catalog", async () => {
     const engines = { image: makeFakeEngine("image") };
     const tools = collectTools(engines);
-    const result = (await tools.get("image.list_ops")!.execute("call-1", {})).details as { engine: string; engine_path: string };
+    const result = (await tools.get("image.list_ops")!.execute("call-1", {})).details as {
+      engine: string;
+      engine_path: string;
+    };
     expect(result.engine).toBe("image");
     expect(result.engine_path).toBe("/fake/image.dll");
   });
@@ -75,14 +98,21 @@ describe("registerOpsTools — execution", () => {
   it("apply routes through the engine runtime", async () => {
     const engine = makeFakeEngine("image");
     const tools = collectTools({ image: engine });
-    await tools.get("image.apply")!.execute("call-1", { input: "/in.png", op: "gaussian_blur", output: "/out.png", params: { sigma: 2 } });
+    await tools.get("image.apply")!.execute("call-1", {
+      input: "/in.png",
+      op: "gaussian_blur",
+      output: "/out.png",
+      params: { sigma: 2 },
+    });
     expect(engine.apply).toHaveBeenCalledWith("/in.png", "gaussian_blur", "/out.png", { sigma: 2 });
   });
 
   it("op_info on an unknown op throws (nothing executed)", async () => {
     const engine = makeFakeEngine("image");
     const tools = collectTools({ image: engine });
-    await expect(tools.get("image.op_info")!.execute("call-1", { op_id: "does_not_exist" })).rejects.toThrow(/unknown op/);
+    await expect(
+      tools.get("image.op_info")!.execute("call-1", { op_id: "does_not_exist" }),
+    ).rejects.toThrow(/unknown op/);
     expect(engine.apply).not.toHaveBeenCalled();
   });
 });

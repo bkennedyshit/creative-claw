@@ -64,8 +64,17 @@ export class PipelineExecutor {
       return { node_id: node.id, status: "failed", error: `No engine available: ${node.engine}` };
     }
 
+    // Start on demand before the availability gate. `creative graph` runs in a
+    // standalone process where the gateway service never started the engines,
+    // and the gate below would otherwise fail every node on a healthy install.
+    await engine.ensureStarted();
+
     if (!engine.isAvailable()) {
-      return { node_id: node.id, status: "failed", error: `Engine '${node.engine}' is not available` };
+      return {
+        node_id: node.id,
+        status: "failed",
+        error: `Engine '${node.engine}' is not available`,
+      };
     }
 
     // Resolve input: from connection or explicit
@@ -85,7 +94,12 @@ export class PipelineExecutor {
         return { node_id: node.id, status: "failed", duration_ms: duration, error: result.reason };
       }
 
-      return { node_id: node.id, status: "ok", output_path: result.output_path, duration_ms: duration };
+      return {
+        node_id: node.id,
+        status: "ok",
+        output_path: result.output_path,
+        duration_ms: duration,
+      };
     } catch (err) {
       const duration = Date.now() - start;
       const message = err instanceof Error ? err.message : String(err);
@@ -93,7 +107,11 @@ export class PipelineExecutor {
     }
   }
 
-  private resolveInput(node: GraphNode, graph: Graph, outputMap: Map<string, string>): string | undefined {
+  private resolveInput(
+    node: GraphNode,
+    graph: Graph,
+    outputMap: Map<string, string>,
+  ): string | undefined {
     // Check connections for an input to this node
     const conn = graph.connections.find((c) => c.to_node === node.id);
     if (conn) {
@@ -126,7 +144,9 @@ export class PipelineExecutor {
 
     const queue: string[] = [];
     for (const [id, degree] of inDegree) {
-      if (degree === 0) queue.push(id);
+      if (degree === 0) {
+        queue.push(id);
+      }
     }
 
     const sorted: GraphNode[] = [];
@@ -134,12 +154,16 @@ export class PipelineExecutor {
     while (queue.length > 0) {
       const current = queue.shift()!;
       const node = nodeMap.get(current);
-      if (node) sorted.push(node);
+      if (node) {
+        sorted.push(node);
+      }
 
       for (const neighbor of adjacency.get(current) ?? []) {
         const newDegree = (inDegree.get(neighbor) ?? 1) - 1;
         inDegree.set(neighbor, newDegree);
-        if (newDegree === 0) queue.push(neighbor);
+        if (newDegree === 0) {
+          queue.push(neighbor);
+        }
       }
     }
 

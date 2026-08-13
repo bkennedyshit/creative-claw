@@ -56,7 +56,13 @@ export { imageBindings, ONNX_OPS } from "./ffi/image-bindings.js";
 export { audioBindings } from "./ffi/audio-bindings.js";
 export { videoBindings } from "./ffi/video-bindings.js";
 export { vectorBindings } from "./ffi/vector-bindings.js";
-export type { EngineBindingModule, OpBinding, OpKind, FfiParam, OnnxOpSpec } from "./ffi/binding-types.js";
+export type {
+  EngineBindingModule,
+  OpBinding,
+  OpKind,
+  FfiParam,
+  OnnxOpSpec,
+} from "./ffi/binding-types.js";
 
 export {
   createVideoUnderstandingProvider,
@@ -98,6 +104,13 @@ export type {
 } from "./surface.js";
 
 export { PipelineExecutor } from "./graph/executor.js";
-export type { GraphNode, Connection, Graph, GraphResult, NodeResult, NodeStatus } from "./graph/types.js";
+export type {
+  GraphNode,
+  Connection,
+  Graph,
+  GraphResult,
+  NodeResult,
+  NodeStatus,
+} from "./graph/types.js";
 
 export { withGpuClaim, withoutGpuClaim, setGpuBroker } from "./gpu-coop.js";

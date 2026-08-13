@@ -1,3 +1,7 @@
+import { execSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 /**
  * Resizing-op dimension contract — REAL native engine, no mocks.
  *
@@ -14,10 +18,6 @@
  * buffer cannot pass).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { execSync } from "node:child_process";
 import { ImageEngineRuntime } from "../runtime/image.js";
 import { VideoEngineRuntime } from "../runtime/video.js";
 import { decodeImageRGBA, decodeVideoRGBA, probeVideo } from "./codec.js";
@@ -55,12 +55,19 @@ afterAll(() => {
 
 function countNonZero(data: Buffer): number {
   let n = 0;
-  for (const byte of data) if (byte !== 0) n += 1;
+  for (const byte of data) {
+    if (byte !== 0) {
+      n += 1;
+    }
+  }
   return n;
 }
 
 /** Decode an output file and report its dimensions + non-zero byte count. */
-async function probe(label: string, path: string): Promise<{ width: number; height: number; nonZero: number; total: number }> {
+async function probe(
+  label: string,
+  path: string,
+): Promise<{ width: number; height: number; nonZero: number; total: number }> {
   const decoded = await decodeImageRGBA(path);
   const nonZero = countNonZero(decoded.data);
   // eslint-disable-next-line no-console
@@ -70,168 +77,180 @@ async function probe(label: string, path: string): Promise<{ width: number; heig
   return { width: decoded.width, height: decoded.height, nonZero, total: decoded.data.length };
 }
 
-describe.skipIf(!ENGINE_AVAILABLE)("image resizing ops — out buffer and C++ scalar args agree", () => {
-  it("scale with only new_width produces a real 16x4 image (missing dim defaults to the source dim)", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "scale-w-only.png");
-      const result = await runtime.apply(inputPng, "scale", output, { new_width: 16 });
-      // eslint-disable-next-line no-console
-      console.log(`[scale {new_width:16}] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      expect(result.ok, `scale failed: ${result.reason}`).toBe(true);
+describe.skipIf(!ENGINE_AVAILABLE)(
+  "image resizing ops — out buffer and C++ scalar args agree",
+  () => {
+    it("scale with only new_width produces a real 16x4 image (missing dim defaults to the source dim)", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "scale-w-only.png");
+        const result = await runtime.apply(inputPng, "scale", output, { new_width: 16 });
+        // eslint-disable-next-line no-console
+        console.log(`[scale {new_width:16}] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        expect(result.ok, `scale failed: ${result.reason}`).toBe(true);
 
-      const p = await probe("scale {new_width:16}", output);
-      expect(p.width).toBe(16);
-      expect(p.height).toBe(4); // source height carried through
-      expect(p.nonZero).toBeGreaterThan(0);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+        const p = await probe("scale {new_width:16}", output);
+        expect(p.width).toBe(16);
+        expect(p.height).toBe(4); // source height carried through
+        expect(p.nonZero).toBeGreaterThan(0);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
 
-  it("scale with only new_height produces a real 4x8 image", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "scale-h-only.png");
-      const result = await runtime.apply(inputPng, "scale", output, { new_height: 8 });
-      // eslint-disable-next-line no-console
-      console.log(`[scale {new_height:8}] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      expect(result.ok, `scale failed: ${result.reason}`).toBe(true);
+    it("scale with only new_height produces a real 4x8 image", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "scale-h-only.png");
+        const result = await runtime.apply(inputPng, "scale", output, { new_height: 8 });
+        // eslint-disable-next-line no-console
+        console.log(`[scale {new_height:8}] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        expect(result.ok, `scale failed: ${result.reason}`).toBe(true);
 
-      const p = await probe("scale {new_height:8}", output);
-      expect(p.width).toBe(4);
-      expect(p.height).toBe(8);
-      expect(p.nonZero).toBeGreaterThan(0);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+        const p = await probe("scale {new_height:8}", output);
+        expect(p.width).toBe(4);
+        expect(p.height).toBe(8);
+        expect(p.nonZero).toBeGreaterThan(0);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
 
-  it("scale with an explicit zero dimension is rejected instead of writing a blank file", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "scale-zero.png");
-      const result = await runtime.apply(inputPng, "scale", output, { new_width: 0, new_height: 8 });
-      // eslint-disable-next-line no-console
-      console.log(`[scale {new_width:0}] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      expect(result.ok).toBe(false);
-      expect(result.reason).toMatch(/new_width/);
-      expect(existsSync(output)).toBe(false);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+    it("scale with an explicit zero dimension is rejected instead of writing a blank file", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "scale-zero.png");
+        const result = await runtime.apply(inputPng, "scale", output, {
+          new_width: 0,
+          new_height: 8,
+        });
+        // eslint-disable-next-line no-console
+        console.log(`[scale {new_width:0}] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        expect(result.ok).toBe(false);
+        expect(result.reason).toMatch(/new_width/);
+        expect(existsSync(output)).toBe(false);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
 
-  it("crop without a rectangle size is rejected with a reason naming the missing params", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "crop-no-size.png");
-      const result = await runtime.apply(inputPng, "crop", output, { crop_x: 0, crop_y: 0 });
-      // eslint-disable-next-line no-console
-      console.log(`[crop {crop_x:0,crop_y:0}] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      if (existsSync(output)) await probe("crop {crop_x:0,crop_y:0}", output);
-      expect(result.ok).toBe(false);
-      expect(result.reason).toMatch(/crop_width/);
-      expect(existsSync(output)).toBe(false);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+    it("crop without a rectangle size is rejected with a reason naming the missing params", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "crop-no-size.png");
+        const result = await runtime.apply(inputPng, "crop", output, { crop_x: 0, crop_y: 0 });
+        // eslint-disable-next-line no-console
+        console.log(`[crop {crop_x:0,crop_y:0}] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        if (existsSync(output)) {
+          await probe("crop {crop_x:0,crop_y:0}", output);
+        }
+        expect(result.ok).toBe(false);
+        expect(result.reason).toMatch(/crop_width/);
+        expect(existsSync(output)).toBe(false);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
 
-  it("crop with a full rectangle produces a real 2x2 image", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "crop-2x2.png");
-      const result = await runtime.apply(inputPng, "crop", output, {
-        crop_x: 1,
-        crop_y: 1,
-        crop_width: 2,
-        crop_height: 2,
-      });
-      // eslint-disable-next-line no-console
-      console.log(`[crop 1,1,2x2] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      expect(result.ok, `crop failed: ${result.reason}`).toBe(true);
+    it("crop with a full rectangle produces a real 2x2 image", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "crop-2x2.png");
+        const result = await runtime.apply(inputPng, "crop", output, {
+          crop_x: 1,
+          crop_y: 1,
+          crop_width: 2,
+          crop_height: 2,
+        });
+        // eslint-disable-next-line no-console
+        console.log(`[crop 1,1,2x2] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        expect(result.ok, `crop failed: ${result.reason}`).toBe(true);
 
-      const p = await probe("crop 1,1,2x2", output);
-      expect(p.width).toBe(2);
-      expect(p.height).toBe(2);
-      expect(p.nonZero).toBeGreaterThan(0);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+        const p = await probe("crop 1,1,2x2", output);
+        expect(p.width).toBe(2);
+        expect(p.height).toBe(2);
+        expect(p.nonZero).toBeGreaterThan(0);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
 
-  it("crop outside the source bounds is rejected instead of reading past the input buffer", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "crop-oob.png");
-      const result = await runtime.apply(inputPng, "crop", output, {
-        crop_x: 2,
-        crop_y: 2,
-        crop_width: 4,
-        crop_height: 4,
-      });
-      // eslint-disable-next-line no-console
-      console.log(`[crop 2,2,4x4 (OOB)] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      if (existsSync(output)) await probe("crop 2,2,4x4 (OOB)", output);
-      expect(result.ok).toBe(false);
-      expect(result.reason).toMatch(/bounds/i);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+    it("crop outside the source bounds is rejected instead of reading past the input buffer", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "crop-oob.png");
+        const result = await runtime.apply(inputPng, "crop", output, {
+          crop_x: 2,
+          crop_y: 2,
+          crop_width: 4,
+          crop_height: 4,
+        });
+        // eslint-disable-next-line no-console
+        console.log(`[crop 2,2,4x4 (OOB)] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        if (existsSync(output)) {
+          await probe("crop 2,2,4x4 (OOB)", output);
+        }
+        expect(result.ok).toBe(false);
+        expect(result.reason).toMatch(/bounds/i);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
 
-  it("seam_carving with only new_width carves for real (same source fallback as scale)", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "seam-3x4.png");
-      const result = await runtime.apply(inputPng, "seam_carving", output, { new_width: 3 });
-      // eslint-disable-next-line no-console
-      console.log(`[seam_carving {new_width:3}] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      expect(result.ok, `seam_carving failed: ${result.reason}`).toBe(true);
+    it("seam_carving with only new_width carves for real (same source fallback as scale)", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "seam-3x4.png");
+        const result = await runtime.apply(inputPng, "seam_carving", output, { new_width: 3 });
+        // eslint-disable-next-line no-console
+        console.log(`[seam_carving {new_width:3}] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        expect(result.ok, `seam_carving failed: ${result.reason}`).toBe(true);
 
-      const p = await probe("seam_carving {new_width:3}", output);
-      expect(p.width).toBe(3);
-      expect(p.height).toBe(4);
-      expect(p.nonZero).toBeGreaterThan(0);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+        const p = await probe("seam_carving {new_width:3}", output);
+        expect(p.width).toBe(3);
+        expect(p.height).toBe(4);
+        expect(p.nonZero).toBeGreaterThan(0);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
 
-  it("a chained resizing step with one dimension still resizes for real", async () => {
-    const runtime = new ImageEngineRuntime();
-    await runtime.start();
-    try {
-      const output = join(tempDir, "chain-partial-scale.png");
-      const result = await runtime.applyChain(
-        inputPng,
-        [
-          { op: "grayscale", params: {} },
-          { op: "scale", params: { new_width: 12 } },
-        ],
-        output,
-      );
-      // eslint-disable-next-line no-console
-      console.log(`[chain grayscale→scale{new_width:12}] ok=${result.ok} reason=${result.reason ?? "-"}`);
-      expect(result.ok, `chain failed: ${result.reason}`).toBe(true);
+    it("a chained resizing step with one dimension still resizes for real", async () => {
+      const runtime = new ImageEngineRuntime();
+      await runtime.start();
+      try {
+        const output = join(tempDir, "chain-partial-scale.png");
+        const result = await runtime.applyChain(
+          inputPng,
+          [
+            { op: "grayscale", params: {} },
+            { op: "scale", params: { new_width: 12 } },
+          ],
+          output,
+        );
+        // eslint-disable-next-line no-console
+        console.log(
+          `[chain grayscale→scale{new_width:12}] ok=${result.ok} reason=${result.reason ?? "-"}`,
+        );
+        expect(result.ok, `chain failed: ${result.reason}`).toBe(true);
 
-      const p = await probe("chain grayscale→scale{new_width:12}", output);
-      expect(p.width).toBe(12);
-      expect(p.height).toBe(4);
-      expect(p.nonZero).toBeGreaterThan(0);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
-});
+        const p = await probe("chain grayscale→scale{new_width:12}", output);
+        expect(p.width).toBe(12);
+        expect(p.height).toBe(4);
+        expect(p.nonZero).toBeGreaterThan(0);
+      } finally {
+        await runtime.shutdown();
+      }
+    });
+  },
+);
 
 /**
  * The video engine has the same class of params-sized ops
@@ -260,7 +279,9 @@ describe.skipIf(!VIDEO_ENGINE_AVAILABLE || !FFMPEG_AVAILABLE)(
         const output = join(tempDir, "video-resize-w-only.mp4");
         const result = await runtime.apply(inputMp4, "video_transform_resize", output, { dw: 16 });
         // eslint-disable-next-line no-console
-        console.log(`[video_transform_resize {dw:16}] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        console.log(
+          `[video_transform_resize {dw:16}] ok=${result.ok} reason=${result.reason ?? "-"}`,
+        );
         expect(result.ok, `video resize failed: ${result.reason}`).toBe(true);
 
         const info = await probeVideo(output, undefined);
@@ -283,9 +304,14 @@ describe.skipIf(!VIDEO_ENGINE_AVAILABLE || !FFMPEG_AVAILABLE)(
       await runtime.start();
       try {
         const output = join(tempDir, "video-crop-no-size.mp4");
-        const result = await runtime.apply(inputMp4, "video_transform_crop", output, { x: 0, y: 0 });
+        const result = await runtime.apply(inputMp4, "video_transform_crop", output, {
+          x: 0,
+          y: 0,
+        });
         // eslint-disable-next-line no-console
-        console.log(`[video_transform_crop {x:0,y:0}] ok=${result.ok} reason=${result.reason ?? "-"}`);
+        console.log(
+          `[video_transform_crop {x:0,y:0}] ok=${result.ok} reason=${result.reason ?? "-"}`,
+        );
         expect(result.ok).toBe(false);
         expect(result.reason).toMatch(/'cw'/);
         expect(existsSync(output)).toBe(false);

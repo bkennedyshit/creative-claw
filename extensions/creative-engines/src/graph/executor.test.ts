@@ -9,11 +9,18 @@ function makeFakeEngine(name: string): EngineRuntime {
   return {
     engineName: name,
     binaryPath: `/fake/${name}.dll`,
+    ensureStarted: async () => {},
     isAvailable: () => true,
     reason: () => undefined,
     apply: async (_input: string, op: string, output: string): Promise<ApplyResult> => {
       const ok = !op.startsWith("fail");
-      return { ok, output_path: output, engine_path: `/fake/${name}.dll`, duration_ms: 1, reason: ok ? undefined : "op failed" };
+      return {
+        ok,
+        output_path: output,
+        engine_path: `/fake/${name}.dll`,
+        duration_ms: 1,
+        reason: ok ? undefined : "op failed",
+      };
     },
   } as unknown as EngineRuntime;
 }
@@ -25,7 +32,14 @@ describe("PipelineExecutor — real op wiring", () => {
     const graph: Graph = {
       id: "g1",
       nodes: [
-        { id: "a", engine: "image", op: "gaussian_blur", params: {}, input: "/in.png", output: "/a.png" },
+        {
+          id: "a",
+          engine: "image",
+          op: "gaussian_blur",
+          params: {},
+          input: "/in.png",
+          output: "/a.png",
+        },
         { id: "b", engine: "image", op: "scale", params: {}, output: "/b.png" },
       ],
       connections: [{ from_node: "a", from_output: "out", to_node: "b", to_input: "in" }],

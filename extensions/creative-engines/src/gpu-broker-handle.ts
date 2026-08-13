@@ -35,7 +35,9 @@ export type GpuBrokerHandle = {
  */
 export function readGpuBrokerHandle(): GpuBrokerHandle | undefined {
   const value = (globalThis as unknown as Record<string, unknown>)[GPU_BROKER_HANDLE_KEY];
-  if (typeof value !== "object" || value === null) return undefined;
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
   const candidate = value as Partial<GpuBrokerHandle>;
   if (typeof candidate.release !== "function" || typeof candidate.reclaim !== "function") {
     return undefined;

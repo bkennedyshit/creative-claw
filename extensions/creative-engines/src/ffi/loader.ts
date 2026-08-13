@@ -11,10 +11,10 @@
  * gracefully instead of taking down the plugin.
  */
 
-import koffi from "koffi";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import koffi from "koffi";
 
 /** A loaded koffi library handle. `func(prototype)` binds a C export. */
 export interface KoffiLib {
@@ -27,7 +27,7 @@ export type LoadResult =
   | { available: true; lib: KoffiLib; path: string }
   | { available: false; reason: string; path?: string };
 
-const _here = dirname(fileURLToPath(import.meta.url));
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Directory that ships the bundled engine binaries. Resolved relative to the
@@ -36,7 +36,7 @@ const _here = dirname(fileURLToPath(import.meta.url));
  */
 function bundledBinariesDir(): string {
   // src/ffi/loader.ts -> extension root is two levels up from src/ffi.
-  return resolve(_here, "..", "..", "binaries");
+  return resolve(moduleDir, "..", "..", "binaries");
 }
 
 /** True when `path` exists and is a directory. */
@@ -80,7 +80,9 @@ export function resolveBinaryPath(stem: string, configuredPath?: string): string
     if (isDirectory(configuredPath)) {
       for (const name of candidateFileNames(stem)) {
         const candidate = join(configuredPath, name);
-        if (existsSync(candidate)) return candidate;
+        if (existsSync(candidate)) {
+          return candidate;
+        }
       }
     } else if (existsSync(configuredPath)) {
       return configuredPath;
@@ -89,7 +91,9 @@ export function resolveBinaryPath(stem: string, configuredPath?: string): string
   const dir = bundledBinariesDir();
   for (const name of candidateFileNames(stem)) {
     const candidate = join(dir, name);
-    if (existsSync(candidate)) return candidate;
+    if (existsSync(candidate)) {
+      return candidate;
+    }
   }
   return undefined;
 }
@@ -221,19 +225,27 @@ function uniqueExistingDirs(candidates: Iterable<string | undefined>): string[] 
   const seen = new Set<string>();
   const dirs: string[] = [];
   for (const candidate of candidates) {
-    if (!candidate) continue;
+    if (!candidate) {
+      continue;
+    }
     const abs = resolve(candidate);
     const key = abs.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
-    if (isDirectory(abs)) dirs.push(abs);
+    if (isDirectory(abs)) {
+      dirs.push(abs);
+    }
   }
   return dirs;
 }
 
 /** Split a `PATH`-style list, dropping empties and stray quotes. */
 function splitPathList(value: string | undefined): string[] {
-  if (!value) return [];
+  if (!value) {
+    return [];
+  }
   return value
     .split(delimiter)
     .map((entry) => entry.trim().replace(/^"|"$/gu, ""))
@@ -250,12 +262,16 @@ function splitPathList(value: string | undefined): string[] {
 function pythonSitePackagesRoots(): string[] {
   const roots: string[] = [];
   const push = (root: string | undefined): void => {
-    if (root) roots.push(root);
+    if (root) {
+      roots.push(root);
+    }
   };
 
   // An active venv/conda env wins: it is the interpreter the user is using.
   push(process.env.VIRTUAL_ENV ? join(process.env.VIRTUAL_ENV, "Lib", "site-packages") : undefined);
-  push(process.env.CONDA_PREFIX ? join(process.env.CONDA_PREFIX, "Lib", "site-packages") : undefined);
+  push(
+    process.env.CONDA_PREFIX ? join(process.env.CONDA_PREFIX, "Lib", "site-packages") : undefined,
+  );
   push(process.env.PYTHONHOME ? join(process.env.PYTHONHOME, "Lib", "site-packages") : undefined);
 
   // Whatever interpreter is on PATH, found without spawning it: a Python
@@ -263,24 +279,34 @@ function pythonSitePackagesRoots(): string[] {
   // entry `py -m pip`/the installer adds.
   for (const entry of splitPathList(process.env.PATH)) {
     const dir = entry.replace(/[\\/]+$/u, "");
-    if (!dir) continue;
+    if (!dir) {
+      continue;
+    }
     if (/[\\/]scripts$/iu.test(dir)) {
       push(join(dirname(dir), "Lib", "site-packages"));
       continue;
     }
-    if (existsSync(join(dir, "python.exe"))) push(join(dir, "Lib", "site-packages"));
+    if (existsSync(join(dir, "python.exe"))) {
+      push(join(dir, "Lib", "site-packages"));
+    }
   }
 
   // Default per-user installs (`%LOCALAPPDATA%\Programs\Python\Python3xx`) and
   // the per-user site dir (`%APPDATA%\Python\Python3xx\site-packages`). Newest
   // version first, which is where a freshly `pip install`ed wheel lands.
-  const localPrograms = process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "Python") : undefined;
+  const localPrograms = process.env.LOCALAPPDATA
+    ? join(process.env.LOCALAPPDATA, "Programs", "Python")
+    : undefined;
   if (localPrograms) {
-    for (const dir of subdirectories(localPrograms).sort().reverse()) push(join(dir, "Lib", "site-packages"));
+    for (const dir of subdirectories(localPrograms).toSorted().toReversed()) {
+      push(join(dir, "Lib", "site-packages"));
+    }
   }
   const roamingPython = process.env.APPDATA ? join(process.env.APPDATA, "Python") : undefined;
   if (roamingPython) {
-    for (const dir of subdirectories(roamingPython).sort().reverse()) push(join(dir, "site-packages"));
+    for (const dir of subdirectories(roamingPython).toSorted().toReversed()) {
+      push(join(dir, "site-packages"));
+    }
   }
   return roots;
 }
@@ -289,13 +315,21 @@ function pythonSitePackagesRoots(): string[] {
 function ollamaRoots(): string[] {
   const roots: string[] = [];
   const push = (root: string | undefined): void => {
-    if (root) roots.push(root);
+    if (root) {
+      roots.push(root);
+    }
   };
   push(process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "Ollama") : undefined);
   push(process.env.ProgramFiles ? join(process.env.ProgramFiles, "Ollama") : undefined);
-  push(process.env["ProgramFiles(x86)"] ? join(process.env["ProgramFiles(x86)"]!, "Ollama") : undefined);
+  push(
+    process.env["ProgramFiles(x86)"]
+      ? join(process.env["ProgramFiles(x86)"]!, "Ollama")
+      : undefined,
+  );
   for (const entry of splitPathList(process.env.PATH)) {
-    if (existsSync(join(entry, "ollama.exe"))) push(entry);
+    if (existsSync(join(entry, "ollama.exe"))) {
+      push(entry);
+    }
   }
   return roots;
 }
@@ -311,21 +345,27 @@ function ollamaRoots(): string[] {
 function cuda12ToolkitBins(): string[] {
   const bins: string[] = [];
   for (const [name, value] of Object.entries(process.env)) {
-    if (/^CUDA_PATH_V12(_\d+)?$/iu.test(name) && value) bins.push(join(value, "bin"));
+    if (/^CUDA_PATH_V12(_\d+)?$/iu.test(name) && value) {
+      bins.push(join(value, "bin"));
+    }
   }
   const programFiles = process.env.ProgramFiles;
   if (programFiles) {
     const toolkitRoot = join(programFiles, "NVIDIA GPU Computing Toolkit", "CUDA");
-    for (const dir of subdirectories(toolkitRoot).sort().reverse()) {
-      if (/[\\/]v12(\.|$)/iu.test(dir)) bins.push(join(dir, "bin"));
+    for (const dir of subdirectories(toolkitRoot).toSorted().toReversed()) {
+      if (/[\\/]v12(\.|$)/iu.test(dir)) {
+        bins.push(join(dir, "bin"));
+      }
     }
     // Standalone cuDNN 9 installer: `...\NVIDIA\CUDNN\v9.x\bin` and a
     // per-CUDA-major subdirectory beneath it.
     const cudnnRoot = join(programFiles, "NVIDIA", "CUDNN");
-    for (const dir of subdirectories(cudnnRoot).sort().reverse()) {
+    for (const dir of subdirectories(cudnnRoot).toSorted().toReversed()) {
       const bin = join(dir, "bin");
       bins.push(bin);
-      for (const sub of subdirectories(bin).sort().reverse()) bins.push(sub);
+      for (const sub of subdirectories(bin).toSorted().toReversed()) {
+        bins.push(sub);
+      }
     }
   }
   return bins;
@@ -347,16 +387,26 @@ function cuda12ToolkitBins(): string[] {
  */
 export function cudaCandidateDirectories(config?: CudaDiscoveryConfig): string[] {
   const candidates: (string | undefined)[] = [];
-  for (const path of config?.searchPaths ?? []) candidates.push(path);
-  for (const path of splitPathList(process.env[CUDA_SEARCH_PATHS_ENV])) candidates.push(path);
+  for (const path of config?.searchPaths ?? []) {
+    candidates.push(path);
+  }
+  for (const path of splitPathList(process.env[CUDA_SEARCH_PATHS_ENV])) {
+    candidates.push(path);
+  }
   candidates.push(bundledBinariesDir());
-  for (const root of ollamaRoots()) candidates.push(join(root, "lib", "ollama", "cuda_v12"));
+  for (const root of ollamaRoots()) {
+    candidates.push(join(root, "lib", "ollama", "cuda_v12"));
+  }
   for (const site of pythonSitePackagesRoots()) {
-    for (const pkg of subdirectories(join(site, "nvidia"))) candidates.push(join(pkg, "bin"));
+    for (const pkg of subdirectories(join(site, "nvidia"))) {
+      candidates.push(join(pkg, "bin"));
+    }
     candidates.push(join(site, "torch", "lib"));
     candidates.push(join(site, "ctranslate2"));
   }
-  for (const bin of cuda12ToolkitBins()) candidates.push(bin);
+  for (const bin of cuda12ToolkitBins()) {
+    candidates.push(bin);
+  }
   return uniqueExistingDirs(candidates);
 }
 
@@ -396,7 +446,9 @@ function publishProcessSearchPath(value: string): string | undefined {
 /** True when `dir` is already on `process.env.PATH` (case-insensitive). */
 function alreadyOnPath(dir: string): boolean {
   const target = dir.toLowerCase().replace(/[\\/]+$/u, "");
-  return splitPathList(process.env.PATH).some((entry) => entry.toLowerCase().replace(/[\\/]+$/u, "") === target);
+  return splitPathList(process.env.PATH).some(
+    (entry) => entry.toLowerCase().replace(/[\\/]+$/u, "") === target,
+  );
 }
 
 /**
@@ -405,7 +457,9 @@ function alreadyOnPath(dir: string): boolean {
  * always matches the state actually applied to the process.
  */
 export function configureCudaProviderDependencies(config: CudaDiscoveryConfig | undefined): void {
-  if (cudaStatus) return;
+  if (cudaStatus) {
+    return;
+  }
   cudaConfig = config;
 }
 
@@ -421,7 +475,9 @@ export function configureCudaProviderDependencies(config: CudaDiscoveryConfig | 
  * leaves the CPU provider path exactly as it was.
  */
 export function ensureCudaProviderDependencies(config?: CudaDiscoveryConfig): CudaDependencyStatus {
-  if (cudaStatus) return cudaStatus;
+  if (cudaStatus) {
+    return cudaStatus;
+  }
   const effective = config ?? cudaConfig;
 
   if (effective?.enabled === false) {
@@ -466,7 +522,9 @@ export function ensureCudaProviderDependencies(config?: CudaDiscoveryConfig): Cu
     const directory = searchedDirectories.find((dir) => existsSync(join(dir, library)));
     if (directory) {
       libraries.push({ library, directory });
-      if (!wanted.includes(directory)) wanted.push(directory);
+      if (!wanted.includes(directory)) {
+        wanted.push(directory);
+      }
     } else {
       libraries.push({ library });
       missing.push(library);
@@ -475,7 +533,9 @@ export function ensureCudaProviderDependencies(config?: CudaDiscoveryConfig): Cu
 
   const addedDirectories: string[] = [];
   for (const dir of wanted) {
-    if (alreadyOnPath(dir)) continue;
+    if (alreadyOnPath(dir)) {
+      continue;
+    }
     addedDirectories.push(dir);
   }
   let searchPathError: string | undefined;
@@ -559,10 +619,12 @@ export function describeCudaProviderDependencies(): string {
  * leaving a truncated PATH in the real environment would sabotage anything that
  * spawns a child process later in the same worker (ffmpeg, ffprobe, python).
  */
-export function __resetCudaProviderDependenciesForTests(): void {
+export function resetCudaProviderDependenciesForTests(): void {
   cudaStatus = undefined;
   cudaConfig = undefined;
-  if (process.platform === "win32") publishProcessSearchPath(process.env.PATH ?? "");
+  if (process.platform === "win32") {
+    publishProcessSearchPath(process.env.PATH ?? "");
+  }
 }
 
 // ── ONNX Runtime sidecar preload ────────────────────────────────────────────
@@ -636,7 +698,9 @@ function sidecarDir(configuredPath?: string): string {
  * every later call returns the memoized status. Never throws.
  */
 export function preloadOnnxRuntime(configuredPath?: string): OrtSidecarStatus {
-  if (ortStatus) return ortStatus;
+  if (ortStatus) {
+    return ortStatus;
+  }
 
   // Make the CUDA 12 / cuDNN 9 dependencies of `onnxruntime_providers_cuda.dll`
   // resolvable BEFORE ORT is mapped, so the provider's imports can be satisfied
@@ -680,7 +744,9 @@ export function preloadOnnxRuntime(configuredPath?: string): OrtSidecarStatus {
     return ortStatus;
   }
 
-  ortStatus = providerPath ? { state: "loaded", path: corePath, providerPath } : { state: "loaded", path: corePath };
+  ortStatus = providerPath
+    ? { state: "loaded", path: corePath, providerPath }
+    : { state: "loaded", path: corePath };
   return ortStatus;
 }
 
@@ -700,15 +766,13 @@ export function isOnnxRuntimeReady(): boolean {
  */
 export function onnxUnavailableReason(): string | undefined {
   const status = ortSidecarStatus();
-  if (status.state === "loaded") return undefined;
-  if (status.state === "unavailable") return status.reason;
+  if (status.state === "loaded") {
+    return undefined;
+  }
+  if (status.state === "unavailable") {
+    return status.reason;
+  }
   return "ONNX Runtime sidecar preload has not run (engine not started); neural/ONNX ops are disabled.";
-}
-
-/** Test-only: forget the memoized status so a fresh preload can be exercised. */
-export function __resetOnnxRuntimePreloadForTests(): void {
-  ortStatus = undefined;
-  ortHandles.length = 0;
 }
 
 /**
@@ -758,7 +822,9 @@ export function loadEngine(stem: string, configuredPath?: string): LoadResult {
  * Returns the reason the unload was skipped, or undefined when it ran.
  */
 export function unloadEngine(lib: KoffiLib | undefined): string | undefined {
-  if (!lib) return undefined;
+  if (!lib) {
+    return undefined;
+  }
   if (isOnnxRuntimeReady()) {
     return "native unload skipped: ONNX Runtime is mapped in this process and FreeLibrary/dlclose during its teardown deadlocks the shutdown path";
   }

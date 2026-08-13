@@ -1,3 +1,4 @@
+import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
 // Shared helper that builds conforming OpenClaw agent tools for the creative
 // engine surfaces. It adapts the engines' friendly `(args) => result` handlers
 // into the real `AgentTool` contract: a typebox parameter schema, a UI label,
@@ -5,7 +6,6 @@
 // (`{ content: [{ type: "text", text }], details }`). Keeping this in one place
 // avoids repeating the result-envelope boilerplate across every tool file.
 import type { TSchema } from "typebox";
-import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
 
 /** Registrar seam matching `api.registerTool` for a single tool. */
 export type EngineToolRegistrar = (tool: AnyAgentTool) => void;

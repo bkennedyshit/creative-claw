@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
+import type { EngineBindingModule } from "../ffi/binding-types.js";
 import { EngineRuntime } from "../runtime/engine-runtime.js";
 import type { ApplyResult, Step } from "../types.js";
-import type { EngineBindingModule } from "../ffi/binding-types.js";
 import { registerBatchTools } from "./batch.js";
 
 type ToolResult = { content: Array<{ type: string; text: string }>; details: unknown };
@@ -18,11 +18,21 @@ type Tool = {
  */
 class TestEngine extends EngineRuntime {
   constructor() {
-    super({ engineName: "image", bindings: {} as unknown as EngineBindingModule, config: { available: false } });
+    super({
+      engineName: "image",
+      bindings: {} as unknown as EngineBindingModule,
+      config: { available: false },
+    });
   }
   override async applyChain(input: string, _steps: Step[], output: string): Promise<ApplyResult> {
     const ok = !input.includes("fail");
-    return { ok, output_path: output, engine_path: "/fake/image.dll", duration_ms: 1, reason: ok ? undefined : "boom" };
+    return {
+      ok,
+      output_path: output,
+      engine_path: "/fake/image.dll",
+      duration_ms: 1,
+      reason: ok ? undefined : "boom",
+    };
   }
 }
 
@@ -46,7 +56,8 @@ describe("EngineRuntime.batch — failure isolation", () => {
 
   it("is idempotent across re-runs (same inputs → same per-item outcomes)", async () => {
     const engine = new TestEngine();
-    const run = () => engine.batch({ list: ["/a.png", "/fail.png"] }, [{ op: "x", params: {} }], "/out");
+    const run = () =>
+      engine.batch({ list: ["/a.png", "/fail.png"] }, [{ op: "x", params: {} }], "/out");
     const first = await run();
     const second = await run();
     expect(first.items.map((i) => i.ok)).toEqual(second.items.map((i) => i.ok));
@@ -64,13 +75,23 @@ describe("registerBatchTools — tool wiring", () => {
       video: engine,
       vector: engine,
     });
-    expect([...tools.keys()].sort()).toEqual(["audio.batch", "image.batch", "vector.batch", "video.batch"]);
+    expect([...tools.keys()].toSorted()).toEqual([
+      "audio.batch",
+      "image.batch",
+      "vector.batch",
+      "video.batch",
+    ]);
 
-    const result = (await tools.get("image.batch")!.execute("call-1", {
-      input_set: { list: ["/a.png", "/fail.png"] },
-      pipeline: [{ op: "x", params: {} }],
-      output_dir: "/out",
-    })).details as { summary: { total: number; succeeded: number; failed: number }; items: unknown[] };
+    const result = (
+      await tools.get("image.batch")!.execute("call-1", {
+        input_set: { list: ["/a.png", "/fail.png"] },
+        pipeline: [{ op: "x", params: {} }],
+        output_dir: "/out",
+      })
+    ).details as {
+      summary: { total: number; succeeded: number; failed: number };
+      items: unknown[];
+    };
 
     expect(result.summary).toMatchObject({ total: 2, succeeded: 1, failed: 1 });
     expect(result.items).toHaveLength(2);

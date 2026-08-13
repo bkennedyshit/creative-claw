@@ -1,6 +1,6 @@
 import { Type } from "typebox";
-import type { EngineRuntime } from "../runtime/engine-runtime.js";
 import { defineEngineTool, type EngineToolRegistrar } from "../define-tool.js";
+import type { EngineRuntime } from "../runtime/engine-runtime.js";
 
 const ENGINE_NAMES = ["image", "audio", "video", "vector"] as const;
 
@@ -14,7 +14,9 @@ export function registerOpsTools(
 ): void {
   for (const name of ENGINE_NAMES) {
     const engine = engines[name];
-    if (!engine) continue;
+    if (!engine) {
+      continue;
+    }
 
     registerTool(
       defineEngineTool({
@@ -50,7 +52,9 @@ export function registerOpsTools(
           input: Type.String({ description: "Input file path" }),
           op: Type.String({ description: "Operation id to apply" }),
           output: Type.String({ description: "Output file path" }),
-          params: Type.Optional(Type.Record(Type.String(), Type.Unknown(), { description: "Operation parameters" })),
+          params: Type.Optional(
+            Type.Record(Type.String(), Type.Unknown(), { description: "Operation parameters" }),
+          ),
         }),
         run(args) {
           return engine.apply(

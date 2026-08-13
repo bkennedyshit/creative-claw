@@ -1,10 +1,18 @@
 import { readdir } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import type { ApplyResult, BatchItemResult, EngineConfig, OpCatalog, OpInfo, RunManifest, Step } from "../types.js";
-import type { CodecConfig } from "../ffi/codec.js";
 import type { EngineBindingModule } from "../ffi/binding-types.js";
+import type { CodecConfig } from "../ffi/codec.js";
 import { NativeDispatch } from "../ffi/dispatch.js";
 import { loadEngine, unloadEngine, type KoffiLib } from "../ffi/loader.js";
+import type {
+  ApplyResult,
+  BatchItemResult,
+  EngineConfig,
+  OpCatalog,
+  OpInfo,
+  RunManifest,
+  Step,
+} from "../types.js";
 
 export interface EngineRuntimeOptions {
   engineName: string;
@@ -39,6 +47,10 @@ export abstract class EngineRuntime {
   private unavailableReason: string | undefined;
   private resolvedPath: string | undefined;
   private unloadSkipped: string | undefined;
+  /** In-flight/settled load, so concurrent callers map the library once. */
+  private starting: Promise<void> | undefined;
+  /** Set by shutdown(); blocks {@link ensureStarted} from re-mapping. */
+  private stopped = false;
 
   constructor(options: EngineRuntimeOptions) {
     this.engineName = options.engineName;
@@ -47,9 +59,50 @@ export abstract class EngineRuntime {
     this.codec = options.codec;
   }
 
-  /** Load the native library in-process. Never throws for a missing binary. */
+  /**
+   * Load the native library in-process. Never throws for a missing binary.
+   *
+   * Memoized: the gateway service calls this at boot and {@link ensureStarted}
+   * calls it on first use in a process that has no service, and the library must
+   * be mapped exactly once either way. A repeat call is a no-op that resolves
+   * against the first load.
+   */
   async start(): Promise<void> {
+    this.stopped = false;
+    this.starting ??= this.load();
+    await this.starting;
+  }
+
+  /**
+   * Start on demand, once, before any dispatch.
+   *
+   * THIS IS WHAT MAKES THE ENGINES WORK OUTSIDE THE GATEWAY. `start()` is
+   * registered as a gateway SERVICE (`extensions/creative-engines/index.ts`), so
+   * a standalone `openclaw creative ...` process — or a direct `describeVideo`
+   * call — ran `register()` but never the service, leaving `dispatch` undefined:
+   * `apply` threw "engine not started" and `list-ops` reported
+   * `available:false` on a machine where the DLLs were present and fine. Every
+   * async entry point funnels through here so the gateway and standalone paths
+   * are one code path, not two.
+   *
+   * Deliberately does NOT restart after {@link shutdown}. Cleanup runs at
+   * process teardown, ORT may still be mapped (see `unloadEngine`), and
+   * re-mapping a bridge there trades a clean exit for a native crash. A caller
+   * that genuinely wants a restart calls {@link start} explicitly.
+   */
+  async ensureStarted(): Promise<void> {
+    if (this.stopped) {
+      return;
+    }
+    await this.start();
+  }
+
+  /** The actual load. Only ever invoked through the {@link starting} memo. */
+  private async load(): Promise<void> {
     this.unloadSkipped = undefined;
+    // Maps ONNX Runtime by absolute path before the bridge (loadEngine ->
+    // preloadOnnxRuntime). That ordering is a crash guard, and it is memoized
+    // process-wide, so it holds no matter which engine happens to start first.
     const result = loadEngine(this.bindings.libraryStem, this.binaryPath);
     if (result.available) {
       this.lib = result.lib;
@@ -64,7 +117,12 @@ export abstract class EngineRuntime {
     }
     // Build the dispatcher either way; it reports unavailable honestly when the
     // library is missing (no throw, no HTTP).
-    this.dispatch = new NativeDispatch(this.bindings, this.lib, this.codec, this.resolvedPath ?? this.binaryPath);
+    this.dispatch = new NativeDispatch(
+      this.bindings,
+      this.lib,
+      this.codec,
+      this.resolvedPath ?? this.binaryPath,
+    );
   }
 
   /**
@@ -94,6 +152,8 @@ export abstract class EngineRuntime {
    */
   async shutdown(): Promise<void> {
     const lib = this.lib;
+    this.stopped = true;
+    this.starting = undefined;
     this.lib = undefined;
     this.dispatch = undefined;
     this.available = false;
@@ -119,7 +179,9 @@ export abstract class EngineRuntime {
   }
 
   private ensureDispatch(): NativeDispatch {
-    if (!this.dispatch) throw new Error(`engine '${this.engineName}' not started`);
+    if (!this.dispatch) {
+      throw new Error(`engine '${this.engineName}' not started`);
+    }
     return this.dispatch;
   }
 
@@ -129,15 +191,24 @@ export abstract class EngineRuntime {
 
   opInfo(opId: string): OpInfo {
     const info = this.ensureDispatch().opInfo(opId);
-    if (!info) throw new Error(`unknown op '${opId}' for engine '${this.engineName}'`);
+    if (!info) {
+      throw new Error(`unknown op '${opId}' for engine '${this.engineName}'`);
+    }
     return info;
   }
 
-  apply(input: string, op: string, output: string, params: Record<string, unknown>): Promise<ApplyResult> {
+  async apply(
+    input: string,
+    op: string,
+    output: string,
+    params: Record<string, unknown>,
+  ): Promise<ApplyResult> {
+    await this.ensureStarted();
     return this.ensureDispatch().applyOp(input, op, output, params);
   }
 
-  applyChain(input: string, steps: Step[], output: string): Promise<ApplyResult> {
+  async applyChain(input: string, steps: Step[], output: string): Promise<ApplyResult> {
+    await this.ensureStarted();
     return this.ensureDispatch().applyChain(input, steps, output);
   }
 
@@ -152,11 +223,12 @@ export abstract class EngineRuntime {
    * consumed in-process by keyframe sampling, and adding a tool would require a
    * manifest `contracts.tools` entry.
    */
-  analyze(
+  async analyze(
     input: string,
     op: string,
     params: Record<string, unknown> = {},
   ): Promise<{ ok: boolean; data?: unknown; reason?: string }> {
+    await this.ensureStarted();
     return this.ensureDispatch().analyze(input, op, params);
   }
 
@@ -211,8 +283,14 @@ export abstract class EngineRuntime {
 }
 
 /** Resolve an input specification into a concrete list of file paths. */
-async function resolveInputSet(spec: { glob?: string; folder?: string; list?: string[] }): Promise<string[]> {
-  if (spec.list?.length) return spec.list;
+async function resolveInputSet(spec: {
+  glob?: string;
+  folder?: string;
+  list?: string[];
+}): Promise<string[]> {
+  if (spec.list?.length) {
+    return spec.list;
+  }
   if (spec.folder) {
     const entries = await readdir(spec.folder, { withFileTypes: true });
     return entries.filter((e) => e.isFile()).map((e) => join(spec.folder!, e.name));
@@ -221,7 +299,12 @@ async function resolveInputSet(spec: { glob?: string; folder?: string; list?: st
     // Minimal glob: read the directory portion and match the trailing pattern.
     const dir = dirname(spec.glob);
     const pattern = basename(spec.glob);
-    const re = new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+    const re = new RegExp(
+      `^${pattern
+        .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*")
+        .replace(/\?/g, ".")}$`,
+    );
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
     return entries.filter((e) => e.isFile() && re.test(e.name)).map((e) => join(dir, e.name));
   }
