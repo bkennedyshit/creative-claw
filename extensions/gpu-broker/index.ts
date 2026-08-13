@@ -1,22 +1,22 @@
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
+import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { Type, type TSchema } from "typebox";
 import { GpuBroker } from "./src/broker.js";
-import {
-  handleGpuStatus,
-  handleGpuRelease,
-  handleGpuReclaim,
-  handleGpuHandoff,
-} from "./src/tools.js";
 import {
   createGpuBrokerCoopHandle,
   publishGpuBrokerHandle,
   unpublishGpuBrokerHandle,
   type GpuBrokerCoopHandle,
 } from "./src/coop-handle.js";
-import { registerWarmupRecalibration, type WarmupApi } from "./src/warmup.js";
 import { registerGpuSurface, type GpuSurfaceApi } from "./src/surface.js";
+import {
+  handleGpuStatus,
+  handleGpuRelease,
+  handleGpuReclaim,
+  handleGpuHandoff,
+} from "./src/tools.js";
 import type { BrokerConfig } from "./src/types.js";
+import { registerWarmupRecalibration, type WarmupApi } from "./src/warmup.js";
 
 /** Structural view of the config-reading seams `resolveConfig` uses. */
 interface PluginConfigApi {
@@ -116,7 +116,9 @@ export default definePluginEntry({
           "Show GPU broker state: current state, VRAM usage, resident models, lease info, and recent history.",
         parameters: Type.Object({}),
         async run() {
-          if (!broker) return "GPU broker not running.";
+          if (!broker) {
+            return "GPU broker not running.";
+          }
           return await handleGpuStatus(broker);
         },
       }),
@@ -128,13 +130,20 @@ export default definePluginEntry({
         name: "gpu.release",
         description: "Release GPU for user work: evict all Ollama models and grant a VRAM lease.",
         parameters: Type.Object({
-          owner: Type.Optional(Type.String({ description: "Who is claiming the GPU (default: 'user')." })),
+          owner: Type.Optional(
+            Type.String({ description: "Who is claiming the GPU (default: 'user')." }),
+          ),
           reason: Type.Optional(Type.String({ description: "Why the GPU is being released." })),
           holdMs: Type.Optional(Type.Number({ description: "Lease duration in ms." })),
         }),
         async run(args) {
-          if (!broker) return "GPU broker not running.";
-          return await handleGpuRelease(broker, args as { owner?: string; reason?: string; holdMs?: number });
+          if (!broker) {
+            return "GPU broker not running.";
+          }
+          return await handleGpuRelease(
+            broker,
+            args as { owner?: string; reason?: string; holdMs?: number },
+          );
         },
       }),
     );
@@ -148,7 +157,9 @@ export default definePluginEntry({
           token: Type.Optional(Type.String({ description: "Lease token to reclaim (optional)." })),
         }),
         run(args) {
-          if (!broker) return "GPU broker not running.";
+          if (!broker) {
+            return "GPU broker not running.";
+          }
           return handleGpuReclaim(broker, args as { token?: string });
         },
       }),
@@ -160,13 +171,22 @@ export default definePluginEntry({
         name: "gpu.handoff",
         description: "Evacuate GPU, hand off to a peer process, then auto-reclaim.",
         parameters: Type.Object({
-          owner: Type.Optional(Type.String({ description: "Peer process name (default: 'peer')." })),
+          owner: Type.Optional(
+            Type.String({ description: "Peer process name (default: 'peer')." }),
+          ),
           reason: Type.Optional(Type.String({ description: "Reason for handoff." })),
-          peerDurationMs: Type.Optional(Type.Number({ description: "Simulated peer work duration in ms." })),
+          peerDurationMs: Type.Optional(
+            Type.Number({ description: "Simulated peer work duration in ms." }),
+          ),
         }),
         async run(args) {
-          if (!broker) return "GPU broker not running.";
-          return await handleGpuHandoff(broker, args as { owner?: string; reason?: string; peerDurationMs?: number });
+          if (!broker) {
+            return "GPU broker not running.";
+          }
+          return await handleGpuHandoff(
+            broker,
+            args as { owner?: string; reason?: string; peerDurationMs?: number },
+          );
         },
       }),
     );
@@ -183,10 +203,15 @@ export default definePluginEntry({
       "agent:bootstrap",
       (event) => {
         if (broker && !broker.canAgentRun()) {
-          event.messages.push(`GPU broker state is "${broker.getState()}" — local GPU unavailable.`);
+          event.messages.push(
+            `GPU broker state is "${broker.getState()}" — local GPU unavailable.`,
+          );
         }
       },
-      { name: "gpu-broker-agent-run-gate", description: "Advertise GPU availability at agent bootstrap." },
+      {
+        name: "gpu-broker-agent-run-gate",
+        description: "Advertise GPU availability at agent bootstrap.",
+      },
     );
 
     // --- Warmup recalibration: rebaseline after a deliberate model warmup ---

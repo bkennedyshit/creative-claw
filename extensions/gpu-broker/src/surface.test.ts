@@ -95,13 +95,11 @@ describe("registerGpuSurface", () => {
     // CLI: a `gpu` group with status/release/reclaim subcommands.
     expect(root.subcommands.gpu).toBeDefined();
     const gpu = root.subcommands.gpu!;
-    expect(Object.keys(gpu.subcommands).sort()).toEqual(["reclaim", "release", "status"]);
+    expect(Object.keys(gpu.subcommands).toSorted()).toEqual(["reclaim", "release", "status"]);
 
     // Lazy CLI descriptor advertises the `gpu` root with subcommands.
     expect(cliOpts).toEqual({
-      descriptors: [
-        { name: "gpu", description: expect.any(String), hasSubcommands: true },
-      ],
+      descriptors: [{ name: "gpu", description: expect.any(String), hasSubcommands: true }],
     });
 
     // Control UI: settings surface with the expected id + label.

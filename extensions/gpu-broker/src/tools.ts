@@ -72,10 +72,7 @@ export async function handleGpuRelease(
 /**
  * gpu.reclaim — end the current lease and return GPU to idle.
  */
-export function handleGpuReclaim(
-  broker: GpuBroker,
-  args: { token?: string },
-): string {
+export function handleGpuReclaim(broker: GpuBroker, args: { token?: string }): string {
   const success = broker.reclaim(args.token);
 
   if (success) {
@@ -107,7 +104,9 @@ export async function handleGpuHandoff(
 
   const peerFn = async () => {
     if (duration > 0) {
-      await new Promise((resolve) => setTimeout(resolve, duration));
+      await new Promise((resolve) => {
+        setTimeout(resolve, duration);
+      });
     }
   };
 

@@ -112,14 +112,14 @@ describe("registerWarmupRecalibration", () => {
   it("falls back to recalibrating once per session on agent bootstrap when no warm seam exists", async () => {
     let runStartHandler: (() => void) | undefined;
     const api = {
-      registerHook(
-        events: string | string[],
-        handler: () => void,
-        opts?: { name?: string },
-      ) {
+      registerHook(events: string | string[], handler: () => void, opts?: { name?: string }) {
         // Mirror the host contract: a hook without a name is rejected.
-        if (!opts?.name?.trim()) throw new Error("hook registration missing name");
-        if (events === "agent:bootstrap") runStartHandler = handler;
+        if (!opts?.name?.trim()) {
+          throw new Error("hook registration missing name");
+        }
+        if (events === "agent:bootstrap") {
+          runStartHandler = handler;
+        }
       },
     };
 

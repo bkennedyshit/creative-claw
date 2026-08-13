@@ -55,9 +55,7 @@ function globalSlot(): Record<string, unknown> {
  * it. Concurrent callers await the same in-flight claim instead of issuing a
  * second `release()` that would replace the first lease's token.
  */
-export function createGpuBrokerCoopHandle(
-  getBroker: () => GpuBroker | null,
-): GpuBrokerCoopHandle {
+export function createGpuBrokerCoopHandle(getBroker: () => GpuBroker | null): GpuBrokerCoopHandle {
   let claims = 0;
   let pendingClaim: Promise<string> | null = null;
   let leaseToken: string | undefined;
@@ -86,9 +84,13 @@ export function createGpuBrokerCoopHandle(
     },
 
     async reclaim(): Promise<void> {
-      if (claims === 0) return;
+      if (claims === 0) {
+        return;
+      }
       claims -= 1;
-      if (claims > 0) return;
+      if (claims > 0) {
+        return;
+      }
       const token = leaseToken;
       pendingClaim = null;
       leaseToken = undefined;
@@ -110,7 +112,9 @@ export function publishGpuBrokerHandle(handle: GpuBrokerCoopHandle): void {
  */
 export function unpublishGpuBrokerHandle(handle?: GpuBrokerCoopHandle): void {
   const slot = globalSlot();
-  if (handle && slot[GPU_BROKER_HANDLE_KEY] !== handle) return;
+  if (handle && slot[GPU_BROKER_HANDLE_KEY] !== handle) {
+    return;
+  }
   delete slot[GPU_BROKER_HANDLE_KEY];
 }
 

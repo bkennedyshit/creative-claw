@@ -11,9 +11,9 @@ import {
 /** Generate a ULID-like token (monotonic sortable unique ID) */
 function generateUlid(): string {
   const timestamp = Date.now().toString(36).padStart(10, "0");
-  const random = Array.from({ length: 16 }, () =>
-    Math.floor(Math.random() * 36).toString(36),
-  ).join("");
+  const random = Array.from({ length: 16 }, () => Math.floor(Math.random() * 36).toString(36)).join(
+    "",
+  );
   return `${timestamp}${random}`.toUpperCase();
 }
 
@@ -115,21 +115,14 @@ export class GpuBroker {
    * gate hook or a trusted tool policy — see HONESTY_FIXES.md Task 5.
    */
   canAgentRun(): boolean {
-    return (
-      this.state !== BrokerState.UserClaimed &&
-      this.state !== BrokerState.Draining
-    );
+    return this.state !== BrokerState.UserClaimed && this.state !== BrokerState.Draining;
   }
 
   /**
    * Release GPU for user: evict Ollama models, create lease.
    * Returns the lease token.
    */
-  async release(
-    owner: string,
-    reason?: string,
-    holdMs?: number,
-  ): Promise<Lease> {
+  async release(owner: string, reason?: string, holdMs?: number): Promise<Lease> {
     this.transition(BrokerState.Draining, `release requested by ${owner}`);
 
     await this.evictAllModels();
@@ -155,8 +148,12 @@ export class GpuBroker {
    * Returns true if a lease was active and reclaimed.
    */
   reclaim(token?: string): boolean {
-    if (!this.currentLease) return false;
-    if (token && this.currentLease.token !== token) return false;
+    if (!this.currentLease) {
+      return false;
+    }
+    if (token && this.currentLease.token !== token) {
+      return false;
+    }
 
     this.currentLease = null;
     if (this.expiryTimer) {
@@ -171,11 +168,7 @@ export class GpuBroker {
   /**
    * Handoff: evict models, call a peer, then reclaim.
    */
-  async handoff(
-    owner: string,
-    peerFn: () => Promise<void>,
-    reason?: string,
-  ): Promise<void> {
+  async handoff(owner: string, peerFn: () => Promise<void>, reason?: string): Promise<void> {
     const lease = await this.release(owner, reason);
     try {
       await peerFn();
@@ -216,15 +209,14 @@ export class GpuBroker {
   // --- Internal ---
 
   private poll(): void {
-    if (
-      this.state === BrokerState.Dormant ||
-      this.state === BrokerState.Draining
-    ) {
+    if (this.state === BrokerState.Dormant || this.state === BrokerState.Draining) {
       return;
     }
 
     const snapshot = this.readGpuSnapshot();
-    if (!snapshot) return;
+    if (!snapshot) {
+      return;
+    }
     this.lastSnapshot = snapshot;
 
     this.evaluateGhostClaim(snapshot);
@@ -232,8 +224,7 @@ export class GpuBroker {
 
   private async evaluateGhostClaim(snapshot: GpuSnapshot): Promise<void> {
     const ollamaFootprint = await this.getOllamaFootprintMb();
-    const externalPressure =
-      snapshot.usedMb - this.baselineVramMb - ollamaFootprint;
+    const externalPressure = snapshot.usedMb - this.baselineVramMb - ollamaFootprint;
     const threshold = this.config.externalClaimThresholdMb;
 
     if (!this.ghostClaimActive && externalPressure > threshold) {
@@ -265,10 +256,12 @@ export class GpuBroker {
 
     const output = result.stdout.toString().trim();
     const [usedStr, totalStr] = output.split(",").map((s) => s.trim());
-    const usedMb = parseInt(usedStr, 10);
-    const totalMb = parseInt(totalStr, 10);
+    const usedMb = Number.parseInt(usedStr, 10);
+    const totalMb = Number.parseInt(totalStr, 10);
 
-    if (isNaN(usedMb) || isNaN(totalMb)) return null;
+    if (Number.isNaN(usedMb) || Number.isNaN(totalMb)) {
+      return null;
+    }
 
     return { usedMb, totalMb, timestamp: Date.now() };
   }
@@ -277,17 +270,18 @@ export class GpuBroker {
   async getOllamaFootprintMb(): Promise<number> {
     try {
       const res = await fetch(`${this.config.ollamaBaseUrl}/api/ps`);
-      if (!res.ok) return 0;
+      if (!res.ok) {
+        return 0;
+      }
       const data = (await res.json()) as { models?: OllamaModelInfo[] };
-      if (!data.models || data.models.length === 0) return 0;
+      if (!data.models || data.models.length === 0) {
+        return 0;
+      }
       // Prefer the real per-model `size_vram` reported by /api/ps (bytes → MB).
       // Heuristic fallback: a model missing `size_vram` contributes 0 rather
       // than a guessed size, so we never over-subtract phantom Ollama usage and
       // mistake genuine external pressure for our own footprint.
-      return data.models.reduce(
-        (sum, m) => sum + (m.size_vram ?? 0) / (1024 * 1024),
-        0,
-      );
+      return data.models.reduce((sum, m) => sum + (m.size_vram ?? 0) / (1024 * 1024), 0);
     } catch {
       return 0;
     }
@@ -297,7 +291,9 @@ export class GpuBroker {
   async getResidentModels(): Promise<string[]> {
     try {
       const res = await fetch(`${this.config.ollamaBaseUrl}/api/ps`);
-      if (!res.ok) return [];
+      if (!res.ok) {
+        return [];
+      }
       const data = (await res.json()) as { models?: OllamaModelInfo[] };
       return data.models?.map((m) => m.name) ?? [];
     } catch {
@@ -325,7 +321,9 @@ export class GpuBroker {
 
   /** Transition state and record history */
   private transition(to: BrokerState, reason: string): void {
-    if (this.state === to) return;
+    if (this.state === to) {
+      return;
+    }
     const entry: StateTransition = {
       from: this.state,
       to,

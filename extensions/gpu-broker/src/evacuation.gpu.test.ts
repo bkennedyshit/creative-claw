@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
+import { describe, it, expect } from "vitest";
 import { GpuBroker } from "./broker.js";
 
 // GPU/Ollama-gated real-VRAM evacuation proof (Task 9.2 / Property 1).
@@ -70,7 +70,9 @@ describe("real-VRAM evacuation (GPU + Ollama gated)", () => {
       }
 
       // Give Ollama a moment to report the resident model.
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => {
+        setTimeout(r, 1500);
+      });
       const before = broker.readGpuSnapshot();
       const footprintBefore = await broker.getOllamaFootprintMb();
       expect(before).not.toBeNull();
@@ -80,7 +82,9 @@ describe("real-VRAM evacuation (GPU + Ollama gated)", () => {
       await broker.release("test-user", "real-vram evacuation proof");
 
       // Allow the eviction (keep_alive:0) to take effect.
-      await new Promise((r) => setTimeout(r, 2500));
+      await new Promise((r) => {
+        setTimeout(r, 2500);
+      });
       const after = broker.readGpuSnapshot();
       const footprintAfter = await broker.getOllamaFootprintMb();
       expect(after).not.toBeNull();

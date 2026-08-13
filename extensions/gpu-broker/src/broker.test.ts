@@ -129,7 +129,9 @@ describe("GpuBroker", () => {
       let peerCalled = false;
       await broker.handoff(
         "comfyui",
-        async () => { peerCalled = true; },
+        async () => {
+          peerCalled = true;
+        },
         "image gen",
       );
       expect(peerCalled).toBe(true);
@@ -311,9 +313,7 @@ describe("GpuBroker", () => {
       } as unknown as ReturnType<typeof spawnSync>);
 
       // Ollama has a model using 4GB VRAM
-      mockOllamaPs([
-        { name: "llama3:70b", size_vram: 4000 * 1024 * 1024 },
-      ]);
+      mockOllamaPs([{ name: "llama3:70b", size_vram: 4000 * 1024 * 1024 }]);
 
       await vi.advanceTimersByTimeAsync(1001);
       expect(broker.isGhostClaimActive()).toBe(false);

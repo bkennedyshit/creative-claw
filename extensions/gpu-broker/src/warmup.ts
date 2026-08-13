@@ -59,12 +59,16 @@ export function registerWarmupRecalibration(
   // Fallback: no explicit warm seam. Recalibrate once per session on the first
   // run-start; the `done` latch keeps later runs from re-reading the baseline
   // (which could absorb a genuine external claim that appeared mid-session).
-  if (typeof api.registerHook !== "function") return;
+  if (typeof api.registerHook !== "function") {
+    return;
+  }
   let done = false;
   api.registerHook(
     "agent:bootstrap",
     () => {
-      if (done) return;
+      if (done) {
+        return;
+      }
       done = true;
       recalibrate();
     },

@@ -47,10 +47,7 @@ export interface GpuSurfaceApi {
  * Each `register*` call is guarded by a `typeof` check so the surface no-ops
  * honestly on hosts that do not expose that seam.
  */
-export function registerGpuSurface(
-  api: GpuSurfaceApi,
-  getBroker: () => GpuBroker | null,
-): void {
+export function registerGpuSurface(api: GpuSurfaceApi, getBroker: () => GpuBroker | null): void {
   // (a) CLI surface: subcommands read live broker.getState()/getSnapshot().
   if (typeof api.registerCli === "function") {
     api.registerCli(
