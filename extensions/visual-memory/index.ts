@@ -1,12 +1,13 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
-import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
 import { Type, type TSchema } from "typebox";
-import { join } from "node:path";
-import { mkdirSync } from "node:fs";
+import { registerProtectedContentGuard, type EditGuardApi } from "./src/edit-guard.js";
 import { resolveEmbedder } from "./src/embedder/index.js";
 import { VectorStore } from "./src/store.js";
-import { registerProtectedContentGuard, type EditGuardApi } from "./src/edit-guard.js";
+import { registerMediaSurface, type MediaSurfaceApi } from "./src/surface.js";
 import {
   handleMediaIndex,
   handleMediaSearch,
@@ -14,7 +15,6 @@ import {
   handleMediaDescribe,
   type ToolContext,
 } from "./src/tools.js";
-import { registerMediaSurface, type MediaSurfaceApi } from "./src/surface.js";
 import type { EmbedderConfig } from "./src/types.js";
 
 /** Structural view of the config-reading seams this plugin uses. */
@@ -24,7 +24,9 @@ interface PluginConfigApi {
 }
 
 /** Adapter shape accepted by the real memory embedding provider seam. */
-type MemoryEmbeddingProviderAdapter = Parameters<OpenClawPluginApi["registerMemoryEmbeddingProvider"]>[0];
+type MemoryEmbeddingProviderAdapter = Parameters<
+  OpenClawPluginApi["registerMemoryEmbeddingProvider"]
+>[0];
 
 /**
  * Wrap a friendly `(args) => result` handler into a conforming agent tool: a
@@ -56,7 +58,8 @@ function mediaTool(spec: {
 export default definePluginEntry({
   id: "visual-memory",
   name: "Visual Memory",
-  description: "Media-as-memory: index, search, and recall visual and media assets via vector similarity.",
+  description:
+    "Media-as-memory: index, search, and recall visual and media assets via vector similarity.",
 
   register(api) {
     // Resolve config from the canonical plugin-config seam.
@@ -89,6 +92,28 @@ export default definePluginEntry({
     // Initialize store
     const store = new VectorStore({ dbPath });
 
+    // The SQLite handle is owned by this plugin for the life of the runtime, so
+    // it needs an owner that can close it. Without this, `store.close()` was
+    // unreachable from outside and the handle leaked: on Windows the DB file
+    // stays locked for the whole process lifetime, which can wedge a gateway
+    // restart. Mirrors the lifecycle seam creative-engines uses to unload its
+    // native libraries.
+    api.registerRuntimeLifecycle({
+      id: "visual-memory",
+      cleanup() {
+        try {
+          store.close();
+        } catch (err) {
+          // Never let teardown throw: a failed close must not block a restart.
+          console.error(
+            `[visual-memory] failed to close the vector store at ${dbPath}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      },
+    });
+
     // Tool context
     const toolCtx: ToolContext = { store, embedder, embedderReport, workspaceRoot: undefined };
 
@@ -97,7 +122,8 @@ export default definePluginEntry({
     api.registerTool(
       mediaTool({
         name: "media_index",
-        description: "Index a directory of media/text/code files for visual memory search. Returns indexing statistics.",
+        description:
+          "Index a directory of media/text/code files for visual memory search. Returns indexing statistics.",
         parameters: Type.Object({
           directory: Type.String({ description: "Absolute path to directory to index" }),
           force: Type.Optional(Type.Boolean({ description: "Re-index already indexed files" })),
@@ -119,7 +145,9 @@ export default definePluginEntry({
           query: Type.String({ description: "Text search query" }),
           topK: Type.Optional(Type.Number({ description: "Max results to return" })),
           minScore: Type.Optional(Type.Number({ description: "Minimum similarity score (0-1)" })),
-          type: Type.Optional(Type.String({ description: "Filter by asset type: image|video|text|code" })),
+          type: Type.Optional(
+            Type.String({ description: "Filter by asset type: image|video|text|code" }),
+          ),
         }),
         run(args) {
           return handleMediaSearch(
@@ -133,7 +161,8 @@ export default definePluginEntry({
     api.registerTool(
       mediaTool({
         name: "media_search_by_image",
-        description: "Reverse image search: find similar indexed media by providing an image file path.",
+        description:
+          "Reverse image search: find similar indexed media by providing an image file path.",
         parameters: Type.Object({
           imagePath: Type.String({ description: "Absolute path to query image" }),
           topK: Type.Optional(Type.Number({ description: "Max results to return" })),

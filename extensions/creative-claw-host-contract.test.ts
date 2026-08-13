@@ -679,6 +679,34 @@ describe("Creative Claw host API contract", () => {
       expect(host.memoryEmbeddingProviderIds).toStrictEqual(["visual-memory"]);
       expect(host.trustedToolPolicyIds).toStrictEqual(["visual-memory-protected-content"]);
     });
+
+    /**
+     * The SQLite handle is opened during register() and used for the life of the
+     * runtime, so the only way to release it is a lifecycle owner. Without one,
+     * `close()` was unreachable and the DB file stayed locked for the process
+     * lifetime on Windows, which can wedge a gateway restart.
+     */
+    it("visual-memory closes its SQLite store on runtime cleanup", () => {
+      // Deliberately NOT the cached registerPlugin(): that host is shared with
+      // other tests and closing its store would leak across them.
+      const host = createContractHost({
+        pluginId: "visual-memory",
+        manifests: [readPluginManifest("visual-memory")],
+        pluginConfig: {
+          embedder: "hash",
+          protectContent: true,
+          storePath: join(tmpRoot, "visual-memory-cleanup"),
+        },
+      });
+      visualMemoryPlugin.register(host.api);
+
+      expect(host.lifecycles.map((lifecycle) => lifecycle.id)).toStrictEqual(["visual-memory"]);
+
+      // Runs the REAL cleanup against the REAL store. Closing SQLite is
+      // synchronous, so this asserts it completes without throwing.
+      expect(() => host.lifecycles[0]!.cleanup?.({ reason: "restart" })).not.toThrow();
+      expect(host.diagnostics.filter((d) => d.level === "error")).toStrictEqual([]);
+    });
   });
 
   describe("co-registration", () => {

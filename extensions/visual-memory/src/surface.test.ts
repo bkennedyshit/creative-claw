@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Command } from "commander";
-import { VectorStore } from "./store.js";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { resolveEmbedder } from "./embedder/index.js";
-import type { ToolContext } from "./tools.js";
+import { VectorStore } from "./store.js";
 import { registerMediaSurface, MEDIA_CONTROL_UI_ID, type MediaSurfaceApi } from "./surface.js";
+import type { ToolContext } from "./tools.js";
 
 describe("registerMediaSurface", () => {
   let ctx: ToolContext;
@@ -51,7 +51,7 @@ describe("registerMediaSurface", () => {
 
     const media = program.commands.find((c) => c.name() === "media");
     expect(media).toBeDefined();
-    const subNames = media!.commands.map((c) => c.name()).sort();
+    const subNames = media!.commands.map((c) => c.name()).toSorted();
     expect(subNames).toEqual(["describe", "index", "search"]);
   });
 

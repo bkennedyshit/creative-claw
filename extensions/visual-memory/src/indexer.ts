@@ -1,17 +1,52 @@
-import { readdirSync, statSync } from "node:fs";
-import { join, extname } from "node:path";
 import { execFileSync } from "node:child_process";
+import { readdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join, extname } from "node:path";
 import { ulid } from "ulid";
 import type { Embedder } from "./embedder/index.js";
-import type { IndexStats } from "./types.js";
-import { VectorStore } from "./store.js";
 import { buildMetadata } from "./pathmeta.js";
+import { VectorStore } from "./store.js";
+import type { IndexStats } from "./types.js";
 
-export const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".svg"]);
+export const IMAGE_EXTS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".bmp",
+  ".tiff",
+  ".svg",
+]);
 export const VIDEO_EXTS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm"]);
-export const TEXT_EXTS = new Set([".txt", ".md", ".html", ".htm", ".json", ".xml", ".yaml", ".yml", ".csv", ".tsv"]);
-export const CODE_EXTS = new Set([".ts", ".js", ".tsx", ".jsx", ".py", ".rb", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".css", ".scss"]);
+export const TEXT_EXTS = new Set([
+  ".txt",
+  ".md",
+  ".html",
+  ".htm",
+  ".json",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".csv",
+  ".tsv",
+]);
+export const CODE_EXTS = new Set([
+  ".ts",
+  ".js",
+  ".tsx",
+  ".jsx",
+  ".py",
+  ".rb",
+  ".go",
+  ".rs",
+  ".java",
+  ".c",
+  ".cpp",
+  ".h",
+  ".css",
+  ".scss",
+]);
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
@@ -127,10 +162,18 @@ export async function indexDirectory(opts: IndexOptions): Promise<IndexStats> {
 
 /** Classify file extension to asset type. */
 function classifyExt(ext: string): "image" | "video" | "text" | "code" | null {
-  if (IMAGE_EXTS.has(ext)) return "image";
-  if (VIDEO_EXTS.has(ext)) return "video";
-  if (TEXT_EXTS.has(ext)) return "text";
-  if (CODE_EXTS.has(ext)) return "code";
+  if (IMAGE_EXTS.has(ext)) {
+    return "image";
+  }
+  if (VIDEO_EXTS.has(ext)) {
+    return "video";
+  }
+  if (TEXT_EXTS.has(ext)) {
+    return "text";
+  }
+  if (CODE_EXTS.has(ext)) {
+    return "code";
+  }
   return null;
 }
 
@@ -143,7 +186,9 @@ function walkDir(dir: string): string[] {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         // Skip hidden dirs and node_modules
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+        if (entry.name.startsWith(".") || entry.name === "node_modules") {
+          continue;
+        }
         results.push(...walkDir(fullPath));
       } else if (entry.isFile()) {
         results.push(fullPath);
@@ -164,13 +209,11 @@ async function embedVideoFrame(videoPath: string, embedder: Embedder): Promise<F
 
   try {
     // Extract frame at 1 second mark
-    execFileSync("ffmpeg", [
-      "-i", videoPath,
-      "-ss", "1",
-      "-frames:v", "1",
-      "-q:v", "2",
-      framePath,
-    ], { timeout: 30_000, stdio: "ignore" });
+    execFileSync(
+      "ffmpeg",
+      ["-i", videoPath, "-ss", "1", "-frames:v", "1", "-q:v", "2", framePath],
+      { timeout: 30_000, stdio: "ignore" },
+    );
 
     const embedding = await embedder.embedImage(framePath);
 
@@ -178,7 +221,9 @@ async function embedVideoFrame(videoPath: string, embedder: Embedder): Promise<F
     try {
       const { unlinkSync } = await import("node:fs");
       unlinkSync(framePath);
-    } catch { /* ignore cleanup failure */ }
+    } catch {
+      /* ignore cleanup failure */
+    }
 
     return embedding;
   } catch {

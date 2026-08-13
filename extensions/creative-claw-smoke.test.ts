@@ -1,3 +1,7 @@
+import { execSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 /**
  * Creative Claw — Integration Smoke Test
  *
@@ -10,17 +14,23 @@
  * at the bottom reports what actually ran.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
-import { execSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-
 // ---------- REAL modules under test ----------
-
+import { decodeImageRGBA } from "./creative-engines/src/ffi/codec.js";
+import { resolveBinaryPath } from "./creative-engines/src/ffi/loader.js";
+// cross-plugin GPU coop global slot — cleaned between tests (isolate: false lane)
+import { GPU_BROKER_HANDLE_KEY } from "./creative-engines/src/gpu-broker-handle.js";
+import { AudioEngineRuntime } from "./creative-engines/src/runtime/audio.js";
+// creative-engines: native in-process engine runtimes + the real path resolver
+import { ImageEngineRuntime } from "./creative-engines/src/runtime/image.js";
+import { VectorEngineRuntime } from "./creative-engines/src/runtime/vector.js";
+import { VideoEngineRuntime } from "./creative-engines/src/runtime/video.js";
+// gpu-broker: the real cooperative VRAM arbiter + its state enum
+import { GpuBroker } from "./gpu-broker/src/broker.js";
+import { BrokerState } from "./gpu-broker/src/types.js";
+// visual-memory: the trusted-tool-policy guard that consumes shouldWarnOnEdit
+import { evaluateProtectedEdit } from "./visual-memory/src/edit-guard.js";
 // visual-memory: embedder (extensions/visual-memory/src/embedder/)
 import { HashEmbedder, resolveEmbedder } from "./visual-memory/src/embedder/index.js";
-// visual-memory: SQLite-backed vector store (better-sqlite3)
-import { VectorStore } from "./visual-memory/src/store.js";
 // visual-memory: workspace path conventions
 import {
   buildMetadata,
@@ -29,20 +39,8 @@ import {
   inferBrand,
   shouldWarnOnEdit,
 } from "./visual-memory/src/pathmeta.js";
-// visual-memory: the trusted-tool-policy guard that consumes shouldWarnOnEdit
-import { evaluateProtectedEdit } from "./visual-memory/src/edit-guard.js";
-// gpu-broker: the real cooperative VRAM arbiter + its state enum
-import { GpuBroker } from "./gpu-broker/src/broker.js";
-import { BrokerState } from "./gpu-broker/src/types.js";
-// creative-engines: native in-process engine runtimes + the real path resolver
-import { ImageEngineRuntime } from "./creative-engines/src/runtime/image.js";
-import { AudioEngineRuntime } from "./creative-engines/src/runtime/audio.js";
-import { VideoEngineRuntime } from "./creative-engines/src/runtime/video.js";
-import { VectorEngineRuntime } from "./creative-engines/src/runtime/vector.js";
-import { resolveBinaryPath } from "./creative-engines/src/ffi/loader.js";
-import { decodeImageRGBA } from "./creative-engines/src/ffi/codec.js";
-// cross-plugin GPU coop global slot — cleaned between tests (isolate: false lane)
-import { GPU_BROKER_HANDLE_KEY } from "./creative-engines/src/gpu-broker-handle.js";
+// visual-memory: SQLite-backed vector store (better-sqlite3)
+import { VectorStore } from "./visual-memory/src/store.js";
 
 // ---------- Environment detection ----------
 
@@ -311,24 +309,35 @@ describe("Creative Claw Smoke — Real Modules (no external deps)", () => {
     });
 
     /**
-     * KNOWN DEFECT — pinned, not papered over.
+     * REGRESSION PIN for a fixed guardrail bypass.
      *
-     * `shouldWarnOnEdit` matches the literal substring `"/content/"`, so a
-     * workspace-RELATIVE target ("content/acme/hero.png") has no leading
-     * separator and is not flagged. `evaluateProtectedEdit` runs on the raw
+     * `shouldWarnOnEdit` used to match the literal substring `"/content/"`, so a
+     * workspace-RELATIVE target ("content/acme/hero.png") had no leading
+     * separator and was not flagged. `evaluateProtectedEdit` runs on the raw
      * `path` / `file_path` tool params, which agents routinely pass as
-     * workspace-relative, so the protected-content guardrail can be bypassed
-     * by simply omitting the leading slash. The guard returns `undefined`
-     * ("no opinion") and the host allows the overwrite.
+     * workspace-relative, so the protected-content guardrail could be bypassed
+     * by simply omitting the leading slash: the guard returned `undefined`
+     * ("no opinion") and the host allowed the overwrite.
      *
-     * Fix would be to match a `content` path SEGMENT (or resolve the target
-     * against the workspace root before testing it). Invert this test once
-     * that lands.
+     * It now matches a `content` path SEGMENT. This test asserts the relative
+     * form is blocked, and that the fix did not start flagging directories that
+     * merely begin with the word.
      */
-    it("KNOWN DEFECT: the edit guard does not block workspace-relative content/ writes", () => {
-      expect(shouldWarnOnEdit("content/acme/hero.png")).toBe(false);
+    it("blocks workspace-relative content/ writes (fixed bypass)", () => {
+      expect(shouldWarnOnEdit("content/acme/hero.png")).toBe(true);
+      const decision = evaluateProtectedEdit({
+        toolName: "write",
+        params: { path: "content/acme/hero.png" },
+      });
+      expect(decision?.allow).toBe(false);
+      expect(decision?.reason).toMatch(/protected source media/i);
+    });
+
+    it("does not flag directories that merely start with 'content'", () => {
+      expect(shouldWarnOnEdit("contents/acme/hero.png")).toBe(false);
+      expect(shouldWarnOnEdit("my_content/acme/hero.png")).toBe(false);
       expect(
-        evaluateProtectedEdit({ toolName: "write", params: { path: "content/acme/hero.png" } }),
+        evaluateProtectedEdit({ toolName: "write", params: { path: "contents/acme/hero.png" } }),
       ).toBeUndefined();
     });
   });
@@ -389,7 +398,9 @@ describe("Creative Claw Smoke — Real Modules (no external deps)", () => {
     it("expires a short lease back to idle on its own", async () => {
       await broker.release("user", "short hold", 25);
       expect(broker.getState()).toBe(BrokerState.UserClaimed);
-      await new Promise((r) => setTimeout(r, 120));
+      await new Promise((r) => {
+        setTimeout(r, 120);
+      });
       expect(broker.getState()).toBe(BrokerState.Idle);
       expect(broker.getLease()).toBeNull();
     });

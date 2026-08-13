@@ -46,13 +46,19 @@ export class VectorStore {
   /** Insert or replace an asset. Returns the generated/provided id. */
   upsert(asset: Omit<Asset, "id"> & { id?: string }): string {
     const id = asset.id || ulid();
-    const embeddingBuf = Buffer.from(asset.embedding.buffer, asset.embedding.byteOffset, asset.embedding.byteLength);
+    const embeddingBuf = Buffer.from(
+      asset.embedding.buffer,
+      asset.embedding.byteOffset,
+      asset.embedding.byteLength,
+    );
     const metadataJson = JSON.stringify(asset.metadata || {});
 
-    this.db.prepare(`
+    this.db
+      .prepare(`
       INSERT OR REPLACE INTO assets (id, path, type, timestamp, dim, embedding, metadata)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, asset.path, asset.type, asset.timestamp, asset.dim, embeddingBuf, metadataJson);
+    `)
+      .run(id, asset.path, asset.type, asset.timestamp, asset.dim, embeddingBuf, metadataJson);
 
     return id;
   }
@@ -60,14 +66,20 @@ export class VectorStore {
   /** Get an asset by id. */
   getById(id: string): Asset | null {
     const row = this.db.prepare("SELECT * FROM assets WHERE id = ?").get(id) as RawRow | undefined;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
     return rowToAsset(row);
   }
 
   /** Get an asset by path. */
   getByPath(path: string): Asset | null {
-    const row = this.db.prepare("SELECT * FROM assets WHERE path = ?").get(path) as RawRow | undefined;
-    if (!row) return null;
+    const row = this.db.prepare("SELECT * FROM assets WHERE path = ?").get(path) as
+      | RawRow
+      | undefined;
+    if (!row) {
+      return null;
+    }
     return rowToAsset(row);
   }
 
@@ -105,7 +117,9 @@ export class VectorStore {
     const scored: SearchResult[] = [];
     for (const row of rows) {
       const embedding = bufferToFloat32(row.embedding, row.dim);
-      if (embedding.length !== queryDim) continue; // skip dim-mismatched
+      if (embedding.length !== queryDim) {
+        continue;
+      } // skip dim-mismatched
 
       const score = dotProduct(queryEmbedding, embedding);
       if (score >= minScore) {

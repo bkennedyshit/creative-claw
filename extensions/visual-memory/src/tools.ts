@@ -1,8 +1,8 @@
+import type { IndexResult, MediaSearchResult, DescribeResult } from "./artifacts.js";
 import type { Embedder } from "./embedder/index.js";
-import { VectorStore } from "./store.js";
 import { indexDirectory } from "./indexer.js";
 import { createNativeDelegate } from "./native.js";
-import type { IndexResult, MediaSearchResult, DescribeResult } from "./artifacts.js";
+import { VectorStore } from "./store.js";
 import type { EmbedderReport } from "./types.js";
 
 export interface ToolContext {

@@ -11,8 +11,12 @@ describe("pathmeta", () => {
     });
 
     it("infers brand with explicit workspace root", () => {
-      expect(inferBrand("/home/user/work/content/acme/posts/img.png", "/home/user/work")).toBe("acme");
-      expect(inferBrand("/home/user/work/output/clienta/file.txt", "/home/user/work")).toBe("clienta");
+      expect(inferBrand("/home/user/work/content/acme/posts/img.png", "/home/user/work")).toBe(
+        "acme",
+      );
+      expect(inferBrand("/home/user/work/output/clienta/file.txt", "/home/user/work")).toBe(
+        "clienta",
+      );
     });
 
     it("returns undefined when no workspace root marker found", () => {
@@ -69,6 +73,30 @@ describe("pathmeta", () => {
 
     it("handles Windows paths", () => {
       expect(shouldWarnOnEdit("C:\\workspace\\content\\acme\\file.png")).toBe(true);
+    });
+
+    /**
+     * Regression: the old implementation matched the substring "/content/", so a
+     * workspace-relative target was silently unprotected — a real guardrail
+     * bypass, since agents pass relative paths routinely.
+     */
+    it("flags workspace-relative content paths", () => {
+      expect(shouldWarnOnEdit("content/acme/hero.png")).toBe(true);
+      expect(shouldWarnOnEdit("content\\acme\\hero.png")).toBe(true);
+      expect(shouldWarnOnEdit("a/content/b.png")).toBe(true);
+    });
+
+    it("matches a path segment, not a prefix", () => {
+      expect(shouldWarnOnEdit("contents/acme/hero.png")).toBe(false);
+      expect(shouldWarnOnEdit("my_content/acme/hero.png")).toBe(false);
+      expect(shouldWarnOnEdit("/workspace/contentious/file.png")).toBe(false);
+    });
+
+    it("flags a bare content directory path but not a file named content", () => {
+      expect(shouldWarnOnEdit("/workspace/content/")).toBe(true);
+      // The protected thing is media UNDER a content dir, so a file that merely
+      // has that name is not itself protected (matches the original intent).
+      expect(shouldWarnOnEdit("/tmp/content")).toBe(false);
     });
   });
 

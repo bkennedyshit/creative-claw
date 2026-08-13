@@ -66,6 +66,16 @@ describe("evaluateProtectedEdit", () => {
     ).toBe(false);
   });
 
+  it("refuses a workspace-relative content path (fixed guardrail bypass)", () => {
+    const decision = evaluateProtectedEdit({
+      toolName: "write",
+      params: { file_path: "content/acme/posts/hero.png" },
+    });
+
+    expect(decision?.allow).toBe(false);
+    expect(decision?.reason).toContain("content/acme/posts/hero.png");
+  });
+
   it("allows writes outside /content/", () => {
     expect(
       evaluateProtectedEdit({ toolName: "write", params: { path: "/workspace/output/a.png" } }),
@@ -96,7 +106,9 @@ describe("registerProtectedContentGuard", () => {
     expect(
       policy.evaluate({ toolName: "write", params: { path: "/w/content/a.png" } })?.allow,
     ).toBe(false);
-    expect(policy.evaluate({ toolName: "write", params: { path: "/w/out/a.png" } })).toBeUndefined();
+    expect(
+      policy.evaluate({ toolName: "write", params: { path: "/w/out/a.png" } }),
+    ).toBeUndefined();
   });
 
   it("reports false instead of pretending when the host lacks the seam", () => {

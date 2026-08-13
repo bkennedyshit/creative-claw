@@ -125,7 +125,11 @@ export function registerMediaSurface(api: MediaSurfaceApi, ctx: ToolContext): Me
       {
         commands: ["media"],
         descriptors: [
-          { name: "media", description: "Browse and query the visual memory index", hasSubcommands: true },
+          {
+            name: "media",
+            description: "Browse and query the visual memory index",
+            hasSubcommands: true,
+          },
         ],
       },
     );

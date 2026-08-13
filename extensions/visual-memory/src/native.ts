@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { IndexStats, SearchResult } from "./types.js";
 
@@ -26,10 +26,14 @@ export function createNativeDelegate(): NativeDelegate {
     binaryPath,
 
     index(directory: string, opts?: { force?: boolean }): IndexStats | null {
-      if (!binaryPath) return null;
+      if (!binaryPath) {
+        return null;
+      }
       try {
         const args = ["index", directory];
-        if (opts?.force) args.push("--force");
+        if (opts?.force) {
+          args.push("--force");
+        }
         const result = execFileSync(binaryPath, args, {
           timeout: 300_000,
           encoding: "utf-8",
@@ -42,11 +46,17 @@ export function createNativeDelegate(): NativeDelegate {
     },
 
     search(query: string, opts?: { topK?: number; type?: string }): SearchResult[] | null {
-      if (!binaryPath) return null;
+      if (!binaryPath) {
+        return null;
+      }
       try {
         const args = ["search", "--query", query];
-        if (opts?.topK) args.push("--top-k", String(opts.topK));
-        if (opts?.type) args.push("--type", opts.type);
+        if (opts?.topK) {
+          args.push("--top-k", String(opts.topK));
+        }
+        if (opts?.type) {
+          args.push("--type", opts.type);
+        }
         const result = execFileSync(binaryPath, args, {
           timeout: 30_000,
           encoding: "utf-8",
@@ -59,10 +69,14 @@ export function createNativeDelegate(): NativeDelegate {
     },
 
     searchByImage(imagePath: string, opts?: { topK?: number }): SearchResult[] | null {
-      if (!binaryPath) return null;
+      if (!binaryPath) {
+        return null;
+      }
       try {
         const args = ["search-image", "--image", imagePath];
-        if (opts?.topK) args.push("--top-k", String(opts.topK));
+        if (opts?.topK) {
+          args.push("--top-k", String(opts.topK));
+        }
         const result = execFileSync(binaryPath, args, {
           timeout: 30_000,
           encoding: "utf-8",
@@ -104,7 +118,9 @@ function detectNativeBinary(): string | null {
   ]);
 
   for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
+    if (existsSync(candidate)) {
+      return candidate;
+    }
   }
 
   return null;

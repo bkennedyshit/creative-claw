@@ -67,8 +67,8 @@ function hashString(s: string): number {
 /** FNV-1a hash for a byte buffer, returns unsigned 32-bit int. */
 function hashBytes(buf: Uint8Array): number {
   let h = 0x811c9dc5;
-  for (let i = 0; i < buf.length; i++) {
-    h ^= buf[i]!;
+  for (const byte of buf) {
+    h ^= byte;
     h = Math.imul(h, 0x01000193);
   }
   return h >>> 0;
@@ -77,8 +77,8 @@ function hashBytes(buf: Uint8Array): number {
 /** L2-normalize a vector in place. Returns the same array. */
 function l2Normalize(vec: Float32Array): Float32Array {
   let sumSq = 0;
-  for (let i = 0; i < vec.length; i++) {
-    sumSq += vec[i]! * vec[i]!;
+  for (const value of vec) {
+    sumSq += value * value;
   }
   const norm = Math.sqrt(sumSq);
   if (norm > 0) {

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { VectorStore } from "./store.js";
 
 describe("VectorStore", () => {
@@ -25,9 +25,15 @@ describe("VectorStore", () => {
     }
     // L2-normalize
     let sumSq = 0;
-    for (let i = 0; i < dim; i++) sumSq += vec[i]! * vec[i]!;
+    for (let i = 0; i < dim; i++) {
+      sumSq += vec[i]! * vec[i]!;
+    }
     const norm = Math.sqrt(sumSq);
-    if (norm > 0) for (let i = 0; i < dim; i++) vec[i] /= norm;
+    if (norm > 0) {
+      for (let i = 0; i < dim; i++) {
+        vec[i] /= norm;
+      }
+    }
     return vec;
   }
 
@@ -163,7 +169,7 @@ describe("VectorStore", () => {
       expect(results[0]!.path).toBe("/similar.png");
       expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
       // Identical embedding should have score ~1
-      expect(results[0]!.score).toBeCloseTo(1.0, 2);
+      expect(results[0]!.score).toBeCloseTo(1, 2);
     });
 
     it("filters by minScore", () => {

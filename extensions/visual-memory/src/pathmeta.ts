@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import type { AssetMetadata, PathMetadata } from "./types.js";
 
 /** Known workspace root segments that anchor brand inference. */
-const WORKSPACE_ROOTS = ["content", "input", "output", "archive"];
+const WORKSPACE_ROOTS = new Set(["content", "input", "output", "archive"]);
 
 /** Folder name → intent mapping. */
 const INTENT_HINTS: Record<string, string> = {
@@ -27,14 +27,14 @@ export function inferBrand(filePath: string, workspaceRoot?: string): string | u
     const relSegments = rel.split("/").filter(Boolean);
 
     // First segment should be a workspace root folder, second is brand
-    if (relSegments.length >= 2 && WORKSPACE_ROOTS.includes(relSegments[0]!)) {
+    if (relSegments.length >= 2 && WORKSPACE_ROOTS.has(relSegments[0]!)) {
       return relSegments[1];
     }
   }
 
   // Fallback: scan for workspace root markers in the full path
   for (let i = 0; i < segments.length; i++) {
-    if (WORKSPACE_ROOTS.includes(segments[i]!)) {
+    if (WORKSPACE_ROOTS.has(segments[i]!)) {
       // Brand is next segment after workspace root
       if (i + 1 < segments.length - 1) {
         return segments[i + 1];
@@ -63,12 +63,32 @@ export function classifyIntent(filePath: string): string | undefined {
 }
 
 /**
+ * Path segment that marks original source media. A file living beneath a
+ * directory with this name is treated as published/final.
+ */
+const PROTECTED_ROOT_SEGMENT = "content";
+
+/**
  * Determine whether editing this file should trigger a warning.
- * Paths under /content/ are considered published/final and get warnOnEdit=true.
+ *
+ * Matches a `content` DIRECTORY SEGMENT, not the substring `"/content/"`.
+ * The substring form was a live guardrail bypass: a workspace-RELATIVE target
+ * like `content/acme/hero.png` has no leading separator, so it was not flagged,
+ * and agents pass relative paths routinely — omitting one slash was enough to
+ * overwrite protected originals. Segment matching also stops false positives on
+ * directories that merely start with the word (`contents/`, `my_content/`).
+ *
+ * Only DIRECTORY segments count, so a file literally named `content` is not
+ * flagged. That preserves the original intent: what is protected is the media
+ * *under* a content directory.
  */
 export function shouldWarnOnEdit(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, "/").toLowerCase();
-  return normalized.includes("/content/");
+  const segments = normalized.split("/").filter(Boolean);
+  // A trailing separator means every segment names a directory; otherwise the
+  // last segment is the file itself and cannot be the protecting directory.
+  const directorySegments = normalized.endsWith("/") ? segments : segments.slice(0, -1);
+  return directorySegments.includes(PROTECTED_ROOT_SEGMENT);
 }
 
 /**
