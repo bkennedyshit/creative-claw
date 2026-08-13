@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { APP_CONFIG_FILENAME, APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { resolveHomeRelativePath, resolveRequiredHomeDir } from "../infra/home-dir.js";
 import { parseTcpPort } from "../infra/tcp-port.js";
 import type { OpenClawConfig } from "./types.js";
@@ -21,8 +22,23 @@ export let isNixMode = resolveIsNixMode();
 
 // Support the remaining legacy pre-rebrand state dir.
 const LEGACY_STATE_DIRNAMES = [".clawdbot"] as const;
-const NEW_STATE_DIRNAME = ".openclaw";
-const CONFIG_FILENAME = "openclaw.json";
+/**
+ * Current state dir + config file name.
+ *
+ * Read from the package.json `openclawConfig` seam rather than hardcoded, so a
+ * fork gets an isolated directory instead of sharing `~/.openclaw` with an
+ * upstream install. These were previously literals here while
+ * `src/agents/config.ts` already derived its own `CONFIG_DIR_NAME` from the same
+ * seam, so setting it moved the agent dir but left config and state behind.
+ *
+ * Unset seam = the historical `.openclaw` / `openclaw.json`, so this is a no-op
+ * by default. Note the fork's directory is deliberately NOT added to
+ * {@link LEGACY_STATE_DIRNAMES}: legacy dirs are ADOPTED when the current one is
+ * absent, so listing `.openclaw` there would make a fresh rebranded install
+ * silently take over the upstream product's config.
+ */
+const NEW_STATE_DIRNAME: string = APP_STATE_DIRNAME;
+const CONFIG_FILENAME: string = APP_CONFIG_FILENAME;
 const LEGACY_CONFIG_FILENAMES = ["clawdbot.json"] as const;
 
 function resolveDefaultHomeDir(): string {
