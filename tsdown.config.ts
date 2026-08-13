@@ -199,7 +199,17 @@ const explicitNeverBundleDependencies = [
   "@larksuiteoapi/node-sdk",
   "@matrix-org/matrix-sdk-crypto-nodejs",
   "@vitest/expect",
+  // Native N-API addon whose `bindings` locator references CJS `__filename` and
+  // `require()`. Inlining it into an ESM bundle produces a `__filename is not
+  // defined` ReferenceError plus a require()+top-level-await module-format
+  // conflict that aborts gateway startup. Keep it external like the others.
+  "better-sqlite3",
   "jimp",
+  // Native N-API addon: koffi resolves its prebuilt `koffi.node` from paths
+  // derived from its own module `__dirname`. Inlining koffi's index.js relocates
+  // `__dirname` into the bundle chunk, so every candidate path misses and it
+  // throws "Cannot find the native Koffi module". Keep it external like sharp.
+  "koffi",
   "matrix-js-sdk",
   "prism-media",
   "qrcode-terminal",
