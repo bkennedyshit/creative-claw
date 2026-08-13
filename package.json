@@ -14,7 +14,7 @@
     "url": "git+https://github.com/openclaw/openclaw.git"
   },
   "bin": {
-    "openclaw": "openclaw.mjs"
+    "creativeclaw": "openclaw.mjs"
   },
   "directories": {
     "doc": "docs",
