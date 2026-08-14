@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, test, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import {
@@ -28,7 +29,7 @@ describe("buildCleanupPlan", () => {
     const plan = buildCleanupPlan({
       cfg: cfg as unknown as OpenClawConfig,
       stateDir: path.join(tmpRoot, "openclaw-state"),
-      configPath: path.join(tmpRoot, "openclaw-state", "openclaw.json"),
+      configPath: path.join(tmpRoot, "openclaw-state", APP_CONFIG_FILENAME),
       oauthDir: path.join(tmpRoot, "openclaw-oauth"),
     });
 
@@ -40,7 +41,7 @@ describe("buildCleanupPlan", () => {
   test("includes implicit per-agent workspaces under the state dir", () => {
     const tmpRoot = path.join(path.parse(process.cwd()).root, "tmp", "openclaw-cleanup-plan");
     const home = path.join(tmpRoot, "home");
-    const stateDir = path.join(home, ".openclaw");
+    const stateDir = path.join(home, APP_STATE_DIRNAME);
     const cfg = {
       agents: {
         list: [{ id: "main" }, { id: "work" }],
@@ -57,7 +58,7 @@ describe("buildCleanupPlan", () => {
         const plan = buildCleanupPlan({
           cfg: cfg as unknown as OpenClawConfig,
           stateDir,
-          configPath: path.join(stateDir, "openclaw.json"),
+          configPath: path.join(stateDir, APP_CONFIG_FILENAME),
           oauthDir: path.join(stateDir, "credentials"),
         });
 
@@ -86,7 +87,7 @@ describe("cleanup path removals", () => {
     await removeStateAndLinkedPaths(
       {
         stateDir: path.join(tmpRoot, "state"),
-        configPath: path.join(tmpRoot, "state", "openclaw.json"),
+        configPath: path.join(tmpRoot, "state", APP_CONFIG_FILENAME),
         oauthDir: path.join(tmpRoot, "oauth"),
         configInsideState: true,
         oauthInsideState: false,
@@ -104,10 +105,10 @@ describe("cleanup path removals", () => {
   it("preserves nested workspace paths during state-only removal", async () => {
     const runtime = createRuntimeMock();
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cleanup-"));
-    const stateDir = path.join(tmpRoot, ".openclaw");
+    const stateDir = path.join(tmpRoot, APP_STATE_DIRNAME);
     const workspaceDir = path.join(stateDir, "workspace");
     const workspaceFile = path.join(workspaceDir, "project.txt");
-    const configPath = path.join(stateDir, "openclaw.json");
+    const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
     const cacheFile = path.join(stateDir, "cache.json");
 
     try {

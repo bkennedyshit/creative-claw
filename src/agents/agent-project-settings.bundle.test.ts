@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { createTrackedTempDirs } from "../test-utils/tracked-temp-dirs.js";
 
 const pluginMetadataSnapshotMocks = vi.hoisted(() => ({
@@ -16,7 +17,7 @@ const bundleTestDeps = await vi.hoisted(async () => {
   const loadBundleRegistry = (params: { workspaceDir?: string }) => {
     const rootDir = pathModule.join(
       params.workspaceDir ?? "",
-      ".openclaw",
+      APP_STATE_DIRNAME,
       "extensions",
       "claude-bundle",
     );
@@ -44,7 +45,7 @@ const bundleTestDeps = await vi.hoisted(async () => {
   }) => {
     const pluginRoot = pathModule.join(
       params.workspaceDir,
-      ".openclaw",
+      APP_STATE_DIRNAME,
       "extensions",
       "claude-bundle",
     );
@@ -138,7 +139,7 @@ async function createWorkspaceBundle(params: {
   pluginId?: string;
 }): Promise<string> {
   const pluginId = params.pluginId ?? "claude-bundle";
-  const pluginRoot = path.join(params.workspaceDir, ".openclaw", "extensions", pluginId);
+  const pluginRoot = path.join(params.workspaceDir, APP_STATE_DIRNAME, "extensions", pluginId);
   await fs.mkdir(path.join(pluginRoot, ".claude-plugin"), { recursive: true });
   await fs.writeFile(
     path.join(pluginRoot, ".claude-plugin", "plugin.json"),

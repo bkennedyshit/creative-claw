@@ -6,6 +6,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import type { SandboxContext } from "../sandbox.js";
 import type { SandboxFsBridge, SandboxResolvedPath } from "../sandbox/fs-bridge.js";
 import { createAgentToolsSandboxContext } from "./agent-tools-sandbox-context.js";
@@ -23,7 +24,7 @@ function createUnsafeMountedBridge(params: {
   const workspaceContainerRoot = params.workspaceContainerRoot ?? "/workspace";
   const skillsContainerRoot = path.posix.join(
     workspaceContainerRoot,
-    ".openclaw",
+    APP_STATE_DIRNAME,
     "sandbox-skills",
     "skills",
   );

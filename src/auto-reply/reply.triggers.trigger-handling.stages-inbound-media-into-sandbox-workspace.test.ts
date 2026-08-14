@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path, { basename, dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { MEDIA_MAX_BYTES } from "../media/store.js";
 import { stageSandboxMedia } from "./reply/stage-sandbox-media.js";
 import {
@@ -160,7 +161,7 @@ async function writeInboundMedia(
   fileName: string,
   payload: string | Buffer,
 ): Promise<string> {
-  const inboundDir = join(home, ".openclaw", "media", "inbound");
+  const inboundDir = join(home, APP_STATE_DIRNAME, "media", "inbound");
   await fs.mkdir(inboundDir, { recursive: true });
   const mediaPath = join(inboundDir, fileName);
   await fs.writeFile(mediaPath, payload);

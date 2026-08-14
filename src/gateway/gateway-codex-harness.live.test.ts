@@ -14,6 +14,7 @@ import {
 import { isLiveTestEnabled } from "../agents/live-test-helpers.js";
 import type { OpenClawConfig } from "../config/config.js";
 import type { ContextEngine } from "../context-engine/types.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import { extractFirstTextBlock } from "../shared/chat-message-content.js";
 import { setTestEnvValue } from "../test-utils/env.js";
@@ -1040,7 +1041,7 @@ describeLive("gateway live (Codex harness)", () => {
       const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-live-codex-harness-"));
       const stateDir = path.join(tempDir, "state");
       const workspace = await createLiveWorkspace(tempDir);
-      const configPath = path.join(tempDir, "openclaw.json");
+      const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
       const token = `test-${randomUUID()}`;
       const port = await getFreeGatewayPort();
 

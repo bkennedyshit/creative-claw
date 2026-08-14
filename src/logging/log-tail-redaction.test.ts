@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { resetLogger, setLoggerOverride } from "../logging.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { readConfiguredLogTail } from "./log-tail.js";
@@ -26,7 +27,7 @@ describe("readConfiguredLogTail redaction", () => {
   it("redacts raw auth headers before returning log lines", async () => {
     const dir = await makeTempDir();
     const logFile = path.join(dir, "openclaw.log");
-    const configFile = path.join(dir, "openclaw.json");
+    const configFile = path.join(dir, APP_CONFIG_FILENAME);
     const basicSecret = "c2VjcmV0OnBhc3M=";
     const openClawToken = "supersecretgatewaytoken1234567890";
     const pomeriumJwt = "eyJheaderabcd.eyJpayloadabcd.signatureabcd123456";

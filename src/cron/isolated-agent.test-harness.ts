@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { withTempHome as withTempHomeBase } from "openclaw/plugin-sdk/test-env";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import type { CronJob } from "./types.js";
 
 /** Runs a test callback with an isolated OpenClaw home for cron tests. */
@@ -27,7 +28,7 @@ export async function writeSessionStoreEntries(
   home: string,
   entries: Record<string, Record<string, unknown>>,
 ): Promise<string> {
-  const dir = path.join(home, ".openclaw", "sessions");
+  const dir = path.join(home, APP_STATE_DIRNAME, "sessions");
   await fs.mkdir(dir, { recursive: true });
   const storePath = path.join(dir, "sessions.json");
   await fs.writeFile(storePath, JSON.stringify(entries, null, 2), "utf-8");

@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { makeTempWorkspace, writeWorkspaceFile } from "../test-helpers/workspace.js";
 import {
   createOpenClawTestState,
@@ -51,7 +52,7 @@ describe("resolveDefaultAgentWorkspaceDir", () => {
       HOME: "/home/other",
     } as NodeJS.ProcessEnv);
 
-    expect(dir).toBe(path.join(path.resolve("/srv/openclaw-home"), ".openclaw", "workspace"));
+    expect(dir).toBe(path.join(path.resolve("/srv/openclaw-home"), APP_STATE_DIRNAME, "workspace"));
   });
 
   it("prefers OPENCLAW_WORKSPACE_DIR for default workspace resolution", () => {
@@ -66,7 +67,7 @@ describe("resolveDefaultAgentWorkspaceDir", () => {
 });
 
 const WORKSPACE_STATE_PATH_SEGMENTS = ["openclaw-workspace-state.json"] as const;
-const LEGACY_WORKSPACE_STATE_PATH_SEGMENTS = [".openclaw", "workspace-state.json"] as const;
+const LEGACY_WORKSPACE_STATE_PATH_SEGMENTS = [APP_STATE_DIRNAME, "workspace-state.json"] as const;
 
 function resolveCurrentWorkspaceAttestationPath(dir: string): string {
   const [attestationPath] = resolveWorkspaceAttestationPaths(dir);
@@ -226,7 +227,7 @@ describe("ensureAgentWorkspace", () => {
 
     await fs.rm(tempDir, { recursive: true, force: true });
     await fs.mkdir(path.join(tempDir, ".git"), { recursive: true });
-    await fs.mkdir(path.join(tempDir, ".openclaw"), { recursive: true });
+    await fs.mkdir(path.join(tempDir, APP_STATE_DIRNAME), { recursive: true });
 
     await expectWorkspaceVanished(
       ensureAgentWorkspace({ dir: tempDir, ensureBootstrapFiles: true }),
@@ -350,7 +351,7 @@ describe("ensureAgentWorkspace", () => {
     await ensureAgentWorkspace({ dir: tempDir, ensureBootstrapFiles: false });
 
     await fs.rm(tempDir, { recursive: true, force: true });
-    await fs.mkdir(path.join(tempDir, ".openclaw"), { recursive: true });
+    await fs.mkdir(path.join(tempDir, APP_STATE_DIRNAME), { recursive: true });
     await fs.mkdir(path.join(tempDir, "skills"), { recursive: true });
     await fs.writeFile(path.join(tempDir, ".DS_Store"), "");
 

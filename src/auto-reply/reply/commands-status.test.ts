@@ -14,6 +14,7 @@ import {
   resetSubagentRegistryForTests,
 } from "../../agents/subagent-registry.js";
 import type { ModelDefinitionConfig } from "../../config/types.models.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import {
   completeTaskRunByRunId,
   createQueuedTaskRun,
@@ -160,7 +161,7 @@ function saveStatusTestAuthProfiles(params: {
   dir: string;
   profiles: Array<{ profileId: string; provider: "openai" | "openai-codex" | "anthropic" }>;
 }): void {
-  const agentDir = path.join(params.dir, ".openclaw", "agents", "main", "agent");
+  const agentDir = path.join(params.dir, APP_STATE_DIRNAME, "agents", "main", "agent");
   fs.mkdirSync(agentDir, { recursive: true });
   saveAuthProfileStore(
     {
@@ -229,7 +230,7 @@ function writeTranscriptUsageLog(params: {
 }) {
   const logPath = path.join(
     params.dir,
-    ".openclaw",
+    APP_STATE_DIRNAME,
     "agents",
     params.agentId,
     "sessions",
@@ -855,7 +856,7 @@ describe("buildStatusReply subagent summary", () => {
 
     await withTempHome(
       async (dir) => {
-        const agentDir = path.join(dir, ".openclaw", "agents", "main", "agent");
+        const agentDir = path.join(dir, APP_STATE_DIRNAME, "agents", "main", "agent");
         fs.mkdirSync(agentDir, { recursive: true });
         saveAuthProfileStore(
           {
@@ -968,7 +969,7 @@ describe("buildStatusReply subagent summary", () => {
 
     await withTempHome(
       async (dir) => {
-        const agentDir = path.join(dir, ".openclaw", "agents", "main", "agent");
+        const agentDir = path.join(dir, APP_STATE_DIRNAME, "agents", "main", "agent");
         fs.mkdirSync(agentDir, { recursive: true });
         saveAuthProfileStore(
           {
@@ -1747,7 +1748,7 @@ describe("buildStatusReply subagent summary", () => {
   it("uses Codex OAuth auth labels for explicit OpenAI OpenClaw auth order", async () => {
     await withTempHome(
       async (dir) => {
-        const agentDir = path.join(dir, ".openclaw", "agents", "main", "agent");
+        const agentDir = path.join(dir, APP_STATE_DIRNAME, "agents", "main", "agent");
         fs.mkdirSync(agentDir, { recursive: true });
         saveAuthProfileStore(
           {
@@ -2017,7 +2018,12 @@ describe("buildStatusReply subagent summary", () => {
   it("uses workspace-scoped auth evidence in /status auth labels", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-status-auth-label-"));
     const workspaceDir = path.join(tempRoot, "workspace");
-    const pluginDir = path.join(workspaceDir, ".openclaw", "extensions", "workspace-auth-label");
+    const pluginDir = path.join(
+      workspaceDir,
+      APP_STATE_DIRNAME,
+      "extensions",
+      "workspace-auth-label",
+    );
     const bundledDir = path.join(tempRoot, "bundled");
     const stateDir = path.join(tempRoot, "state");
     const credentialPath = path.join(tempRoot, "credentials.json");

@@ -2,6 +2,7 @@
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../../infra/app-branding.js";
 import { withEnv } from "../../test-utils/env.js";
 import { createCanonicalFixtureSkill } from "../test-support/test-helpers.js";
 import { testing as workspaceSkillsTesting, buildWorkspaceSkillsPrompt } from "./workspace.js";
@@ -56,7 +57,7 @@ describe("compactSkillPaths", () => {
   it("does not compact explicit state-root managed skill paths to OS-home tilde paths", () => {
     const root = path.parse(os.homedir()).root;
     const osHome = path.join(root, "data");
-    const stateDir = path.join(osHome, ".openclaw");
+    const stateDir = path.join(osHome, APP_STATE_DIRNAME);
     const skillDir = path.join(stateDir, "skills", "world-cup-soccer-openclaw-skill");
     const skillFile = path.join(skillDir, "SKILL.md");
 
@@ -65,7 +66,7 @@ describe("compactSkillPaths", () => {
         HOME: osHome,
         OPENCLAW_HOME: osHome,
         OPENCLAW_STATE_DIR: stateDir,
-        OPENCLAW_CONFIG_PATH: path.join(stateDir, "openclaw.json"),
+        OPENCLAW_CONFIG_PATH: path.join(stateDir, APP_CONFIG_FILENAME),
       },
       () =>
         buildPromptForFixtureSkill({
@@ -83,7 +84,7 @@ describe("compactSkillPaths", () => {
   it("does not compact explicit state-root plugin skill paths to OS-home tilde paths", () => {
     const root = path.parse(os.homedir()).root;
     const osHome = path.join(root, "data");
-    const stateDir = path.join(osHome, ".openclaw");
+    const stateDir = path.join(osHome, APP_STATE_DIRNAME);
     const skillDir = path.join(stateDir, "plugin-skills", "calendar-plugin-skill");
     const skillFile = path.join(skillDir, "SKILL.md");
 
@@ -92,7 +93,7 @@ describe("compactSkillPaths", () => {
         HOME: osHome,
         OPENCLAW_HOME: osHome,
         OPENCLAW_STATE_DIR: stateDir,
-        OPENCLAW_CONFIG_PATH: path.join(stateDir, "openclaw.json"),
+        OPENCLAW_CONFIG_PATH: path.join(stateDir, APP_CONFIG_FILENAME),
       },
       () =>
         buildPromptForFixtureSkill({
@@ -109,7 +110,7 @@ describe("compactSkillPaths", () => {
 
   it("compacts managed skill paths when OS-home tilde reaches the same path", () => {
     const home = os.homedir();
-    const stateDir = path.join(home, ".openclaw");
+    const stateDir = path.join(home, APP_STATE_DIRNAME);
     const skillDir = path.join(stateDir, "skills", "home-managed-skill");
 
     const prompt = withEnv(

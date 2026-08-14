@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthProfileStore } from "../agents/auth-profiles.js";
 import { withTempHome } from "../config/home-env.test-harness.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   asConfig,
   beginSecretsRuntimeIsolationForTest,
@@ -91,8 +92,8 @@ describe("secrets runtime snapshot auth integration", () => {
 
   it("recomputes config-derived agent dirs when refreshing active secrets runtime snapshots", async () => {
     await withTempHome("openclaw-secrets-runtime-agent-dirs-", async (home) => {
-      const mainAgentDir = path.join(home, ".openclaw", "agents", "main", "agent");
-      const opsAgentDir = path.join(home, ".openclaw", "agents", "ops", "agent");
+      const mainAgentDir = path.join(home, APP_STATE_DIRNAME, "agents", "main", "agent");
+      const opsAgentDir = path.join(home, APP_STATE_DIRNAME, "agents", "ops", "agent");
       await fs.mkdir(mainAgentDir, { recursive: true });
       await fs.mkdir(opsAgentDir, { recursive: true });
       await fs.writeFile(

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 
 const mocks = vi.hoisted(() => ({
   createConfigIO: vi.fn().mockReturnValue({
@@ -40,7 +41,7 @@ describe("config logging", () => {
 
   it("formats backup as an indented detail when present", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-config-log-"));
-    const configPath = path.join(dir, "openclaw.json");
+    const configPath = path.join(dir, APP_CONFIG_FILENAME);
     const backupPath = `${configPath}.bak`;
     fs.writeFileSync(backupPath, "{}", "utf8");
 

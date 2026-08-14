@@ -9,6 +9,7 @@ import {
 } from "../agents/auth-profiles/sqlite.js";
 import { saveAuthProfileStore } from "../agents/auth-profiles/store.js";
 import type { AuthProfileStore } from "../agents/auth-profiles/types.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { closeOpenClawAgentDatabasesForTest } from "../state/openclaw-agent-db.js";
 import { runSecretsAudit } from "./audit.js";
 
@@ -147,8 +148,8 @@ async function expectPathMissing(filePath: string): Promise<void> {
 
 async function createAuditFixture(): Promise<AuditFixture> {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-secrets-audit-"));
-  const stateDir = path.join(rootDir, ".openclaw");
-  const configPath = path.join(stateDir, "openclaw.json");
+  const stateDir = path.join(rootDir, APP_STATE_DIRNAME);
+  const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
   const agentDir = path.join(stateDir, "agents", "main", "agent");
   const authStorePath = resolveAuthProfileDatabasePath(agentDir);
   const authJsonPath = path.join(agentDir, "auth.json");

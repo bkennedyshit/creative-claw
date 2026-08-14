@@ -4,6 +4,7 @@ import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { withMockedPlatform } from "../test-utils/vitest-spies.js";
@@ -82,8 +83,8 @@ describe("handleReset", () => {
   it("uses active profile paths for destructive reset targets", async () => {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-reset-profile-"));
     const profileStateDir = path.join(homeDir, ".openclaw-work");
-    const defaultStateDir = path.join(homeDir, ".openclaw");
-    const profileConfigPath = path.join(profileStateDir, "openclaw.json");
+    const defaultStateDir = path.join(homeDir, APP_STATE_DIRNAME);
+    const profileConfigPath = path.join(profileStateDir, APP_CONFIG_FILENAME);
     const profileCredentialsDir = path.join(profileStateDir, "credentials");
     const profileSessionsDir = path.join(profileStateDir, "agents", "main", "sessions");
     const workspaceDir = path.join(profileStateDir, "workspace");
@@ -133,7 +134,7 @@ describe("handleReset", () => {
   it("does not trash an unowned sibling attestation path during full reset", async () => {
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-reset-profile-"));
     const profileStateDir = path.join(homeDir, ".openclaw-work");
-    const profileConfigPath = path.join(profileStateDir, "openclaw.json");
+    const profileConfigPath = path.join(profileStateDir, APP_CONFIG_FILENAME);
     const profileCredentialsDir = path.join(profileStateDir, "credentials");
     const profileSessionsDir = path.join(profileStateDir, "agents", "main", "sessions");
     const workspaceDir = path.join(profileStateDir, "workspace");
@@ -172,7 +173,7 @@ describe("handleReset", () => {
     async () => {
       const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-reset-profile-"));
       const profileStateDir = path.join(homeDir, ".openclaw-work");
-      const profileConfigPath = path.join(profileStateDir, "openclaw.json");
+      const profileConfigPath = path.join(profileStateDir, APP_CONFIG_FILENAME);
       const profileCredentialsDir = path.join(profileStateDir, "credentials");
       const profileSessionsDir = path.join(profileStateDir, "agents", "main", "sessions");
       const workspaceDir = path.join(profileStateDir, "workspace");
@@ -261,8 +262,8 @@ describe("moveToTrash", () => {
     const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-trash-parent-link-"));
     const lexicalParent = path.join(testRoot, "state-link");
     const realParent = path.join(testRoot, "state-real");
-    const targetPath = path.join(lexicalParent, "openclaw.json");
-    const sourcePath = path.join(realParent, "openclaw.json");
+    const targetPath = path.join(lexicalParent, APP_CONFIG_FILENAME);
+    const sourcePath = path.join(realParent, APP_CONFIG_FILENAME);
     fs.mkdirSync(lexicalParent, { recursive: true });
     fs.writeFileSync(targetPath, "{}\n");
     vi.spyOn(fsPromises, "realpath").mockImplementation(async (candidate) =>

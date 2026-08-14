@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { readPersistedInstalledPluginIndex } from "../plugins/installed-plugin-index-store.js";
 import { withTempDir } from "../test-helpers/temp-dir.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import {
   autoMigrateLegacyStateDir,
   resetAutoMigrateLegacyStateDirForTest,
@@ -132,7 +133,7 @@ describe("legacy state dir auto-migration", () => {
 
   it("migrates the legacy plugin install index before config reads", async () => {
     await withStateDirFixture(async (root) => {
-      const stateDir = path.join(root, ".openclaw");
+      const stateDir = path.join(root, APP_STATE_DIRNAME);
       const sourcePath = path.join(stateDir, "plugins", "installs.json");
       fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
       fs.writeFileSync(

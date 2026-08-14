@@ -286,6 +286,7 @@ import {
   registerInternalHook,
   type InternalHookEvent,
 } from "../../hooks/internal-hooks.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { enqueueSystemEvent } from "../../infra/system-events.js";
 import { createEmptyPluginRegistry } from "../../plugins/registry-empty.js";
 import { setActivePluginRegistry } from "../../plugins/runtime.js";
@@ -619,7 +620,12 @@ describe("/model chat UX", () => {
   it("passes workspace scope through the /model list browser alias", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-model-list-auth-label-"));
     const workspaceDir = path.join(tempRoot, "workspace");
-    const pluginDir = path.join(workspaceDir, ".openclaw", "extensions", "workspace-model-list");
+    const pluginDir = path.join(
+      workspaceDir,
+      APP_STATE_DIRNAME,
+      "extensions",
+      "workspace-model-list",
+    );
     const bundledDir = path.join(tempRoot, "bundled");
     const stateDir = path.join(tempRoot, "state");
     const credentialPath = path.join(tempRoot, "credentials.json");
@@ -971,7 +977,12 @@ describe("/model chat UX", () => {
   it("uses workspace-scoped auth evidence in /model status labels", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-model-status-auth-label-"));
     const workspaceDir = path.join(tempRoot, "workspace");
-    const pluginDir = path.join(workspaceDir, ".openclaw", "extensions", "workspace-model-auth");
+    const pluginDir = path.join(
+      workspaceDir,
+      APP_STATE_DIRNAME,
+      "extensions",
+      "workspace-model-auth",
+    );
     const bundledDir = path.join(tempRoot, "bundled");
     const stateDir = path.join(tempRoot, "state");
     const credentialPath = path.join(tempRoot, "credentials.json");

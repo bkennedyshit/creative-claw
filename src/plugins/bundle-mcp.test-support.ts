@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 
 export function createBundleMcpTempHarness() {
@@ -22,7 +23,7 @@ export function createBundleMcpTempHarness() {
 }
 
 export function resolveBundlePluginRoot(homeDir: string, pluginId: string) {
-  return path.join(homeDir, ".openclaw", "extensions", pluginId);
+  return path.join(homeDir, APP_STATE_DIRNAME, "extensions", pluginId);
 }
 
 export async function writeBundleTextFiles(

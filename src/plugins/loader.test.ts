@@ -18,6 +18,7 @@ import {
   getRegisteredEventKeys,
   triggerInternalHook,
 } from "../hooks/internal-hooks.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   emitDiagnosticEvent,
   resetDiagnosticEventsForTest,
@@ -289,7 +290,7 @@ function writeWorkspacePlugin(params: {
   workspaceDir?: string;
 }) {
   const workspaceDir = params.workspaceDir ?? makeTempDir();
-  const workspacePluginDir = path.join(workspaceDir, ".openclaw", "extensions", params.id);
+  const workspacePluginDir = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", params.id);
   mkdirSafe(workspacePluginDir);
   const plugin = writePlugin({
     id: params.id,
@@ -9284,7 +9285,7 @@ module.exports = {
 
           const pluginDir = path.join(
             realHome,
-            ".openclaw",
+            APP_STATE_DIRNAME,
             "npm",
             "node_modules",
             "@example",
@@ -9304,7 +9305,7 @@ module.exports = {
                 spec: "@example/tracked-symlink-install@1.0.0",
                 installPath: path.join(
                   linkedHome,
-                  ".openclaw",
+                  APP_STATE_DIRNAME,
                   "npm",
                   "node_modules",
                   "@example",

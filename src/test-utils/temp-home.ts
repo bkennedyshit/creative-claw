@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { captureEnv, setTestEnvValue } from "./env.js";
 import { cleanupSessionStateForTest } from "./session-state-cleanup.js";
 
@@ -49,12 +50,12 @@ export async function createTempHomeEnv(prefix: string): Promise<TempHomeEnv> {
   const home = path.join(prefixRoot, `home-${String(nextHomeIndex)}`);
   nextHomeIndex += 1;
   await fs.rm(home, { recursive: true, force: true });
-  await fs.mkdir(path.join(home, ".openclaw"), { recursive: true });
+  await fs.mkdir(path.join(home, APP_STATE_DIRNAME), { recursive: true });
 
   const snapshot = captureEnv([...HOME_ENV_KEYS]);
   setTestEnvValue("HOME", home);
   setTestEnvValue("USERPROFILE", home);
-  setTestEnvValue("OPENCLAW_STATE_DIR", path.join(home, ".openclaw"));
+  setTestEnvValue("OPENCLAW_STATE_DIR", path.join(home, APP_STATE_DIRNAME));
 
   if (process.platform === "win32") {
     const match = home.match(/^([A-Za-z]:)(.*)$/);

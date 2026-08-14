@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/types.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { resolveStatusTtsSnapshot } from "./status-config.js";
 
@@ -28,7 +29,7 @@ async function withStatusTempHome(run: (home: string) => Promise<void>): Promise
       HOME: home,
       USERPROFILE: home,
       OPENCLAW_HOME: undefined,
-      OPENCLAW_STATE_DIR: path.join(home, ".openclaw"),
+      OPENCLAW_STATE_DIR: path.join(home, APP_STATE_DIRNAME),
     },
     async () => await run(home),
   );
@@ -37,7 +38,7 @@ async function withStatusTempHome(run: (home: string) => Promise<void>): Promise
 describe("resolveStatusTtsSnapshot", () => {
   it("uses prefs overrides without loading speech providers", async () => {
     await withStatusTempHome(async (home) => {
-      const prefsPath = path.join(home, ".openclaw", "settings", "tts.json");
+      const prefsPath = path.join(home, APP_STATE_DIRNAME, "settings", "tts.json");
       fs.mkdirSync(path.dirname(prefsPath), { recursive: true });
       fs.writeFileSync(
         prefsPath,
@@ -305,7 +306,7 @@ describe("resolveStatusTtsSnapshot", () => {
 
   it("uses provider metadata for local provider prefs overrides", async () => {
     await withStatusTempHome(async (home) => {
-      const prefsPath = path.join(home, ".openclaw", "settings", "tts.json");
+      const prefsPath = path.join(home, APP_STATE_DIRNAME, "settings", "tts.json");
       fs.mkdirSync(path.dirname(prefsPath), { recursive: true });
       fs.writeFileSync(
         prefsPath,
@@ -365,7 +366,7 @@ describe("resolveStatusTtsSnapshot", () => {
       await withEnvAsync(
         {
           OPENCLAW_STATE_DIR: undefined,
-          OPENCLAW_CONFIG_PATH: path.join(stateDir, "openclaw.json"),
+          OPENCLAW_CONFIG_PATH: path.join(stateDir, APP_CONFIG_FILENAME),
         },
         async () => {
           expect(

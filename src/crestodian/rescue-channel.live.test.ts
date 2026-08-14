@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CommandContext } from "../auto-reply/reply/commands-types.js";
 import { clearConfigCache } from "../config/config.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { deleteTestEnvValue, setTestEnvValue } from "../test-utils/env.js";
 import { runCrestodianRescueMessage } from "./rescue-message.js";
 
@@ -68,7 +69,7 @@ describeLive("Crestodian live rescue channel smoke", () => {
 
   it("handles /crestodian status and a persistent approval roundtrip", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "crestodian-live-rescue-"));
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     setTestEnvValue("OPENCLAW_STATE_DIR", tempDir);
     setTestEnvValue("OPENCLAW_CONFIG_PATH", configPath);
     await fs.writeFile(

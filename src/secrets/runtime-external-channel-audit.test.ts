@@ -31,6 +31,7 @@ vi.mock("../channels/plugins/bootstrap-registry.js", () => ({
   getBootstrapChannelSecrets: getBootstrapChannelSecretsMock,
 }));
 
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   asConfig,
   loadAuthStoreWithProfiles,
@@ -105,7 +106,7 @@ function createGoogleChatSecretContractApi() {
       id: "channels.googlechat.accounts.*.serviceAccount",
       targetType: "channels.googlechat.serviceAccount",
       targetTypeAliases: ["channels.googlechat.accounts.*.serviceAccount"],
-      configFile: "openclaw.json",
+      configFile: APP_CONFIG_FILENAME,
       pathPattern: "channels.googlechat.accounts.*.serviceAccount",
       refPathPattern: "channels.googlechat.accounts.*.serviceAccountRef",
       secretShape: "sibling_ref",
@@ -118,7 +119,7 @@ function createGoogleChatSecretContractApi() {
     {
       id: "channels.googlechat.serviceAccount",
       targetType: "channels.googlechat.serviceAccount",
-      configFile: "openclaw.json",
+      configFile: APP_CONFIG_FILENAME,
       pathPattern: "channels.googlechat.serviceAccount",
       refPathPattern: "channels.googlechat.serviceAccountRef",
       secretShape: "sibling_ref",

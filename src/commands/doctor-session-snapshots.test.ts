@@ -14,6 +14,7 @@ vi.mock("../../packages/terminal-core/src/note.js", () => ({
   note,
 }));
 
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   detectSessionSnapshotHealthIssues,
   noteSessionSnapshotHealth,
@@ -271,7 +272,7 @@ describe("doctor session snapshot stale runtime metadata", () => {
       "C:\\",
       "Users",
       "alice",
-      ".openclaw",
+      APP_STATE_DIRNAME,
       "lib",
       "node_modules",
       "openclaw",

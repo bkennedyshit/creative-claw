@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadPersistedAuthProfileStore } from "../agents/auth-profiles/persisted.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "./env.js";
 import { createOpenClawTestState, withOpenClawTestState } from "./openclaw-test-state.js";
 
@@ -30,8 +31,8 @@ describe("openclaw test state", () => {
 
     try {
       expect(state.home).toBe(path.join(state.root, "home"));
-      expect(state.stateDir).toBe(path.join(state.home, ".openclaw"));
-      expect(state.configPath).toBe(path.join(state.stateDir, "openclaw.json"));
+      expect(state.stateDir).toBe(path.join(state.home, APP_STATE_DIRNAME));
+      expect(state.configPath).toBe(path.join(state.stateDir, APP_CONFIG_FILENAME));
       expect(state.workspaceDir).toBe(path.join(state.home, "workspace"));
       expect(state.env.HOME).toBe(state.home);
       expect(state.env.OPENCLAW_HOME).toBe(state.home);

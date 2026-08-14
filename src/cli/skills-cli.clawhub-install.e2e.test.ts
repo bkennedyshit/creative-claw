@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 
 async function readRequestBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
@@ -113,7 +114,7 @@ describe("openclaw skills install ClawHub GitHub-backed E2E", () => {
         env: {
           ...process.env,
           OPENCLAW_STATE_DIR: stateDir,
-          OPENCLAW_CONFIG_PATH: path.join(stateDir, "openclaw.json"),
+          OPENCLAW_CONFIG_PATH: path.join(stateDir, APP_CONFIG_FILENAME),
           OPENCLAW_CLAWHUB_URL: registry,
           OPENCLAW_CLAWHUB_TOKEN: "test-token",
           OPENCLAW_CLAWHUB_GITHUB_CODELOAD_BASE_URL: registry,

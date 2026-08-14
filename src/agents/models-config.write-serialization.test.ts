@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { resolveInstalledPluginIndexPolicyHash } from "../plugins/installed-plugin-index-policy.js";
 import type { PluginMetadataSnapshot } from "../plugins/plugin-metadata-snapshot.js";
 import { resolveDefaultAgentDir } from "./agent-scope.js";
@@ -212,10 +213,10 @@ describe("models-config write serialization", () => {
 
       const result = await ensureOpenClawModelsJson(cfg);
 
-      expect(result.agentDir).toBe(path.join(home, ".openclaw", "agents", "ops", "agent"));
+      expect(result.agentDir).toBe(path.join(home, APP_STATE_DIRNAME, "agents", "ops", "agent"));
       await expect(fs.access(path.join(result.agentDir, "models.json"))).resolves.toBeUndefined();
       await expectMissingPath(
-        fs.access(path.join(home, ".openclaw", "agents", "main", "agent", "models.json")),
+        fs.access(path.join(home, APP_STATE_DIRNAME, "agents", "main", "agent", "models.json")),
       );
     });
   });

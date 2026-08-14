@@ -6,6 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { startPty, waitFor, type PtyRun } from "./tui-pty-test-support.js";
 
 type MockModelServer = {
@@ -224,7 +225,7 @@ async function startLocalModeTui() {
   const xdgConfigHome = path.join(tempDir, "xdg-config");
   const xdgDataHome = path.join(tempDir, "xdg-data");
   const xdgCacheHome = path.join(tempDir, "xdg-cache");
-  const configPath = path.join(tempDir, "openclaw.json");
+  const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
   const mockModel = await startMockModelServer(replyText);
   const config = buildLocalModeConfig({ workspaceDir, providerBaseUrl: mockModel.baseUrl });
   const tuiCliModuleUrl = pathToFileURL(path.join(process.cwd(), "src/cli/tui-cli.ts")).href;

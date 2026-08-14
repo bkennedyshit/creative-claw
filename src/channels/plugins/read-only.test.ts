@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../../infra/app-branding.js";
 import {
   cleanupPluginLoaderFixturesForTest,
   EMPTY_PLUGIN_SCHEMA,
@@ -85,7 +86,7 @@ vi.mock("../../plugins/plugin-module-loader-cache.js", async (importOriginal) =>
       ? paths.filter((entry): entry is string => typeof entry === "string")
       : [];
     const workspaceExtensionsDir = params.workspaceDir
-      ? path.join(params.workspaceDir, ".openclaw", "extensions")
+      ? path.join(params.workspaceDir, APP_STATE_DIRNAME, "extensions")
       : undefined;
     if (!workspaceExtensionsDir || !fs.existsSync(workspaceExtensionsDir)) {
       return explicitPaths;
@@ -284,7 +285,7 @@ module.exports = {
             {
               id: ${JSON.stringify(`channels.${channelId}.token`)},
               targetType: "channel",
-              configFile: "openclaw.json",
+              configFile: ${JSON.stringify(APP_CONFIG_FILENAME)},
               pathPattern: ${JSON.stringify(`channels.${channelId}.token`)},
               secretShape: "secret_input",
               expectedResolvedValue: "string",
@@ -328,7 +329,7 @@ module.exports = {
             {
               id: ${JSON.stringify(`channels.${setupChannelId}.token`)},
               targetType: "channel",
-              configFile: "openclaw.json",
+              configFile: ${JSON.stringify(APP_CONFIG_FILENAME)},
               pathPattern: ${JSON.stringify(`channels.${setupChannelId}.token`)},
           secretShape: "secret_input",
           expectedResolvedValue: "string",
@@ -1354,7 +1355,12 @@ describe("listReadOnlyChannelPluginsForConfig", () => {
 
   it("discovers trusted external channel plugins from the default agent workspace", () => {
     const workspaceDir = makeTempDir();
-    const pluginDir = path.join(workspaceDir, ".openclaw", "extensions", "external-chat-plugin");
+    const pluginDir = path.join(
+      workspaceDir,
+      APP_STATE_DIRNAME,
+      "extensions",
+      "external-chat-plugin",
+    );
     fs.mkdirSync(pluginDir, { recursive: true });
     const { fullMarker, setupMarker } = writeExternalSetupChannelPlugin({
       pluginDir,

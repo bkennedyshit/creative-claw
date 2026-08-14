@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { APP_CONFIG_FILENAME } from "./infra/app-branding.js";
 import { createSuiteTempRootTracker } from "./test-helpers/temp-dir.js";
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -864,7 +865,7 @@ describe("scripts/docker/setup.sh", () => {
       "token-reuse",
       async (configDir) => {
         await writeFile(
-          join(configDir, "openclaw.json"),
+          join(configDir, APP_CONFIG_FILENAME),
           JSON.stringify({ gateway: { auth: { mode: "token", token: "config-token-123" } } }),
         );
       },

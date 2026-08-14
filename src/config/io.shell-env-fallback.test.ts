@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { createConfigIO } from "./io.js";
 
 const shellEnvMocks = vi.hoisted(() => ({
@@ -23,7 +24,7 @@ vi.mock("../infra/shell-env.js", async (importOriginal) => ({
 async function withConfig(run: (params: { home: string; configPath: string }) => Promise<void>) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-shell-env-"));
   try {
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
     await fs.mkdir(path.dirname(configPath), { recursive: true });
     await fs.writeFile(
       configPath,

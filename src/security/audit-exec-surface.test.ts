@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { saveExecApprovals } from "../infra/exec-approvals.js";
 import { captureEnv } from "../test-utils/env.js";
 import { collectExecRuntimeFindings } from "./audit.js";
@@ -49,7 +50,7 @@ describe("security audit exec surface findings", () => {
   beforeEach(async () => {
     envSnapshot = captureEnv(["OPENCLAW_HOME", "HOME", "USERPROFILE"]);
     const tempDir = path.join(tempRoot, `case-${++tempCaseIndex}`);
-    await fs.mkdir(path.join(tempDir, ".openclaw"), { recursive: true });
+    await fs.mkdir(path.join(tempDir, APP_STATE_DIRNAME), { recursive: true });
     // OPENCLAW_HOME takes precedence over HOME/USERPROFILE in resolveRawHomeDir,
     // so all three must point at the tempdir to neutralize whichever the host
     // happens to have set.

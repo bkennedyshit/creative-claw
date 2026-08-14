@@ -5,6 +5,7 @@ import path from "node:path";
 import { bundledDistPluginFile } from "openclaw/plugin-sdk/test-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PluginInstallRecord } from "../config/types.plugins.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { discoverOpenClawPlugins } from "./discovery.js";
 import { listBuiltRuntimeEntryCandidates } from "./package-entrypoints.js";
 import {
@@ -477,7 +478,7 @@ describe("discoverOpenClawPlugins", () => {
       pluginId: "alpha",
     });
     createPackagePluginWithEntry({
-      packageDir: path.join(workspaceDir, ".openclaw", "extensions", "beta"),
+      packageDir: path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "beta"),
       packageName: "@openclaw/beta",
       pluginId: "beta",
     });
@@ -490,7 +491,7 @@ describe("discoverOpenClawPlugins", () => {
     const stateDir = makeTempDir();
     const workspaceDir = path.join(stateDir, "workspace");
     const globalExt = path.join(stateDir, "extensions");
-    const workspaceExt = path.join(workspaceDir, ".openclaw", "extensions");
+    const workspaceExt = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions");
     mkdirSafe(globalExt);
     mkdirSafe(workspaceExt);
     fs.writeFileSync(path.join(globalExt, "my-helper.mjs"), "export default {}", "utf-8");
@@ -587,7 +588,7 @@ describe("discoverOpenClawPlugins", () => {
     async () => {
       const stateDir = makeTempDir();
       const workspaceDir = path.join(stateDir, "workspace");
-      const workspaceExt = path.join(workspaceDir, ".openclaw", "extensions");
+      const workspaceExt = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions");
       mkdirSafe(workspaceExt);
 
       const linkedPluginDir = path.join(stateDir, "workspace-linked-plugin-src");
@@ -626,7 +627,7 @@ describe("discoverOpenClawPlugins", () => {
   it("does not recurse arbitrary workspace directories for plugin auto-discovery", () => {
     const stateDir = makeTempDir();
     const workspaceDir = path.join(stateDir, "workspace");
-    const workspaceExt = path.join(workspaceDir, ".openclaw", "extensions");
+    const workspaceExt = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions");
 
     const expectedWorkspacePluginDir = path.join(workspaceExt, "workspace-plugin");
     createPackagePluginWithEntry({
@@ -658,7 +659,7 @@ describe("discoverOpenClawPlugins", () => {
     const homeDir = makeTempDir();
     const workspaceRoot = path.join(homeDir, "workspace");
     createPackagePluginWithEntry({
-      packageDir: path.join(workspaceRoot, ".openclaw", "extensions", "tilde-workspace"),
+      packageDir: path.join(workspaceRoot, APP_STATE_DIRNAME, "extensions", "tilde-workspace"),
       packageName: "@openclaw/tilde-workspace",
       pluginId: "tilde-workspace",
     });
@@ -1536,7 +1537,7 @@ describe("discoverOpenClawPlugins", () => {
   it("keeps workspace package TypeScript entries unless runtime entries are explicit", () => {
     const stateDir = makeTempDir();
     const workspaceDir = path.join(stateDir, "workspace");
-    const pluginDir = path.join(workspaceDir, ".openclaw", "extensions", "workspace-pack");
+    const pluginDir = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "workspace-pack");
     mkdirSafe(path.join(pluginDir, "src"));
     mkdirSafe(path.join(pluginDir, "dist"));
 
@@ -1844,7 +1845,7 @@ describe("discoverOpenClawPlugins", () => {
   it("skips dependency and build directories while scanning workspace roots", () => {
     const stateDir = makeTempDir();
     const workspaceDir = path.join(stateDir, "workspace");
-    const workspaceRoot = path.join(workspaceDir, ".openclaw", "extensions");
+    const workspaceRoot = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions");
     const workspacePluginDir = path.join(workspaceRoot, "workspace-plugin");
     const nestedNodeModulesDir = path.join(workspaceRoot, "node_modules", "openclaw");
     const nestedDistDir = path.join(workspaceRoot, "dist", "extensions", "diffs");
@@ -2455,12 +2456,12 @@ describe("discoverOpenClawPlugins", () => {
       pluginId: "global-plugin",
     });
     createPackagePluginWithEntry({
-      packageDir: path.join(workspaceA, ".openclaw", "extensions", "workspace-a-plugin"),
+      packageDir: path.join(workspaceA, APP_STATE_DIRNAME, "extensions", "workspace-a-plugin"),
       packageName: "@openclaw/workspace-a-plugin",
       pluginId: "workspace-a-plugin",
     });
     createPackagePluginWithEntry({
-      packageDir: path.join(workspaceB, ".openclaw", "extensions", "workspace-b-plugin"),
+      packageDir: path.join(workspaceB, APP_STATE_DIRNAME, "extensions", "workspace-b-plugin"),
       packageName: "@openclaw/workspace-b-plugin",
       pluginId: "workspace-b-plugin",
     });

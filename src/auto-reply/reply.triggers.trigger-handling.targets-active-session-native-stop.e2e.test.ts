@@ -17,6 +17,7 @@ import {
 } from "../../test/helpers/auto-reply/trigger-handling-test-harness.js";
 import { saveAuthProfileStore } from "../agents/auth-profiles/store.js";
 import { loadSessionStore, resolveSessionKey, saveSessionStore } from "../config/sessions.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { registerGroupIntroPromptCases } from "./reply.triggers.group-intro-prompts.cases.js";
 import { registerTriggerHandlingUsageSummaryCases } from "./reply.triggers.trigger-handling.filters-usage-summary-current-model-provider.cases.js";
 import { enqueueFollowupRun, getFollowupQueueDepth, type FollowupRun } from "./reply/queue.js";
@@ -779,7 +780,7 @@ describe("trigger handling", () => {
       const runEmbeddedAgentMock = getRunEmbeddedAgentMock();
       runEmbeddedAgentMock.mockReset();
       const storePath = requireSessionStorePath(cfg);
-      const authDir = join(home, ".openclaw", "agents", "main", "agent");
+      const authDir = join(home, APP_STATE_DIRNAME, "agents", "main", "agent");
       saveAuthProfileStore(
         {
           version: 1,

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { emitDiagnosticEvent, resetDiagnosticEventsForTest } from "../infra/diagnostic-events.js";
 import {
   resetDiagnosticStabilityBundleForTest,
@@ -64,7 +65,7 @@ describe("diagnostic support export", () => {
     const webhookBody = "raw webhook body with message contents";
     const credentialUrl =
       "wss://support-user:support-password@gateway.example/ws?token=short-token&ok=1";
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     fs.writeFileSync(
       configPath,
       JSON.stringify(
@@ -480,7 +481,7 @@ describe("diagnostic support export", () => {
   });
 
   it("includes mDNS config state and recent Bonjour log summary", async () => {
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const outputPath = path.join(tempDir, "support-bonjour.zip");
     fs.writeFileSync(
       configPath,
@@ -786,7 +787,7 @@ describe("diagnostic support export", () => {
 
   it("keeps writing when config stat fails", async () => {
     const fakeToken = "sk-test-config-stat-secret-token-1234567890";
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const outputPath = path.join(tempDir, "support-failed-config-stat.zip");
     fs.writeFileSync(configPath, "{}\n", "utf8");
 

@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { collectFilesystemFindings } from "./audit.js";
 import { AsyncTempCaseFactory } from "./test-temp-cases.js";
 
@@ -27,7 +28,7 @@ describe("security audit filesystem Windows findings", () => {
         const tmp = await tempCases.makeTmpDir("win");
         const stateDir = path.join(tmp, "state");
         await fs.mkdir(stateDir, { recursive: true });
-        const configPath = path.join(stateDir, "openclaw.json");
+        const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
         await fs.writeFile(configPath, "{}\n", "utf-8");
         const findings = await collectFilesystemFindings({
           stateDir,
@@ -58,7 +59,7 @@ describe("security audit filesystem Windows findings", () => {
         const tmp = await tempCases.makeTmpDir("win-open");
         const stateDir = path.join(tmp, "state");
         await fs.mkdir(stateDir, { recursive: true });
-        const configPath = path.join(stateDir, "openclaw.json");
+        const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
         await fs.writeFile(configPath, "{}\n", "utf-8");
         const findings = await collectFilesystemFindings({
           stateDir,
@@ -90,7 +91,7 @@ describe("security audit filesystem Windows findings", () => {
         const tmp = await tempCases.makeTmpDir("win-anon-world");
         const stateDir = path.join(tmp, "state");
         await fs.mkdir(stateDir, { recursive: true });
-        const configPath = path.join(stateDir, "openclaw.json");
+        const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
         await fs.writeFile(configPath, "{}\n", "utf-8");
         const findings = await collectFilesystemFindings({
           stateDir,

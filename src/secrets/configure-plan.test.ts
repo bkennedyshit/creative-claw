@@ -1,6 +1,7 @@
 /** Tests secrets configure plan generation and target validation. */
 import { describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   TALK_TEST_PROVIDER_API_KEY_PATH,
   TALK_TEST_PROVIDER_ID,
@@ -171,7 +172,7 @@ describe("secrets configure plan helpers", () => {
           path: TALK_TEST_PROVIDER_API_KEY_PATH,
           pathSegments: ["talk", "providers", TALK_TEST_PROVIDER_ID, "apiKey"],
           label: TALK_TEST_PROVIDER_API_KEY_PATH,
-          configFile: "openclaw.json" as const,
+          configFile: APP_CONFIG_FILENAME as const,
           expectedResolvedValue: "string" as const,
           providerId: TALK_TEST_PROVIDER_ID,
           ref: {

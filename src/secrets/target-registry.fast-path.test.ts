@@ -16,7 +16,7 @@ const { loadBundledPluginPublicArtifactModuleSyncMock } = vi.hoisted(() => ({
             {
               id: "channels.googlechat.serviceAccount",
               targetType: "channels.googlechat.serviceAccount",
-              configFile: "openclaw.json",
+              configFile: APP_CONFIG_FILENAME,
               pathPattern: "channels.googlechat.serviceAccount",
               refPathPattern: "channels.googlechat.serviceAccountRef",
               secretShape: "sibling_ref",
@@ -43,6 +43,7 @@ vi.mock("../plugins/public-surface-loader.js", () => ({
   loadBundledPluginPublicArtifactModuleSync: loadBundledPluginPublicArtifactModuleSyncMock,
 }));
 
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { resolveConfigSecretTargetByPath } from "./target-registry.js";
 
 describe("secret target registry fast path", () => {

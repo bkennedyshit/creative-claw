@@ -6,6 +6,7 @@ import process from "node:process";
 import { CommanderError } from "commander";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { GATEWAY_SERVICE_RUNTIME_PID_ENV } from "../daemon/constants.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { loggingState } from "../logging/state.js";
 import { captureEnv, withEnvAsync } from "../test-utils/env.js";
 import { getGatewayRunRuntimeHooks } from "./gateway-cli/runtime-hooks.js";
@@ -745,7 +746,7 @@ describe("runCli exit behavior", () => {
 
   it("guards the config selected by trusted global dotenv before the default config", async () => {
     const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-global-selection-"));
-    const stateDir = path.join(homeDir, ".openclaw");
+    const stateDir = path.join(homeDir, APP_STATE_DIRNAME);
     const selectedConfigPath = path.join(stateDir, "selected.json");
     await fs.mkdir(stateDir, { recursive: true });
     await fs.writeFile(
@@ -794,9 +795,9 @@ describe("runCli exit behavior", () => {
 
   it("loads state dotenv before a custom config-root fallback", async () => {
     const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-config-env-"));
-    const stateDir = path.join(homeDir, ".openclaw");
+    const stateDir = path.join(homeDir, APP_STATE_DIRNAME);
     const configDir = path.join(homeDir, "profile");
-    const configPath = path.join(configDir, "openclaw.json");
+    const configPath = path.join(configDir, APP_CONFIG_FILENAME);
     await fs.mkdir(stateDir, { recursive: true });
     await fs.mkdir(configDir, { recursive: true });
     await fs.writeFile(path.join(stateDir, ".env"), "OPENCLAW_GATEWAY_TOKEN=state-token\n");
@@ -833,7 +834,7 @@ describe("runCli exit behavior", () => {
   it("loads and repins a legacy state dotenv after automatic state migration", async () => {
     const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-legacy-env-"));
     const legacyStateDir = path.join(homeDir, ".clawdbot");
-    const newStateDir = path.join(homeDir, ".openclaw");
+    const newStateDir = path.join(homeDir, APP_STATE_DIRNAME);
     await fs.mkdir(legacyStateDir, { recursive: true });
     await fs.writeFile(path.join(legacyStateDir, ".env"), "OPENCLAW_GATEWAY_TOKEN=legacy-token\n");
     try {
@@ -1385,7 +1386,7 @@ describe("runCli exit behavior", () => {
 
   it("drops credentials from a trusted dotenv superseded by state selection", async () => {
     const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-dotenv-hop-"));
-    const defaultStateDir = path.join(homeDir, ".openclaw");
+    const defaultStateDir = path.join(homeDir, APP_STATE_DIRNAME);
     const selectedStateDir = path.join(homeDir, "selected-state");
     await fs.mkdir(defaultStateDir, { recursive: true });
     await fs.mkdir(selectedStateDir, { recursive: true });
@@ -1423,7 +1424,7 @@ describe("runCli exit behavior", () => {
 
   it("drops gateway.env selectors when the default state dotenv selects a custom state", async () => {
     const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-fallback-hop-"));
-    const defaultStateDir = path.join(homeDir, ".openclaw");
+    const defaultStateDir = path.join(homeDir, APP_STATE_DIRNAME);
     const selectedStateDir = path.join(homeDir, "selected-state");
     const gatewayEnvDir = path.join(homeDir, ".config", "openclaw");
     await fs.mkdir(defaultStateDir, { recursive: true });
@@ -1515,7 +1516,7 @@ describe("runCli exit behavior", () => {
 
   it("drops old state dotenv credentials when config selects another state", async () => {
     const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-config-state-hop-"));
-    const defaultStateDir = path.join(homeDir, ".openclaw");
+    const defaultStateDir = path.join(homeDir, APP_STATE_DIRNAME);
     const selectedStateDir = path.join(homeDir, "selected-state");
     await fs.mkdir(defaultStateDir, { recursive: true });
     await fs.mkdir(selectedStateDir, { recursive: true });
@@ -1561,7 +1562,7 @@ describe("runCli exit behavior", () => {
 
   it("drops early target credentials when a later guard selects another state", async () => {
     const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-late-state-hop-"));
-    const defaultStateDir = path.join(homeDir, ".openclaw");
+    const defaultStateDir = path.join(homeDir, APP_STATE_DIRNAME);
     const selectedStateDir = path.join(homeDir, "selected-state");
     await fs.mkdir(defaultStateDir, { recursive: true });
     await fs.mkdir(selectedStateDir, { recursive: true });

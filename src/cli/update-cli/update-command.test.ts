@@ -7,6 +7,7 @@ import {
   buildGatewayInstallEntrypointCandidates as resolveGatewayInstallEntrypointCandidates,
   resolveGatewayInstallEntrypoint,
 } from "../../daemon/gateway-entrypoint.js";
+import { APP_CONFIG_FILENAME } from "../../infra/app-branding.js";
 import type { UpdateRunResult } from "../../infra/update-runner.js";
 import {
   buildInvalidConfigPostCoreUpdateResult,
@@ -207,7 +208,7 @@ describe("resolvePostInstallDoctorEnv", () => {
     expect(env.NODE_DISABLE_COMPILE_CACHE).toBe("1");
     expect(env.OPENCLAW_STATE_DIR).toBe(path.join("/srv/openclaw", "daemon-state"));
     expect(env.OPENCLAW_CONFIG_PATH).toBe(
-      path.join("/srv/openclaw", "daemon-state", "openclaw.json"),
+      path.join("/srv/openclaw", "daemon-state", APP_CONFIG_FILENAME),
     );
     expect(env.OPENCLAW_PROFILE).toBe("work");
   });

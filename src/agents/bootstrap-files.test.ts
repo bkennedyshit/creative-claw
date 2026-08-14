@@ -7,6 +7,7 @@ import {
   registerInternalHook,
   type AgentBootstrapHookContext,
 } from "../hooks/internal-hooks.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { makeTempWorkspace } from "../test-helpers/workspace.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import {
@@ -122,9 +123,9 @@ async function writeCompletedWorkspaceState(workspaceDir: string): Promise<void>
 }
 
 async function writeLegacyCompletedWorkspaceState(workspaceDir: string): Promise<void> {
-  await fs.mkdir(path.join(workspaceDir, ".openclaw"), { recursive: true });
+  await fs.mkdir(path.join(workspaceDir, APP_STATE_DIRNAME), { recursive: true });
   await fs.writeFile(
-    path.join(workspaceDir, ".openclaw", "workspace-state.json"),
+    path.join(workspaceDir, APP_STATE_DIRNAME, "workspace-state.json"),
     `${JSON.stringify({
       version: 1,
       bootstrapSeededAt: "2026-05-16T00:00:00.000Z",

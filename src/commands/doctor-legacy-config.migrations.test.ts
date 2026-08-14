@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { normalizeCompatibilityConfigValues } from "./doctor/shared/legacy-config-core-migrate.js";
 
 vi.mock("../plugins/setup-registry.js", () => ({
@@ -64,7 +65,7 @@ vi.mock("../secrets/target-registry.js", () => {
   const entry = {
     id: "channels.discord.token",
     targetType: "channels.discord.token",
-    configFile: "openclaw.json",
+    configFile: APP_CONFIG_FILENAME,
     pathPattern: "channels.discord.token",
     secretShape: "secret_input",
     expectedResolvedValue: "string",
@@ -213,10 +214,7 @@ describe("normalizeCompatibilityConfigValues", () => {
       },
     });
 
-    expect(res.config.agents?.list).toEqual([
-      { id: "main", workspace: "/main" },
-      { id: "beta" },
-    ]);
+    expect(res.config.agents?.list).toEqual([{ id: "main", workspace: "/main" }, { id: "beta" }]);
     expect(res.changes.some((change) => change.includes("workspace"))).toBe(false);
   });
 
@@ -451,9 +449,9 @@ describe("normalizeCompatibilityConfigValues", () => {
           },
         },
       } as unknown as OpenClawConfig);
-      const channel = (res.config.channels as Record<string, { accounts?: Record<string, unknown> }>)?.[
-        channelId
-      ];
+      const channel = (
+        res.config.channels as Record<string, { accounts?: Record<string, unknown> }>
+      )?.[channelId];
 
       expect(channel?.accounts?.default).toEqual({
         dmPolicy: "allowlist",

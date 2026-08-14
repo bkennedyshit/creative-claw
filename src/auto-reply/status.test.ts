@@ -10,6 +10,7 @@ import {
   providerContextTokenCacheKey,
 } from "../agents/context-cache.js";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { applyModelOverrideToSessionEntry } from "../sessions/model-overrides.js";
 import { createSuccessfulImageMediaDecision } from "./media-understanding.test-fixtures.js";
 import {
@@ -1964,7 +1965,7 @@ describe("buildStatusMessage", () => {
   }) {
     const logPath = path.join(
       params.dir,
-      ".openclaw",
+      APP_STATE_DIRNAME,
       "agents",
       params.agentId,
       "sessions",
@@ -2232,7 +2233,7 @@ describe("buildStatusMessage", () => {
         const sessionId = "sess-cache-delivery-mirror";
         const logPath = path.join(
           dir,
-          ".openclaw",
+          APP_STATE_DIRNAME,
           "agents",
           "main",
           "sessions",

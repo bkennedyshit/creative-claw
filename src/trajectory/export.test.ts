@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type { Message, Usage } from "openclaw/plugin-sdk/llm";
 import { afterAll, describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { exportTrajectoryBundle, resolveDefaultTrajectoryExportDir } from "./export.js";
 import { TRAJECTORY_RUNTIME_FILE_MAX_BYTES, resolveTrajectoryPointerFilePath } from "./paths.js";
 import type { TrajectoryEvent } from "./types.js";
@@ -200,7 +201,7 @@ describe("exportTrajectoryBundle", () => {
     expect(outputDir).toBe(
       path.join(
         "/tmp/workspace",
-        ".openclaw",
+        APP_STATE_DIRNAME,
         "trajectory-exports",
         "openclaw-trajectory-___evil_-2026-04-22T08-00-00",
       ),

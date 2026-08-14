@@ -8,6 +8,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import type { SessionEntry } from "../config/sessions/types.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { requireNodeSqlite } from "../infra/node-sqlite.js";
 import {
   createPluginStateKeyedStore,
@@ -695,7 +696,7 @@ const DIR_LINK_TYPE = process.platform === "win32" ? "junction" : "dir";
 
 function getStateDirMigrationPaths(root: string) {
   return {
-    targetDir: path.join(root, ".openclaw"),
+    targetDir: path.join(root, APP_STATE_DIRNAME),
     legacyDir: path.join(root, ".clawdbot"),
   };
 }
@@ -931,7 +932,7 @@ describe("doctor legacy state migrations", () => {
 
   it("migrates the legacy shared state agent registry primary key", async () => {
     const root = await makeTempRoot();
-    const stateDir = path.join(root, ".openclaw");
+    const stateDir = path.join(root, APP_STATE_DIRNAME);
     const stateDatabasePath = createLegacyAgentDatabaseRegistry(stateDir);
     const detected = await detectLegacyStateMigrations({
       cfg: {},
@@ -980,7 +981,7 @@ describe("doctor legacy state migrations", () => {
 
   it("does not repair newer shared state schemas", async () => {
     const root = await makeTempRoot();
-    const stateDir = path.join(root, ".openclaw");
+    const stateDir = path.join(root, APP_STATE_DIRNAME);
     const stateDatabasePath = createLegacyAgentDatabaseRegistry(stateDir);
     const { DatabaseSync } = requireNodeSqlite();
     const seededDb = new DatabaseSync(stateDatabasePath);

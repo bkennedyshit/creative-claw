@@ -55,6 +55,7 @@ vi.mock("../process/exec.js", () => ({
   runCommandWithTimeout: processMocks.runCommandWithTimeout,
 }));
 
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { agentsDeleteCommand } from "./agents.commands.delete.js";
 
 const runtime = createTestRuntime();
@@ -193,7 +194,7 @@ describe("agents delete command", () => {
           {
             name: "GatewayCredentialsRequiredError",
             method: "agents.delete",
-            configPath: path.join(stateDir, "openclaw.json"),
+            configPath: path.join(stateDir, APP_CONFIG_FILENAME),
           },
         ),
       );

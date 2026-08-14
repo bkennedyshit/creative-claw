@@ -32,6 +32,7 @@ vi.mock("../plugins/hardlink-policy.js", () => ({
   shouldRejectHardlinkedPluginFiles: shouldRejectHardlinkedPluginFilesMock,
 }));
 
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { loadChannelSecretContractApi } from "./channel-contract-api.js";
 
 type ChannelSecretContractApi = NonNullable<ReturnType<typeof loadChannelSecretContractApi>>;
@@ -58,7 +59,7 @@ module.exports = {
     {
       id: "channels.${channelId}.token",
       targetType: "channels.${channelId}.token",
-      configFile: "openclaw.json",
+      configFile: ${JSON.stringify(APP_CONFIG_FILENAME)},
       pathPattern: "channels.${channelId}.token",
       secretShape: "secret_input",
       expectedResolvedValue: "string",

@@ -51,6 +51,7 @@ import { ensureOpenClawModelsJson } from "../agents/models-config.js";
 import { STREAM_ERROR_FALLBACK_TEXT } from "../agents/stream-message-shared.js";
 import { clearRuntimeConfigSnapshot, getRuntimeConfig } from "../config/io.js";
 import type { ModelsConfig, ModelProviderConfig, OpenClawConfig } from "../config/types.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import type { ModelRegistry } from "../llm/model-registry.js";
 import { normalizeGoogleModelId } from "../plugin-sdk/google-model-id.js";
@@ -2896,9 +2897,9 @@ async function runGatewayModelSuite(params: GatewayModelSuiteParams) {
 
   const workspaceDir = resolveAgentWorkspaceDir(params.cfg, agentId);
   await fs.mkdir(workspaceDir, { recursive: true });
-  await fs.mkdir(path.join(workspaceDir, ".openclaw"), { recursive: true });
+  await fs.mkdir(path.join(workspaceDir, APP_STATE_DIRNAME), { recursive: true });
   await fs.writeFile(
-    path.join(workspaceDir, ".openclaw", "workspace-state.json"),
+    path.join(workspaceDir, APP_STATE_DIRNAME, "workspace-state.json"),
     `${JSON.stringify(
       {
         version: 1,
@@ -2925,7 +2926,7 @@ async function runGatewayModelSuite(params: GatewayModelSuiteParams) {
     providerOverrides: params.providerOverrides,
   });
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-live-"));
-  const tempConfigPath = path.join(tempDir, "openclaw.json");
+  const tempConfigPath = path.join(tempDir, APP_CONFIG_FILENAME);
   await fs.writeFile(tempConfigPath, `${JSON.stringify(nextCfg, null, 2)}\n`);
   setTestEnvValue("OPENCLAW_CONFIG_PATH", tempConfigPath);
 

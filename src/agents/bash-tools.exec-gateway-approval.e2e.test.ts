@@ -16,6 +16,7 @@ import {
   disconnectGatewayClient,
   getFreeGatewayPort,
 } from "../gateway/test-helpers.e2e.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { captureEnv, setTestEnvValue } from "../test-utils/env.js";
 import { GATEWAY_CLIENT_MODES, GATEWAY_CLIENT_NAMES } from "../utils/message-channel.js";
 import type { ExecApprovalFollowupOutcome } from "./bash-tools.exec-types.js";
@@ -76,13 +77,13 @@ describe("gateway-hosted exec approvals", () => {
       const tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-exec-approval-e2e-"));
       cleanup.push(() => fs.rm(tempHome, { recursive: true, force: true, maxRetries: 5 }));
 
-      const stateDir = path.join(tempHome, ".openclaw");
+      const stateDir = path.join(tempHome, APP_STATE_DIRNAME);
       const workspaceDir = path.join(tempHome, "workspace");
       await fs.mkdir(workspaceDir, { recursive: true });
 
       const port = await getFreeGatewayPort();
       const token = "exec-approval-e2e-token";
-      const configPath = path.join(stateDir, "openclaw.json");
+      const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
       await fs.mkdir(stateDir, { recursive: true });
       await fs.writeFile(
         configPath,

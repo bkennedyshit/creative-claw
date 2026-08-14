@@ -11,6 +11,7 @@ vi.mock("./jsonl-socket.js", () => ({
   requestJsonlSocket: (...args: unknown[]) => requestJsonlSocketMock(...args),
 }));
 
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import type { ExecApprovalsFile } from "./exec-approvals.js";
 
 type ExecApprovalsModule = typeof import("./exec-approvals.js");
@@ -79,7 +80,7 @@ function createHomeDir(): string {
 }
 
 function approvalsFilePath(homeDir: string): string {
-  return path.join(homeDir, ".openclaw", "exec-approvals.json");
+  return path.join(homeDir, APP_STATE_DIRNAME, "exec-approvals.json");
 }
 
 function stateApprovalsFilePath(stateDir: string): string {
@@ -124,10 +125,10 @@ describe("exec approvals store helpers", () => {
     const dir = createHomeDir();
 
     expect(path.normalize(resolveExecApprovalsPath())).toBe(
-      path.normalize(path.join(dir, ".openclaw", "exec-approvals.json")),
+      path.normalize(path.join(dir, APP_STATE_DIRNAME, "exec-approvals.json")),
     );
     expect(path.normalize(resolveExecApprovalsSocketPath())).toBe(
-      path.normalize(path.join(dir, ".openclaw", "exec-approvals.sock")),
+      path.normalize(path.join(dir, APP_STATE_DIRNAME, "exec-approvals.sock")),
     );
     expect(resolveExecApprovalsDisplayPath()).toBe("~/.openclaw/exec-approvals.json");
   });
@@ -162,7 +163,7 @@ describe("exec approvals store helpers", () => {
       `${JSON.stringify({
         version: 1,
         socket: {
-          path: path.join(dir, ".openclaw", "exec-approvals.sock"),
+          path: path.join(dir, APP_STATE_DIRNAME, "exec-approvals.sock"),
           token: "legacy-token",
         },
         defaults: {
@@ -653,7 +654,7 @@ describe("exec approvals store helpers", () => {
     saveExecApprovals({ version: 1, defaults: { security: "full" }, agents: {} });
 
     expect(
-      fs.readFileSync(path.join(realHome, ".openclaw", "exec-approvals.json"), "utf8"),
+      fs.readFileSync(path.join(realHome, APP_STATE_DIRNAME, "exec-approvals.json"), "utf8"),
     ).toContain('"security": "full"');
   });
 
@@ -664,7 +665,7 @@ describe("exec approvals store helpers", () => {
     tempDirs.push(realHome, linkedHome);
     fs.mkdirSync(linkedStateTarget, { recursive: true });
     fs.symlinkSync(realHome, linkedHome, "dir");
-    fs.symlinkSync(linkedStateTarget, path.join(realHome, ".openclaw"), "dir");
+    fs.symlinkSync(linkedStateTarget, path.join(realHome, APP_STATE_DIRNAME), "dir");
     setTestEnvValue("OPENCLAW_HOME", linkedHome);
 
     expect(() =>

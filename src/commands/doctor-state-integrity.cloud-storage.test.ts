@@ -2,6 +2,7 @@
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { detectMacCloudSyncedStateDir } from "./doctor-state-integrity.js";
 
 describe("detectMacCloudSyncedStateDir", () => {
@@ -14,7 +15,7 @@ describe("detectMacCloudSyncedStateDir", () => {
       "Mobile Documents",
       "com~apple~CloudDocs",
       "OpenClaw",
-      ".openclaw",
+      APP_STATE_DIRNAME,
     );
 
     const result = detectMacCloudSyncedStateDir(stateDir, {
@@ -29,7 +30,14 @@ describe("detectMacCloudSyncedStateDir", () => {
   });
 
   it("detects state dir under Library/CloudStorage", () => {
-    const stateDir = path.join(home, "Library", "CloudStorage", "Dropbox", "OpenClaw", ".openclaw");
+    const stateDir = path.join(
+      home,
+      "Library",
+      "CloudStorage",
+      "Dropbox",
+      "OpenClaw",
+      APP_STATE_DIRNAME,
+    );
 
     const result = detectMacCloudSyncedStateDir(stateDir, {
       platform: "darwin",
@@ -50,7 +58,7 @@ describe("detectMacCloudSyncedStateDir", () => {
       "CloudStorage",
       "OneDrive-Personal",
       "OpenClaw",
-      ".openclaw",
+      APP_STATE_DIRNAME,
     );
 
     const result = detectMacCloudSyncedStateDir(symlinkPath, {
@@ -72,9 +80,9 @@ describe("detectMacCloudSyncedStateDir", () => {
       "CloudStorage",
       "OneDrive-Personal",
       "OpenClaw",
-      ".openclaw",
+      APP_STATE_DIRNAME,
     );
-    const resolvedLocalPath = path.join(home, ".openclaw");
+    const resolvedLocalPath = path.join(home, APP_STATE_DIRNAME);
 
     const result = detectMacCloudSyncedStateDir(symlinkPath, {
       platform: "darwin",
@@ -86,7 +94,7 @@ describe("detectMacCloudSyncedStateDir", () => {
   });
 
   it("anchors cloud detection to OS homedir when OPENCLAW_HOME is overridden", () => {
-    const stateDir = path.join(home, "Library", "CloudStorage", "iCloud Drive", ".openclaw");
+    const stateDir = path.join(home, "Library", "CloudStorage", "iCloud Drive", APP_STATE_DIRNAME);
     const originalOpenClawHome = process.env.OPENCLAW_HOME;
     process.env.OPENCLAW_HOME = "/tmp/openclaw-home-override";
     const homedirSpy = vi.spyOn(os, "homedir").mockReturnValue(home);
@@ -116,7 +124,7 @@ describe("detectMacCloudSyncedStateDir", () => {
       "Mobile Documents",
       "com~apple~CloudDocs",
       "OpenClaw",
-      ".openclaw",
+      APP_STATE_DIRNAME,
     );
 
     const result = detectMacCloudSyncedStateDir(stateDir, {

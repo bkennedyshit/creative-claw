@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ConfigFileSnapshot } from "../config/types.openclaw.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { collectIncludeFilePermFindings } from "./audit-extra.async.js";
 
 describe("security audit config include permissions", () => {
@@ -17,7 +18,7 @@ describe("security audit config include permissions", () => {
     fs.chmodSync(includePath, 0o644);
 
     const configSnapshot: ConfigFileSnapshot = {
-      path: path.join(stateDir, "openclaw.json"),
+      path: path.join(stateDir, APP_CONFIG_FILENAME),
       exists: true,
       raw: `{ "$include": ${JSON.stringify(includePath)} }\n`,
       parsed: { $include: includePath },

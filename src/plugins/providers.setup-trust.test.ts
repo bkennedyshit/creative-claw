@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnv } from "../test-utils/env.js";
 import { resetPluginLoaderTestStateForTest } from "./loader.test-fixtures.js";
 import { resolvePluginProviders } from "./providers.runtime.js";
@@ -43,7 +44,12 @@ function writeWorkspaceProviderPlugin(params: {
   providerId: string;
   markerDir: string;
 }) {
-  const pluginDir = path.join(params.workspaceDir, ".openclaw", "extensions", params.pluginId);
+  const pluginDir = path.join(
+    params.workspaceDir,
+    APP_STATE_DIRNAME,
+    "extensions",
+    params.pluginId,
+  );
   mkdirSafeDir(pluginDir);
   writeJson(path.join(pluginDir, "openclaw.plugin.json"), {
     id: params.pluginId,

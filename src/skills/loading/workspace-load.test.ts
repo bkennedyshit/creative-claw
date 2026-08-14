@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { resetLogger, setLoggerOverride } from "../../logging/logger.js";
 import { loggingState } from "../../logging/state.js";
 import {
@@ -32,7 +33,11 @@ vi.mock("../../plugins/manifest-registry.js", async () => {
   const pathLocal = await import("node:path");
   return {
     loadPluginManifestRegistry: (params: { workspaceDir?: string }) => {
-      const extensionsRoot = pathLocal.join(params.workspaceDir ?? "", ".openclaw", "extensions");
+      const extensionsRoot = pathLocal.join(
+        params.workspaceDir ?? "",
+        APP_STATE_DIRNAME,
+        "extensions",
+      );
       const plugins = [];
       for (const id of ["open-prose", "browser"]) {
         const rootDir = pathLocal.join(extensionsRoot, id);
@@ -66,7 +71,7 @@ let tempRoot = "";
 let workspaceCaseIndex = 0;
 
 function createWorkspacePluginRegistry(workspaceDir: string): PluginManifestRegistry {
-  const extensionsRoot = path.join(workspaceDir, ".openclaw", "extensions");
+  const extensionsRoot = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions");
   const plugins: PluginManifestRecord[] = [];
   for (const id of ["open-prose", "browser"]) {
     const rootDir = path.join(extensionsRoot, id);
@@ -245,7 +250,7 @@ async function setupWorkspaceWithProsePlugin() {
   const workspaceDir = await createTempWorkspaceDir();
   const managedDir = path.join(workspaceDir, ".managed");
   const bundledDir = path.join(workspaceDir, ".bundled");
-  const pluginRoot = path.join(workspaceDir, ".openclaw", "extensions", "open-prose");
+  const pluginRoot = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "open-prose");
 
   await writePluginWithSkill({
     pluginRoot,
@@ -306,7 +311,7 @@ describe("loadWorkspaceSkillEntries", () => {
   it("loads the browser plugin automation skill when the bundled plugin is enabled", async () => {
     const workspaceDir = await createTempWorkspaceDir();
     const managedDir = path.join(workspaceDir, ".managed");
-    const pluginRoot = path.join(workspaceDir, ".openclaw", "extensions", "browser");
+    const pluginRoot = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "browser");
 
     await writePluginWithSkill({
       pluginRoot,

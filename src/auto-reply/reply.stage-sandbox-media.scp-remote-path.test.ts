@@ -31,6 +31,7 @@ vi.mock("node:child_process", async () => {
   };
 });
 
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   appendScpStderrTail,
   SCP_STDERR_TAIL_CHARS,
@@ -58,7 +59,13 @@ function createRemoteStageParams(home: string): {
     cfg: createSandboxMediaStageConfig(home),
     workspaceDir: join(home, "openclaw"),
     sessionKey,
-    remoteCacheDir: join(home, ".openclaw", "media", "remote-cache", slugifySessionKey(sessionKey)),
+    remoteCacheDir: join(
+      home,
+      APP_STATE_DIRNAME,
+      "media",
+      "remote-cache",
+      slugifySessionKey(sessionKey),
+    ),
   };
 }
 

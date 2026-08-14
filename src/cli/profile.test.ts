@@ -1,6 +1,7 @@
 // Profile CLI tests cover profile selection, persistence, and command wiring.
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { formatCliCommand } from "./command-format.js";
 import { applyCliProfileEnv, parseCliProfileArgs } from "./profile.js";
 
@@ -285,7 +286,7 @@ describe("applyCliProfileEnv", () => {
     const expectedStateDir = path.join(path.resolve("/home/peter"), ".openclaw-dev");
     expect(env.OPENCLAW_PROFILE).toBe("dev");
     expect(env.OPENCLAW_STATE_DIR).toBe(expectedStateDir);
-    expect(env.OPENCLAW_CONFIG_PATH).toBe(path.join(expectedStateDir, "openclaw.json"));
+    expect(env.OPENCLAW_CONFIG_PATH).toBe(path.join(expectedStateDir, APP_CONFIG_FILENAME));
     expect(env.OPENCLAW_GATEWAY_PORT).toBe("19001");
   });
 
@@ -303,7 +304,7 @@ describe("applyCliProfileEnv", () => {
     expect(env.OPENCLAW_PROFILE).toBe("dev");
     expect(env.OPENCLAW_STATE_DIR).toBe("/custom");
     expect(env.OPENCLAW_GATEWAY_PORT).toBe("19099");
-    expect(env.OPENCLAW_CONFIG_PATH).toBe(path.join("/custom", "openclaw.json"));
+    expect(env.OPENCLAW_CONFIG_PATH).toBe(path.join("/custom", APP_CONFIG_FILENAME));
   });
 
   it("uses OPENCLAW_HOME when deriving profile state dir", () => {
@@ -320,7 +321,7 @@ describe("applyCliProfileEnv", () => {
     const resolvedHome = path.resolve("/srv/openclaw-home");
     expect(env.OPENCLAW_STATE_DIR).toBe(path.join(resolvedHome, ".openclaw-work"));
     expect(env.OPENCLAW_CONFIG_PATH).toBe(
-      path.join(resolvedHome, ".openclaw-work", "openclaw.json"),
+      path.join(resolvedHome, ".openclaw-work", APP_CONFIG_FILENAME),
     );
   });
 });

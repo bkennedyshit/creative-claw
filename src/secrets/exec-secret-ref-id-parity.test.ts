@@ -3,6 +3,7 @@ import { Compile } from "typebox/compile";
 import { describe, expect, it } from "vitest";
 import { SecretRefSchema as GatewaySecretRefSchema } from "../../packages/gateway-protocol/src/schema.js";
 import { validateConfigObjectRaw } from "../config/validation.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { buildSecretInputSchema } from "../plugin-sdk/secret-input-schema.js";
 import {
   INVALID_FILE_SECRET_REF_IDS,
@@ -277,7 +278,7 @@ describe("exec SecretRef id parity", () => {
 
   function planAcceptsExecRefForSample(params: {
     type: string;
-    configFile: "openclaw.json" | "auth-profiles.json";
+    configFile: APP_CONFIG_FILENAME | "auth-profiles.json";
     pathSegments: string[];
     id: string;
   }): boolean {

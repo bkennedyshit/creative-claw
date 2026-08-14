@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import { makeTempDir } from "./exec-approvals-test-helpers.js";
 import {
   isSafeBinUsage,
@@ -22,7 +23,7 @@ describe("exec approvals wildcard agent", () => {
 
     try {
       process.env.OPENCLAW_HOME = dir;
-      const approvalsPath = path.join(dir, ".openclaw", "exec-approvals.json");
+      const approvalsPath = path.join(dir, APP_STATE_DIRNAME, "exec-approvals.json");
       fs.mkdirSync(path.dirname(approvalsPath), { recursive: true });
       fs.writeFileSync(
         approvalsPath,

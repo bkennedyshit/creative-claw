@@ -7,6 +7,7 @@ import { importFreshModule } from "openclaw/plugin-sdk/test-fixtures";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createSolidPngBuffer, createTinyJpegBuffer } from "../../test/helpers/image-fixtures.js";
 import { isPathWithinBase } from "../../test/helpers/paths.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { createTempHomeEnv, type TempHomeEnv } from "../test-utils/temp-home.js";
 
 describe("media store", () => {
@@ -486,7 +487,7 @@ describe("media store", () => {
             ),
           ).rejects.toThrow("Media exceeds 0MB limit");
 
-          const targetDir = path.join(homeInner, ".openclaw", "media", "oversized-stream");
+          const targetDir = path.join(homeInner, APP_STATE_DIRNAME, "media", "oversized-stream");
           const entries = await fs.readdir(targetDir).catch(() => []);
           expect(entries).toStrictEqual([]);
         });

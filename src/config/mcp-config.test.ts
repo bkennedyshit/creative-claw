@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { withTempHome } from "openclaw/plugin-sdk/test-env";
 import { describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   listConfiguredMcpServers,
   setConfiguredMcpServer,
@@ -16,7 +17,7 @@ function validationOk(raw: unknown) {
 const mockReadSourceConfigSnapshot = vi.hoisted(() => async () => {
   const fsValue = await import("node:fs/promises");
   const pathValue = await import("node:path");
-  const configPath = pathValue.join(process.env.OPENCLAW_STATE_DIR ?? "", "openclaw.json");
+  const configPath = pathValue.join(process.env.OPENCLAW_STATE_DIR ?? "", APP_CONFIG_FILENAME);
   try {
     const raw = await fsValue.readFile(configPath, "utf-8");
     const parsed = JSON.parse(raw);
@@ -38,7 +39,7 @@ const mockReadSourceConfigSnapshot = vi.hoisted(() => async () => {
 const mockReplaceConfigFile = vi.hoisted(() => async ({ nextConfig }: { nextConfig: unknown }) => {
   const fsLocal = await import("node:fs/promises");
   const pathLocal = await import("node:path");
-  const configPath = pathLocal.join(process.env.OPENCLAW_STATE_DIR ?? "", "openclaw.json");
+  const configPath = pathLocal.join(process.env.OPENCLAW_STATE_DIR ?? "", APP_CONFIG_FILENAME);
   await fsLocal.writeFile(configPath, JSON.stringify(nextConfig, null, 2), "utf-8");
 });
 
@@ -61,7 +62,7 @@ async function withMcpConfigHome<T>(
 ) {
   return await withTempHome(
     async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
       return await fn({ configPath });
