@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import JSON5 from "json5";
+import { APP_STATE_DIRNAME } from "../src/infra/app-branding.js";
 import { deleteTestEnvValue, setTestEnvValue } from "../src/test-utils/env.js";
 
 type RestoreEntry = { key: string; value: string | undefined };
@@ -226,7 +227,7 @@ function createIsolatedTestHome(restore: RestoreEntry[]): {
 
   // Windows: prefer the default state dir so auth/profile tests match real paths.
   if (process.platform === "win32") {
-    setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, ".openclaw"));
+    setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, APP_STATE_DIRNAME));
   }
 
   setTestEnvValue("XDG_CONFIG_HOME", path.join(tempHome, ".config"));

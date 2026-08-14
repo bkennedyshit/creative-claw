@@ -7,7 +7,6 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeTempDir } from "../../../test/helpers/temp-dir.js";
-import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import {
   buildExecRemoteCommand,
   buildRemoteWorkdirValidationCommand,
@@ -201,7 +200,7 @@ describe("sandbox ssh helpers", () => {
       await fs.symlink(realParent, linkParent);
 
       const root = path.join(linkParent, "runtime");
-      const target = path.join(root, "workspace", APP_STATE_DIRNAME, "sandbox-skills");
+      const target = path.join(root, "workspace", ".openclaw", "sandbox-skills");
       await execFileAsync("/bin/sh", [
         "-c",
         ENSURE_REMOTE_REAL_DIRECTORY_SCRIPT,
@@ -211,7 +210,7 @@ describe("sandbox ssh helpers", () => {
       ]);
 
       await expect(
-        fs.stat(path.join(realParent, "runtime", "workspace", APP_STATE_DIRNAME, "sandbox-skills")),
+        fs.stat(path.join(realParent, "runtime", "workspace", ".openclaw", "sandbox-skills")),
       ).resolves.toMatchObject({ dev: expect.any(Number) });
     },
   );
@@ -221,7 +220,7 @@ describe("sandbox ssh helpers", () => {
     async () => {
       const realParent = makeTempDir(tempDirs, "openclaw-ssh-real-");
       const root = path.join(realParent, "runtime");
-      const target = path.join(root, "workspace", APP_STATE_DIRNAME, "sandbox-skills");
+      const target = path.join(root, "workspace", ".openclaw", "sandbox-skills");
 
       const { stdout } = await execFileAsync("/bin/sh", [
         "-c",
@@ -328,7 +327,7 @@ describe("sandbox ssh helpers", () => {
       tempDirs.push(realParent);
       const root = path.join(realParent, "runtime");
       await fs.mkdir(path.join(root, "workspace"), { recursive: true });
-      await fs.symlink(realParent, path.join(root, "workspace", APP_STATE_DIRNAME));
+      await fs.symlink(realParent, path.join(root, "workspace", ".openclaw"));
 
       await expect(
         execFileAsync("/bin/sh", [

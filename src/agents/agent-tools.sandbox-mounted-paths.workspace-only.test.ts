@@ -7,7 +7,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
-import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   createSandboxedEditTool,
   createSandboxedReadTool,
@@ -181,7 +180,7 @@ describe("tools.fs.workspaceOnly", () => {
         const skillDir = path.join(skillsWorkspaceDir!, "skills", "demo");
         const userOwnedShadowDir = path.join(
           sandbox.workspaceDir,
-          APP_STATE_DIRNAME,
+          ".openclaw",
           "sandbox-skills",
           "skills",
           "demo",

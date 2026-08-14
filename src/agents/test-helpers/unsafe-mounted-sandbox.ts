@@ -6,7 +6,6 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import type { SandboxContext } from "../sandbox.js";
 import type { SandboxFsBridge, SandboxResolvedPath } from "../sandbox/fs-bridge.js";
 import { createAgentToolsSandboxContext } from "./agent-tools-sandbox-context.js";
@@ -22,9 +21,13 @@ function createUnsafeMountedBridge(params: {
   const agentHostRoot = path.resolve(params.agentHostRoot);
   const skillsHostRoot = params.skillsHostRoot ? path.resolve(params.skillsHostRoot) : undefined;
   const workspaceContainerRoot = params.workspaceContainerRoot ?? "/workspace";
+  // The sandbox-skills marker is a fixed container-internal mount convention, kept
+  // literal `.openclaw` (see MATERIALIZED_SANDBOX_SKILLS_WORKSPACE_PARTS in
+  // agents/sandbox/workspace-mounts.ts). It is NOT the branded host state dir, so it
+  // must not move with APP_STATE_DIRNAME or the container path would stop resolving.
   const skillsContainerRoot = path.posix.join(
     workspaceContainerRoot,
-    APP_STATE_DIRNAME,
+    ".openclaw",
     "sandbox-skills",
     "skills",
   );
