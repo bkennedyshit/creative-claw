@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { APP_STATE_DIRNAME } from "./infra/app-branding.js";
 import { pathExists as fsSafePathExists } from "./infra/fs-safe.js";
 import {
   resolveEffectiveHomeDir,
@@ -99,7 +100,7 @@ export function resolveConfigDir(
   if (configPath) {
     return path.dirname(resolveUserPath(configPath, env, homedir));
   }
-  const newDir = path.join(resolveRequiredHomeDir(env, homedir), ".openclaw");
+  const newDir = path.join(resolveRequiredHomeDir(env, homedir), APP_STATE_DIRNAME);
   try {
     const hasNew = fs.existsSync(newDir);
     if (hasNew) {
