@@ -10,6 +10,7 @@ import {
   isCanonicalSessionTranscriptEntry,
   scanSessionTranscriptTree,
 } from "../config/sessions/transcript-tree.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   jsonSupportBundleFile,
   jsonlSupportBundleFile,
@@ -945,7 +946,7 @@ export function resolveDefaultTrajectoryExportDir(params: {
   const sessionFileName = safeTrajectorySessionFileName(params.sessionId);
   return path.join(
     params.workspaceDir,
-    ".openclaw",
+    APP_STATE_DIRNAME,
     "trajectory-exports",
     `openclaw-trajectory-${sessionFileName.slice(0, 8)}-${timestamp}`,
   );

@@ -9,6 +9,7 @@ import {
   readStringValue,
 } from "@openclaw/normalization-core/string-coerce";
 import { DEFAULT_AGENT_ID } from "../routing/session-key.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import type { CommandExplanationSummary } from "./command-analysis/explain.js";
 import {
   type AllowAlwaysPattern,
@@ -297,7 +298,7 @@ const DEFAULT_SECURITY: ExecSecurity = "full";
 const DEFAULT_ASK: ExecAsk = "off";
 export const DEFAULT_EXEC_APPROVAL_ASK_FALLBACK: ExecSecurity = "deny";
 const DEFAULT_AUTO_ALLOW_SKILLS = false;
-const DEFAULT_EXEC_APPROVALS_STATE_DIR = "~/.openclaw";
+const DEFAULT_EXEC_APPROVALS_STATE_DIR = `~/${APP_STATE_DIRNAME}`;
 const EXEC_APPROVALS_FILE = "exec-approvals.json";
 const EXEC_APPROVALS_SOCKET = "exec-approvals.sock";
 

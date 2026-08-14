@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { resolveBrewExecutable as defaultResolveBrewExecutable } from "../../infra/brew.js";
 import { isContainerEnvironment as defaultIsContainerEnvironment } from "../../infra/container-environment.js";
 import { formatErrorMessage } from "../../infra/errors.js";
@@ -125,7 +126,7 @@ function resolveDefaultNodeInstallStateDir({
   if (platform !== "win32" && getuid?.() === 0) {
     return path.join(path.parse(cwd).root, "var", "lib", "openclaw");
   }
-  return path.join(homedir(), ".openclaw");
+  return path.join(homedir(), APP_STATE_DIRNAME);
 }
 
 async function buildNodeInstallEnv(prefs: SkillsInstallPreferences): Promise<NodeJS.ProcessEnv> {

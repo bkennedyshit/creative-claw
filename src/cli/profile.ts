@@ -5,6 +5,7 @@ import {
   normalizeLowercaseStringOrEmpty,
   normalizeOptionalString,
 } from "@openclaw/normalization-core/string-coerce";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { resolveRequiredHomeDir } from "../infra/home-dir.js";
 import { resolveCliArgvInvocation } from "./argv-invocation.js";
 import { isValidProfileName } from "./profile-utils.js";
@@ -101,7 +102,7 @@ export function applyCliProfileEnv(params: {
   }
 
   if (!normalizeOptionalString(env.OPENCLAW_CONFIG_PATH)) {
-    env.OPENCLAW_CONFIG_PATH = path.join(stateDir, "openclaw.json");
+    env.OPENCLAW_CONFIG_PATH = path.join(stateDir, APP_CONFIG_FILENAME);
   }
 
   if (profile === "dev" && !env.OPENCLAW_GATEWAY_PORT?.trim()) {

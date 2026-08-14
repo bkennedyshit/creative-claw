@@ -6,6 +6,7 @@
 import os from "node:os";
 import path from "node:path";
 import { normalizeOptionalLowercaseString } from "@openclaw/normalization-core/string-coerce";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { resolveRequiredHomeDir } from "../infra/home-dir.js";
 
 /** Resolve the default agent workspace directory from env/profile/home state. */
@@ -20,9 +21,9 @@ export function resolveDefaultAgentWorkspaceDir(
   const home = resolveRequiredHomeDir(env, homedir);
   const profile = env.OPENCLAW_PROFILE?.trim();
   if (profile && normalizeOptionalLowercaseString(profile) !== "default") {
-    return path.join(home, ".openclaw", `workspace-${profile}`);
+    return path.join(home, APP_STATE_DIRNAME, `workspace-${profile}`);
   }
-  return path.join(home, ".openclaw", "workspace");
+  return path.join(home, APP_STATE_DIRNAME, "workspace");
 }
 
 /** Default agent workspace directory for the current process environment. */

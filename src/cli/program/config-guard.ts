@@ -6,6 +6,7 @@ import { withSuppressedNotes } from "../../../packages/terminal-core/src/note.js
 import { readConfigFileSnapshot, setRuntimeConfigSnapshot } from "../../config/config.js";
 import { resolveLegacyStateDirs, resolveOAuthDir, resolveStateDir } from "../../config/paths.js";
 import type { ConfigFileSnapshot } from "../../config/types.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { resolveRequiredHomeDir } from "../../infra/home-dir.js";
 import type { RuntimeEnv } from "../../runtime.js";
 import { shouldMigrateStateFromPath } from "../argv.js";
@@ -103,7 +104,7 @@ function hasLegacyExecApprovalsMigrationInput(stateDir: string): boolean {
     return false;
   }
   const homeDir = resolveRequiredHomeDir(process.env, os.homedir);
-  const sourcePath = path.join(homeDir, ".openclaw", "exec-approvals.json");
+  const sourcePath = path.join(homeDir, APP_STATE_DIRNAME, "exec-approvals.json");
   const targetPath = path.join(stateDir, "exec-approvals.json");
   return (
     path.resolve(sourcePath) !== path.resolve(targetPath) &&
