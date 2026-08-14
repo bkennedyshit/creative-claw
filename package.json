@@ -1,6 +1,10 @@
 {
   "name": "openclaw",
   "version": "2026.6.10",
+  "openclawConfig": {
+    "name": "creativeclaw",
+    "configDir": ".creativeclaw"
+  },
   "description": "Multi-channel AI gateway with extensible messaging integrations",
   "keywords": [],
   "homepage": "https://github.com/openclaw/openclaw#readme",
