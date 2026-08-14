@@ -38,6 +38,23 @@ const GATEWAY_CORE_VITEST_CONFIG = "test/vitest/vitest.gateway-core.config.ts";
 const GATEWAY_VITEST_CONFIG = "test/vitest/vitest.gateway.config.ts";
 const VITEST_CONFIG_NO_OUTPUT_TIMEOUT_MS = new Map([
   ["test/vitest/vitest.e2e.config.ts", DEFAULT_LONG_RUNNING_VITEST_NO_OUTPUT_TIMEOUT_MS],
+  // The bundled-extension lane runs REAL local model inference end to end:
+  // creative-engines describes video keyframes with a local Ollama vision
+  // model, transcribes narration with a local ASR command, and builds ONNX
+  // Runtime CPU sessions over 100-300 MB models. Those calls are single
+  // synchronous waits on another process, so the lane is legitimately SILENT
+  // for minutes at a time and the default 120s budget SIGKILLed HEALTHY runs:
+  // no Vitest summary was printed and the suites' `finally`/`afterAll` cleanup
+  // never ran, which is how a temp dir leaked. Measured on this lane before
+  // this entry existed: 3/3 runs killed at ~137s (exit 1) with the vision model
+  // mid-keyframe, and a further run killed at ~320s inside a real ASR pass —
+  // so the 300s budget is not enough either. The lane is still watchdogged, and
+  // the wrapper still prints a liveness heartbeat every 30s; only the budget is
+  // sized to what the lane honestly does.
+  [
+    "test/vitest/vitest.extensions.config.ts",
+    DEFAULT_EXTRA_LONG_RUNNING_VITEST_NO_OUTPUT_TIMEOUT_MS,
+  ],
   [GATEWAY_VITEST_CONFIG, DEFAULT_LONG_RUNNING_VITEST_NO_OUTPUT_TIMEOUT_MS],
   ["test/vitest/vitest.ui-e2e.config.ts", DEFAULT_LONG_RUNNING_VITEST_NO_OUTPUT_TIMEOUT_MS],
   ["test/vitest/vitest.full-agentic.config.ts", DEFAULT_LONG_RUNNING_VITEST_NO_OUTPUT_TIMEOUT_MS],

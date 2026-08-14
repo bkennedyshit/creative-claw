@@ -391,6 +391,7 @@ export const en: TranslationMap = {
   },
   nav: {
     chat: "Chat",
+    creative: "Creative",
     control: "Control",
     agent: "Agent",
     settings: "Settings",
@@ -413,6 +414,7 @@ export const en: TranslationMap = {
     nodes: "Nodes",
     chat: "Chat",
     config: "Config",
+    creativeStudio: "Creative Studio",
     communications: "Communications",
     appearance: "Appearance",
     automation: "Automation",
@@ -438,6 +440,7 @@ export const en: TranslationMap = {
     nodes: "Paired devices and commands.",
     chat: "Gateway chat for quick interventions.",
     config: "Edit openclaw.json.",
+    creativeStudio: "Generate and manage image, audio, video, and vector media.",
     communications: "Channels, messages, and audio settings.",
     appearance: "Theme, UI, and setup wizard settings.",
     automation: "Commands, hooks, cron, and plugins.",

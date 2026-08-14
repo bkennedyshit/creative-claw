@@ -1,0 +1,46 @@
+{
+  "id": "visual-memory",
+  "enabledByDefault": true,
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": ["media_index", "media_search", "media_search_by_image", "media_describe"],
+    "memoryEmbeddingProviders": ["visual-memory"],
+    "trustedToolPolicies": ["visual-memory-protected-content"]
+  },
+  "commandAliases": [
+    {
+      "name": "media",
+      "description": "Browse and query the visual memory index"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "embedder": {
+        "type": "string",
+        "enum": ["hash"],
+        "default": "hash"
+      },
+      "protectContent": {
+        "type": "boolean",
+        "default": true
+      },
+      "storePath": {
+        "type": "string",
+        "default": ""
+      }
+    }
+  },
+  "uiHints": {
+    "embedder": {
+      "label": "Embedding Backend",
+      "help": "hash = deterministic trigram/byte hashing, no model required. Similarity is lexical/byte-level, NOT semantic. No semantic backend ships in this build; any other value degrades to hash and is reported in media_search output."
+    },
+    "protectContent": {
+      "label": "Protect /content/ Originals",
+      "help": "Refuse write/edit/apply_patch on files under a /content/ path so original source media cannot be overwritten. Enforced through the host trusted tool policy seam."
+    }
+  }
+}

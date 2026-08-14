@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { APP_NAME as BRAND_APP_NAME, APP_STATE_DIRNAME } from "../infra/app-branding.js";
 
 // =============================================================================
 // Package Detection
@@ -107,19 +108,17 @@ export function getExamplesPath(): string {
 // =============================================================================
 
 interface PackageJson {
-  name?: string;
   version?: string;
-  openclawConfig?: {
-    name?: string;
-    configDir?: string;
-  };
 }
 
 const pkg = JSON.parse(readFileSync(getPackageJsonPath(), "utf-8")) as PackageJson;
 
-const openClawConfigName: string | undefined = pkg.openclawConfig?.name;
-export const APP_NAME: string = openClawConfigName || "openclaw";
-export const CONFIG_DIR_NAME: string = pkg.openclawConfig?.configDir || ".openclaw";
+// Branding comes from ../infra/app-branding.ts, which is the SINGLE source the
+// low-level path resolver (src/config/paths.ts) also reads. These used to be
+// derived independently here, which let the agent dir and the config/state dir
+// disagree whenever a fork set the seam.
+export const APP_NAME: string = BRAND_APP_NAME;
+export const CONFIG_DIR_NAME: string = APP_STATE_DIRNAME;
 export const VERSION: string = pkg.version || "0.0.0";
 
 const ENV_AGENT_DIR = `${APP_NAME.toUpperCase()}_AGENT_DIR`;

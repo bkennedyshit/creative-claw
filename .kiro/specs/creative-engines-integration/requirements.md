@@ -105,11 +105,24 @@ The requirements below cover: a long-lived engine runtime (no per-session spawn)
 
 **User Story:** As the integrator, I want the engines to also light up OpenClaw's native media-generation/understanding seams where they map cleanly, so the assistant uses them through first-class provider hooks too.
 
+> **CORRECTION — no media seam maps, and none is registered.** Verified against
+> the shipping `libomni_{image,audio,video}_bridge` DLLs: the op catalogs hold
+> 155 / 45 / 46 ops and NONE is `generate`. These are deterministic C++ editing
+> engines; nothing in them turns a text prompt into media, so criterion 1's
+> "WHERE an Engine maps onto a media-provider seam" is never satisfied for
+> generation, and the media-understanding seam has no analysis hook to fill.
+> The generation + id-only understanding registrations that used to exist were
+> false claims (each call failed with `unknown op 'generate'`) and were removed,
+> along with the `providers` / `imageGenerationProviders` /
+> `musicGenerationProviders` / `videoGenerationProviders` declarations in
+> `openclaw.plugin.json`. Criterion 3 is the operative one: every real
+> capability ships through `registerTool`.
+
 #### Acceptance Criteria
 
-1. WHERE an Engine maps onto an OpenClaw media-provider seam, THE feature MAY register it: image → `registerImageGenerationProvider` (+ `registerMediaUnderstandingProvider` for analysis), audio → `registerMusicGenerationProvider`/speech, video → `registerVideoGenerationProvider`, vector → `registerTool`.
-2. THE provider registration SHALL be additive — it SHALL NOT replace or break OpenClaw's existing providers (e.g. comfy), and SHALL route to the real C++ engine.
-3. WHERE a clean provider seam does not exist for a capability (e.g. vector path ops, the agentic edit session), THE capability SHALL be exposed via `registerTool` instead (Req 2/3).
+1. WHERE an Engine maps onto an OpenClaw media-provider seam, THE feature MAY register it: image → `registerImageGenerationProvider` (+ `registerMediaUnderstandingProvider` for analysis), audio → `registerMusicGenerationProvider`/speech, video → `registerVideoGenerationProvider`, vector → `registerTool`. — *Not exercised: no such seam maps (see correction above).*
+2. THE provider registration SHALL be additive — it SHALL NOT replace or break OpenClaw's existing providers (e.g. comfy), and SHALL route to the real C++ engine. — *Satisfied trivially: nothing is registered, so nothing can shadow comfy, and no path claims a route that does not exist.*
+3. WHERE a clean provider seam does not exist for a capability (e.g. vector path ops, the agentic edit session), THE capability SHALL be exposed via `registerTool` instead (Req 2/3). — *This is the path ALL engine capabilities take.*
 
 ### Requirement 7: Honesty and C++-first preserved end to end
 

@@ -1,0 +1,15 @@
+{
+  "name": "@openclaw/gpu-broker",
+  "version": "2026.6.10",
+  "private": true,
+  "description": "OpenClaw GPU Broker plugin — cooperative single-GPU VRAM arbiter",
+  "type": "module",
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

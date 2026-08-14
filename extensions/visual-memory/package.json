@@ -1,0 +1,17 @@
+{
+  "name": "@openclaw/visual-memory",
+  "version": "2026.7.1",
+  "private": true,
+  "description": "OpenClaw Visual Memory plugin — media-as-memory indexing and search",
+  "type": "module",
+  "dependencies": {
+    "better-sqlite3": "11.9.1",
+    "ulid": "2.3.0"
+  },
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  }
+}
