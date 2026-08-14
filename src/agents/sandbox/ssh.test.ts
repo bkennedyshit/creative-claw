@@ -334,7 +334,7 @@ describe("sandbox ssh helpers", () => {
           "-c",
           ENSURE_REMOTE_REAL_DIRECTORY_SCRIPT,
           "openclaw-remote-dir",
-          path.join(root, "workspace", APP_STATE_DIRNAME, "sandbox-skills"),
+          path.join(root, "workspace", ".openclaw", "sandbox-skills"),
           root,
         ]),
       ).rejects.toThrow(/unsafe remote directory symlink/);
