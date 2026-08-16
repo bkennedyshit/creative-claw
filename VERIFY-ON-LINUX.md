@@ -59,6 +59,10 @@ Run these in order. Stop and capture output at the first one that fails.
 ```bash
 # 1. Static gates (fast, must be clean)
 pnpm tsgo                       # core typecheck - expect 0 errors
+pnpm tsgo:core:test             # TEST typecheck - expect 0 errors. Do not skip:
+                                # `pnpm tsgo` covers production only, so branding
+                                # constants substituted into type positions in test
+                                # files are invisible to it.
 pnpm check:import-cycles        # expect 0 runtime value cycles
 pnpm tsgo:extensions            # ~545 PRE-EXISTING upstream errors are OK;
                                 # creative-engines / gpu-broker / visual-memory must be 0
@@ -68,6 +72,41 @@ pnpm test                       # if this is too heavy, fall back to pnpm test:s
 
 # 3. The bundled plugins
 pnpm test:extensions
+```
+
+### `pnpm test` can abort for reasons that are not failures
+
+The full suite expands to **89 shards** at parallelism 4. On a small box the lanes
+starve each other and the runner's 300s no-output watchdog kills the slowest one
+with `SIGABRT`, failing the whole run. CI is unaffected —
+`resolveParallelFullSuiteConcurrency` returns 1 for CI-like environments, so CI
+runs lanes serially. Locally, either use `pnpm test:serial`, cap lane parallelism
+with `OPENCLAW_TEST_PROJECTS_PARALLEL=3`, or run subsets of configs
+(`pnpm test test/vitest/vitest.<name>.config.ts ...`). A lane that aborts should
+be re-run alone before it is called a failure.
+
+Note also that explicit-target runs (`pnpm test <files...>`) stop at the **first
+failing lane**, so a multi-file invocation will hide failures in later lanes. Run
+one file per invocation when you need an independent verdict per file.
+
+If a killed run leaves `.git/openclaw-local-checks/heavy-check.lock` behind, the
+next run blocks on it and then fails with `EEXIST`; delete the lock.
+
+### Two host-level prerequisites in a hosted sandbox
+
+Both are per-container, so re-apply them for every run:
+
+```bash
+# 1. Gateway lanes bind ::1; many sandboxes ship with IPv6 loopback disabled,
+#    which surfaces as `listen EADDRNOTAVAIL ::1`.
+sysctl -w net.ipv6.conf.all.disable_ipv6=0
+sysctl -w net.ipv6.conf.lo.disable_ipv6=0
+sysctl -w net.ipv6.conf.default.disable_ipv6=0
+
+# 2. If /etc/profile sources $HOME/.cargo/env unconditionally, tests that spawn a
+#    login shell under a temp HOME and assert on captured stderr will fail on the
+#    resulting "No such file" line. Guard it:
+#      [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
 ```
 
 `pnpm test` is the correct entry point. **Never invoke `vitest` directly** — bare
@@ -102,17 +141,23 @@ Measured on Windows, on this branch:
 
 Every core test failure falls into one of three buckets. Classify before fixing.
 
-**Bucket 1 — pre-existing, unrelated to the rebrand.** Confirm with an A/B against
-the branch this was cut from:
+**Bucket 1 — pre-existing, unrelated to the rebrand.** The cheapest and most
+precise A/B is to toggle the branding block itself rather than switch branches,
+because it isolates the one variable and needs no second install:
 
 ```bash
-git stash                       # if you have local edits
-git checkout creative-claw-engines
-pnpm test <the failing file>    # does it fail here too?
-git checkout creative-claw-rebrand
+cp package.json /tmp/pkg.bak
+python3 - <<'PY'
+import re
+s = open("package.json").read()
+open("package.json", "w").write(re.sub(r'  "openclawConfig": \{[^}]*\},\n', "", s, count=1))
+PY
+pnpm test <the failing file>    # does it still fail with .openclaw branding?
+cp /tmp/pkg.bak package.json
 ```
 
-If it fails on both branches, it is not ours. Record it and move on.
+Fails in both states -> pre-existing, record it and move on. Fails only with the
+block present -> rebrand-caused, bucket 2 or 3.
 
 **Bucket 2 — a test was branded but its production code was not.** This is the
 real defect class, and it is a _product_ bug, not just a red test: it means a
@@ -148,6 +193,36 @@ literals are _correct_ and must stay literal:
 For bucket 3, revert _that test's_ assertion back to the `".openclaw"` literal.
 Do not delete, skip, or weaken any test in either bucket.
 
+### Three bucket-3 classes that are easy to get wrong
+
+Confirmed during verification; all three must stay literal:
+
+- **Workspace-local metadata.** `<workspace>/.openclaw/workspace-state.json` is a
+  frozen artifact older versions wrote; `workspace.ts` reads that literal so a
+  rebranded install can still migrate it.
+- **The legacy global sessions dir.** `~/.openclaw/sessions` is a read-only
+  pre-per-agent upgrade fallback. Current transcripts live under the branded
+  per-agent root, and nothing has ever written `~/.creativeclaw/sessions`.
+- **`configFile` in secret target registry entries.** It is a schema
+  discriminator, typed in production as `"openclaw.json" | "auth-profiles.json"`
+  and stored as that literal by `target-registry-data.ts` — not a path. Branding
+  it makes the registry stop matching, and in one case made a coverage test pass
+  while asserting nothing.
+
+Also note: **env var names are not branded.** The rebrand renames directories, not
+env prefixes, and everything reads `OPENCLAW_*`. Anything deriving an env var name
+from `APP_NAME` is a bug — that is how `OPENCLAW_AGENT_DIR` silently became
+`CREATIVECLAW_AGENT_DIR`.
+
+### Bundled plugin tests must not hardcode the state dir
+
+`src/infra/app-branding.ts` is core-internal; importing it from `extensions/**`
+breaks the package boundary. Use the public seam instead:
+
+```ts
+import { APP_STATE_DIRNAME } from "openclaw/plugin-sdk/state-paths";
+```
+
 ### Do not add `.openclaw` to `LEGACY_STATE_DIRNAMES`
 
 It looks like the obvious migration shortcut and it is a trap. `resolveStateDir`
@@ -175,8 +250,18 @@ The real path-construction candidates to check first:
 
 - `src/agents/tool-display-exec.ts:325` — `segment === ".openclaw"` when
   shortening a displayed path. Cosmetic but user-visible.
-- `src/commands/doctor-state-integrity.ts:308` — `[".openclaw"].map(dir => path.resolve(root, entry.name, dir))`.
+- `src/commands/doctor-state-integrity.ts:308` — `[".openclaw"].map(dir => path.resolve(root, entry.name, dir))`,
+  and `:1037` which builds the default state dir from the literal.
 - `src/config/sessions/session-accessor.ts:2211` — bare literal in a path list.
+
+Three more were found and **fixed** during Linux verification, all of which put
+the managed service on a different directory than the config resolver:
+`src/daemon/paths.ts` (service state dir, `gateway.cmd` wrapper, task script),
+`src/cli/profile.ts` (profile state dir, which was pairing `.openclaw-<name>` with
+`creativeclaw.json`), and `src/cli/update-cli/restart-helper.ts` (the generated
+PowerShell startup launcher). Treat "the daemon/CLI resolves its own state dir"
+as a likely bug site rather than assuming `src/config/paths.ts` is the only
+resolver.
 
 The user-facing strings worth branding, for reference:
 `src/cli/dns-cli.ts:168,265`, `src/cli/program/register.agent.ts:220`,
