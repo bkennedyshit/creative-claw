@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
-import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { normalizeCompatibilityConfigValues } from "./doctor/shared/legacy-config-core-migrate.js";
 
 vi.mock("../plugins/setup-registry.js", () => ({
@@ -65,7 +64,11 @@ vi.mock("../secrets/target-registry.js", () => {
   const entry = {
     id: "channels.discord.token",
     targetType: "channels.discord.token",
-    configFile: APP_CONFIG_FILENAME,
+    // `configFile` in secret target registry entries is a schema discriminator,
+    // not a filesystem path: prod types it as the literal union
+    // `"openclaw.json" | "auth-profiles.json"` and target-registry-data.ts stores that
+    // literal, so these fixtures stay unbranded or the registry stops matching them.
+    configFile: "openclaw.json",
     pathPattern: "channels.discord.token",
     secretShape: "secret_input",
     expectedResolvedValue: "string",

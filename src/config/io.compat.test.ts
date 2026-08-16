@@ -12,7 +12,9 @@ import type { OpenClawConfig } from "./types.openclaw.js";
 
 async function writeConfig(
   home: string,
-  dirname: APP_STATE_DIRNAME,
+  // Was the literal type `".openclaw"`; the branded value is a plain `string`,
+  // so the parameter type has to widen rather than name the constant.
+  dirname: string,
   port: number,
   filename = APP_CONFIG_FILENAME,
 ) {

@@ -1,6 +1,7 @@
 // Matrix tests cover migration config plugin behavior.
 import path from "node:path";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
+import { APP_STATE_DIRNAME } from "openclaw/plugin-sdk/state-paths";
 import { withTempHome } from "openclaw/plugin-sdk/test-env";
 import { describe, expect, it } from "vitest";
 import { resolveMatrixMigrationAccountTarget } from "./migration-config.js";
@@ -33,7 +34,7 @@ function expectMigrationTarget(target: ReturnType<typeof resolveOpsTarget>): Mat
 describe("resolveMatrixMigrationAccountTarget", () => {
   it("reuses stored user identity for token-only configs when the access token matches", async () => {
     await withTempHome(async (home) => {
-      const stateDir = path.join(home, ".openclaw");
+      const stateDir = path.join(home, APP_STATE_DIRNAME);
       writeMatrixCredentials(stateDir, {
         accountId: MATRIX_OPS_ACCOUNT_ID,
         deviceId: "DEVICE-OPS",
@@ -63,7 +64,7 @@ describe("resolveMatrixMigrationAccountTarget", () => {
 
   it("ignores stored device IDs from stale cached Matrix credentials", async () => {
     await withTempHome(async (home) => {
-      const stateDir = path.join(home, ".openclaw");
+      const stateDir = path.join(home, APP_STATE_DIRNAME);
       writeMatrixCredentials(stateDir, {
         accountId: MATRIX_OPS_ACCOUNT_ID,
         userId: "@old-bot:example.org",
@@ -96,7 +97,7 @@ describe("resolveMatrixMigrationAccountTarget", () => {
 
   it("does not trust stale stored creds on the same homeserver when the token changes", async () => {
     await withTempHome(async (home) => {
-      const stateDir = path.join(home, ".openclaw");
+      const stateDir = path.join(home, APP_STATE_DIRNAME);
       writeMatrixCredentials(stateDir, {
         accountId: MATRIX_OPS_ACCOUNT_ID,
         userId: "@old-bot:example.org",
@@ -125,7 +126,7 @@ describe("resolveMatrixMigrationAccountTarget", () => {
 
   it("does not inherit the base userId for non-default token-only accounts", async () => {
     await withTempHome(async (home) => {
-      const stateDir = path.join(home, ".openclaw");
+      const stateDir = path.join(home, APP_STATE_DIRNAME);
       writeMatrixCredentials(stateDir, {
         accountId: MATRIX_OPS_ACCOUNT_ID,
         deviceId: "DEVICE-OPS",

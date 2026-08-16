@@ -123,6 +123,33 @@ export const VERSION: string = pkg.version || "0.0.0";
 
 const ENV_AGENT_DIR = `${APP_NAME.toUpperCase()}_AGENT_DIR`;
 
+/**
+ * The historical agent-dir override name, accepted alongside {@link ENV_AGENT_DIR}.
+ *
+ * WHY: `ENV_AGENT_DIR` is derived from `APP_NAME`, so setting the branding seam
+ * silently renames the override to `CREATIVECLAW_AGENT_DIR` — while every other
+ * reader in the tree still hardcodes `OPENCLAW_AGENT_DIR`
+ * (`plugin-sdk/agent-dir-compat.ts`, `commands/doctor-auth-flat-profiles.ts`,
+ * `commands/doctor-auth-oauth-sidecar.ts`, `commands/models/list.status-command.ts`,
+ * `secrets/storage-scan.ts`, `secrets/runtime-fast-path.ts`, `infra/dotenv.ts`,
+ * `infra/state-migrations.ts`, `cli/gateway-cli/pre-bootstrap.ts`). That is the
+ * same split brain `infra/app-branding.ts` exists to prevent, one layer up: the
+ * override would move the agent dir for this module and be ignored everywhere
+ * else. The rebrand renames *directories*, not env-var prefixes, so both names
+ * are honored and the branded one wins when both are set.
+ */
+const LEGACY_ENV_AGENT_DIR = "OPENCLAW_AGENT_DIR";
+
+/** First non-empty agent-dir override, branded name first. */
+function readEnvAgentDir(): string | undefined {
+  const branded = process.env[ENV_AGENT_DIR]?.trim();
+  if (branded) {
+    return branded;
+  }
+  const legacy = process.env[LEGACY_ENV_AGENT_DIR]?.trim();
+  return legacy ? legacy : undefined;
+}
+
 function expandTildePath(path: string): string {
   if (path === "~") {
     return homedir();
@@ -139,7 +166,7 @@ function expandTildePath(path: string): string {
 
 /** Get the agent config directory (e.g., ~/.openclaw/agent/) */
 export function getAgentDir(): string {
-  const envDir = process.env[ENV_AGENT_DIR];
+  const envDir = readEnvAgentDir();
   if (envDir) {
     return expandTildePath(envDir);
   }

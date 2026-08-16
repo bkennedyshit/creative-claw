@@ -5,7 +5,6 @@ import os from "node:os";
 import path from "node:path";
 import { SessionManager } from "openclaw/plugin-sdk/agent-sessions";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
-import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnv, withEnvAsync } from "../test-utils/env.js";
 import { estimateStringChars, estimateTokensFromChars } from "../utils/cjk-chars.js";
 import { createToolSummaryPreviewTranscriptLines } from "./session-preview.test-helpers.js";
@@ -35,6 +34,18 @@ import {
   readSessionPreviewItemsFromTranscript,
   resolveSessionTranscriptCandidates,
 } from "./session-utils.fs.js";
+
+/**
+ * The last transcript candidate is the *historical global* sessions directory
+ * (`~/.openclaw/sessions`), kept read-only so tagged upgrades can still find
+ * transcripts written before per-agent paths existed. It is deliberately NOT
+ * branded: current transcripts live under the branded per-agent root
+ * (`<state>/agents/<id>/sessions`), and nothing has ever written
+ * `~/.creativeclaw/sessions`, so branding this literal would drop the upgrade
+ * fallback for a Creative Claw install that previously ran OpenClaw and gain
+ * nothing. Matches `session-transcript-files.fs.ts`; VERIFY-ON-LINUX.md bucket 3.
+ */
+const LEGACY_GLOBAL_SESSIONS_DIRNAME = ".openclaw";
 
 function buildSessionAssistantMessage(text: string, timestamp: number) {
   return {
@@ -1132,7 +1143,7 @@ describe("readSessionMessages", () => {
       { type: "session", version: 1, id: sessionId },
       { message: { role: "assistant", content: "older store archive" } },
     ]);
-    const legacySessionsDir = path.join(tmpDir, APP_STATE_DIRNAME, "sessions");
+    const legacySessionsDir = path.join(tmpDir, LEGACY_GLOBAL_SESSIONS_DIRNAME, "sessions");
     fs.mkdirSync(legacySessionsDir, { recursive: true });
     writeResetArchive(legacySessionsDir, sessionId, "2026-02-16T22-26-34.000Z", [
       { type: "session", version: 1, id: sessionId },
@@ -2274,7 +2285,7 @@ describe("resolveSessionTranscriptCandidates", () => {
       expect(fallback).toBe(
         path.join(
           path.resolve("/srv/openclaw-home"),
-          APP_STATE_DIRNAME,
+          LEGACY_GLOBAL_SESSIONS_DIRNAME,
           "sessions",
           "sess-1.jsonl",
         ),

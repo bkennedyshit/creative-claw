@@ -1,5 +1,6 @@
 // Agent command-list tests cover provider metadata and command output for configured agents.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { OutputRuntimeEnv } from "../runtime.js";
 
@@ -127,8 +128,8 @@ describe("agentsListCommand", () => {
         [
           "Agents:",
           "- main (default)",
-          "  Workspace: ~/.openclaw/workspace",
-          "  Agent dir: ~/.openclaw/agents/main/agent",
+          `  Workspace: ~/${APP_STATE_DIRNAME}/workspace`,
+          `  Agent dir: ~/${APP_STATE_DIRNAME}/agents/main/agent`,
           "  Routing rules: 1",
           "  Routing: Telegram default",
           "  Providers:",

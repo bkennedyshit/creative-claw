@@ -16,7 +16,11 @@ const { loadBundledPluginPublicArtifactModuleSyncMock } = vi.hoisted(() => ({
             {
               id: "channels.googlechat.serviceAccount",
               targetType: "channels.googlechat.serviceAccount",
-              configFile: APP_CONFIG_FILENAME,
+              // `configFile` in secret target registry entries is a schema discriminator,
+              // not a filesystem path: prod types it as the literal union
+              // `"openclaw.json" | "auth-profiles.json"` and target-registry-data.ts stores that
+              // literal, so these fixtures stay unbranded or the registry stops matching them.
+              configFile: "openclaw.json",
               pathPattern: "channels.googlechat.serviceAccount",
               refPathPattern: "channels.googlechat.serviceAccountRef",
               secretShape: "sibling_ref",
@@ -43,7 +47,6 @@ vi.mock("../plugins/public-surface-loader.js", () => ({
   loadBundledPluginPublicArtifactModuleSync: loadBundledPluginPublicArtifactModuleSyncMock,
 }));
 
-import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { resolveConfigSecretTargetByPath } from "./target-registry.js";
 
 describe("secret target registry fast path", () => {

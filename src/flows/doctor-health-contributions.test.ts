@@ -1223,7 +1223,9 @@ describe("doctor health contributions", () => {
     await contribution.run(ctx);
 
     expect(ctx.runtime.log).toHaveBeenCalledWith(
-      "[warning] core/doctor/test-structured-findings openclaw.json:12 - structured finding needs attention",
+      // The finding's `path` above is APP_CONFIG_FILENAME, so the rendered label
+      // has to come from the same constant instead of the historical literal.
+      `[warning] core/doctor/test-structured-findings ${APP_CONFIG_FILENAME}:12 - structured finding needs attention`,
     );
     expect(ctx.runtime.log).toHaveBeenCalledWith("  fix: run openclaw doctor --fix");
   });

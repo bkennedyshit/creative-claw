@@ -78,7 +78,9 @@ describe("compactSkillPaths", () => {
     );
 
     expect(prompt).toContain(`<location>${skillFile}</location>`);
-    expect(prompt).not.toContain("~/.openclaw/skills/world-cup-soccer-openclaw-skill/SKILL.md");
+    expect(prompt).not.toContain(
+      `~/${APP_STATE_DIRNAME}/skills/world-cup-soccer-openclaw-skill/SKILL.md`,
+    );
   });
 
   it("does not compact explicit state-root plugin skill paths to OS-home tilde paths", () => {
@@ -105,7 +107,9 @@ describe("compactSkillPaths", () => {
     );
 
     expect(prompt).toContain(`<location>${skillFile}</location>`);
-    expect(prompt).not.toContain("~/.openclaw/plugin-skills/calendar-plugin-skill/SKILL.md");
+    expect(prompt).not.toContain(
+      `~/${APP_STATE_DIRNAME}/plugin-skills/calendar-plugin-skill/SKILL.md`,
+    );
   });
 
   it("compacts managed skill paths when OS-home tilde reaches the same path", () => {
@@ -128,7 +132,9 @@ describe("compactSkillPaths", () => {
         }),
     );
 
-    expect(prompt).toContain("<location>~/.openclaw/skills/home-managed-skill/SKILL.md</location>");
+    expect(prompt).toContain(
+      `<location>~/${APP_STATE_DIRNAME}/skills/home-managed-skill/SKILL.md</location>`,
+    );
     expect(prompt).not.toContain(`<location>${path.join(skillDir, "SKILL.md")}</location>`);
   });
 
