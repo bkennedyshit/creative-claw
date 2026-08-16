@@ -26,6 +26,7 @@ runbook on Linux/Node 24, superseding the earlier partial run whose
 | `pnpm format:docs:check`       | ✅ clean (670 files)                                                              |
 | Branding consistency one-liner | ✅ `creativeclaw .creativeclaw ~/.creativeclaw ~/.creativeclaw/creativeclaw.json` |
 | Full core suite (89 shards)    | ✅ **0 rebrand-caused failures**; 81,719 passing, 63 failing cases all bucket 1/3 |
+| SQLite worker teardown stress  | ✅ **5/5** extension-lane runs and **100/100** direct worker terminations         |
 | `pnpm lint`                    | ❌ 100 errors, **all pre-existing** in the fork's engine plugins (see below)      |
 
 **The rebrand seam itself is clean.** Every failure that the rebrand caused is
@@ -164,10 +165,11 @@ above is applied.
 `test/scripts/plugin-lifecycle-measure.test.ts`,
 `extensions/codex/src/app-server/run-attempt.native-hook-relay.test.ts`.
 
-### Open issue: native SIGABRT can abort the `extensions` lane
+### Resolved: native worker teardown abort
 
-Not rebrand-related, but it makes `pnpm test` non-deterministic and it is the one
-item worth fixing before relying on the suite:
+The remaining non-deterministic blocker was `better-sqlite3` **11.9.1** aborting
+the Node 24 parent process when Vitest terminated a worker with a live SQLite
+statement:
 
 ```
 node[26]: void node::RemoveEnvironmentCleanupHook(v8::Isolate*, CleanupHook, void*) at ../src/api/hooks.cc:142
@@ -175,14 +177,26 @@ Assertion failed: (env) != nullptr
  3: Statement::~Statement() [node_modules/better-sqlite3/build/Release/better_sqlite3.node]
 ```
 
-better-sqlite3 **11.9.1** on Node 24: a `Statement` finalized after the worker
-environment is torn down aborts the process. It reproduced in roughly 2 of 3
-runs of `test/vitest/vitest.extensions.config.ts` and killed 2 lanes in one
-chunk. `extensions/visual-memory` alone passes (50/50). This became reachable
-only when the `allowBuilds` fix made the native module actually compile.
-A process-`exit` close hook in the store was tried and does **not** help, because
-Vitest terminates workers rather than exiting them. Realistic options: pin or
-upgrade better-sqlite3, or isolate that file in the lane.
+The visual-memory plugin now pins **13.0.3**. Upstream shipped the worker
+termination fix in [13.0.2](https://github.com/WiseLibs/better-sqlite3/releases/tag/v13.0.2)
+for [issue #1507](https://github.com/WiseLibs/better-sqlite3/issues/1507), then
+released [13.0.3](https://github.com/WiseLibs/better-sqlite3/releases/tag/v13.0.3)
+as the next patch. Version 13.0.3 supports Node 22+ and uses the Node-API addon path instead of the old direct V8 cleanup-hook implementation.
+The lockfile change is intentionally limited to the visual-memory importer, the
+13.0.3 package integrity/engine metadata, and its `node-addon-api` dependency.
+
+Post-upgrade proof on Linux/Node 24.19.0:
+
+- `pnpm test extensions/visual-memory`: **5 files, 50 tests passed**.
+- `pnpm test test/vitest/vitest.extensions.config.ts`: **5 consecutive clean
+  runs**; each run ended with 233 files and 3,013 tests passed, with 4 files and
+  47 tests skipped. No process abort occurred.
+- A direct stress reproducer opened SQLite work in a worker and terminated it
+  **100 consecutive times** without aborting the parent process.
+
+The old version reproduced the lane abort in roughly 2 of 3 runs, so this closes
+the final native blocker rather than masking it with process-exit hooks or test
+isolation.
 
 ### `pnpm lint`: 100 pre-existing errors
 
@@ -214,9 +228,10 @@ Deliberately out of scope; none are test-covered, all are user-visible:
 
 Per the runbook's definition — `pnpm test` with every remaining failure
 explicitly classified as bucket 1 or 3 — **the rebrand is merge-ready.** The
-non-rebrand blockers above (better-sqlite3 abort, fork lint debt, provider
-catalog and plugin status failures) exist equally on `creative-claw-engines` and
-should be tracked separately.
+non-rebrand failures above (fork lint debt, provider catalog and plugin status
+failures) exist equally on `creative-claw-engines` and should be tracked
+separately. The former native `better-sqlite3` blocker is fixed and
+stress-verified in this branch.
 
 Note that `main` does **not** have the rebrand active: `897c4abaea` added the
 seam, but the `openclawConfig` block lives only on the rebrand branch, so

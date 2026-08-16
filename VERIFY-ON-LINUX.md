@@ -3,10 +3,12 @@
 This branch (`creative-claw-rebrand`) moves the fork off the upstream config
 directory: it now uses `~/.creativeclaw/creativeclaw.json` instead of sharing
 `~/.openclaw` with an installed OpenClaw. That change touches path resolution
-used by the entire core test suite, and **the core suite has not been run.**
+used by the entire core test suite. This runbook was written before that suite
+had run; the completed Linux/Node 24 results now live in
+`VERIFY-ON-LINUX-RESULTS.md`.
 
-Everything in here was developed and partially verified on Windows. This document
-exists because the remaining verification genuinely cannot happen there.
+The original implementation and partial verification happened on Windows. This
+document preserves the Linux procedure because that platform remains CI truth.
 
 ---
 
@@ -38,8 +40,11 @@ git checkout creative-claw-rebrand
 pnpm install
 ```
 
-Node 24 is recommended (22.19+ is the floor). If `pnpm install` fails, retry once,
-then report the first actionable error rather than working around it.
+Node 24 is recommended (22.19+ is the floor). The visual-memory plugin pins
+`better-sqlite3` 13.0.3 because its Node-API worker teardown fix is required for
+reliable Node 24 test workers; do not downgrade it to 11.9.1. If `pnpm install`
+fails, retry once, then report the first actionable error rather than working
+around it.
 
 ### Expect the native engines to be unavailable, and that is fine
 

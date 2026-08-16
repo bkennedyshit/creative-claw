@@ -5,7 +5,7 @@
   "description": "OpenClaw Visual Memory plugin — media-as-memory indexing and search",
   "type": "module",
   "dependencies": {
-    "better-sqlite3": "11.9.1",
+    "better-sqlite3": "13.0.3",
     "ulid": "2.3.0"
   },
   "devDependencies": {
