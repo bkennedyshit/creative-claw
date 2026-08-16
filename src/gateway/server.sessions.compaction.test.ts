@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, vi } from "vitest";
 import type { SessionCompactionCheckpoint } from "../config/sessions.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import {
   embeddedRunMock,
@@ -816,7 +817,7 @@ test("sessions.patch preserves nested model ids under provider overrides", async
         list: [{ id: "main", default: true, workspace: dir }],
       },
     };
-    const configPath = path.join(dir, "openclaw.json");
+    const configPath = path.join(dir, APP_CONFIG_FILENAME);
     await fs.writeFile(configPath, JSON.stringify(cfg, null, 2), "utf-8");
 
     await withEnvAsync({ OPENCLAW_CONFIG_PATH: configPath }, async () => {

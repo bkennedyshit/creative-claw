@@ -5,6 +5,7 @@ import path from "node:path";
 import type { AgentMessage } from "openclaw/plugin-sdk/agent-core";
 import { SessionManager } from "openclaw/plugin-sdk/agent-sessions";
 import { describe, expect, it, afterEach, vi } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   initializeGlobalHookRunner,
   resetGlobalHookRunner,
@@ -260,7 +261,7 @@ describe("tool_result_persist hook", () => {
   it("keeps sensitive parent keys when custom value patterns match the key probe", () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-redact-config-"));
     tempDirs.push(tempDir);
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     setTestEnvValue("OPENCLAW_CONFIG_PATH", configPath);
     fs.writeFileSync(
       configPath,

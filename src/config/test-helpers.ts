@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { withTempHome as withTempHomeBase } from "openclaw/plugin-sdk/test-env";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { resetPluginLoaderTestStateForTest } from "../plugins/loader.test-fixtures.js";
 import { clearPluginSetupRegistryCache } from "../plugins/setup-registry.js";
 import { resetConfigRuntimeState, type OpenClawConfig } from "./config.js";
@@ -36,7 +37,7 @@ export async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise
 }
 
 export async function writeOpenClawConfig(home: string, config: unknown): Promise<string> {
-  const configPath = path.join(home, ".openclaw", "openclaw.json");
+  const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
   return configPath;

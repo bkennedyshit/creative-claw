@@ -2,6 +2,7 @@
 // built-in agent workspace location.
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnv } from "../test-utils/env.js";
 import { resolveDefaultAgentWorkspaceDir } from "./workspace.js";
 
@@ -19,7 +20,7 @@ describe("DEFAULT_AGENT_WORKSPACE_DIR", () => {
       () => resolveDefaultAgentWorkspaceDir(),
     );
 
-    expect(resolved).toBe(path.join(path.resolve(home), ".openclaw", "workspace"));
+    expect(resolved).toBe(path.join(path.resolve(home), APP_STATE_DIRNAME, "workspace"));
   });
 
   it("uses OPENCLAW_WORKSPACE_DIR before OPENCLAW_HOME", () => {

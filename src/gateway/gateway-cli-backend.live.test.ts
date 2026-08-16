@@ -9,6 +9,7 @@ import { isLiveTestEnabled } from "../agents/live-test-helpers.js";
 import { shouldSkipLiveProviderDrift } from "../agents/live-test-provider-drift.js";
 import { parseModelRef } from "../agents/model-selection.js";
 import { clearRuntimeConfigSnapshot, type OpenClawConfig } from "../config/config.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import { setTestEnvValue } from "../test-utils/env.js";
 import {
@@ -472,7 +473,7 @@ describeLive("gateway live (cli backend)", () => {
           },
         },
       };
-      const tempConfigPath = path.join(tempDir, "openclaw.json");
+      const tempConfigPath = path.join(tempDir, APP_CONFIG_FILENAME);
       await fs.writeFile(tempConfigPath, `${JSON.stringify(nextCfg, null, 2)}\n`);
       setTestEnvValue("OPENCLAW_CONFIG_PATH", tempConfigPath);
       const deviceIdentity = await ensurePairedTestGatewayClientIdentity();

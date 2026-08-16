@@ -8,6 +8,7 @@ import { clearAllBootstrapSnapshots } from "../agents/bootstrap-cache.js";
 import { clearConfigCache, clearRuntimeConfigSnapshot } from "../config/config.js";
 import { clearSessionStoreCacheForTest } from "../config/sessions/store.js";
 import { resetAgentRunContextForTest } from "../infra/agent-events.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { clearGatewaySubagentRuntime } from "../plugins/runtime/index.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../test-utils/env.js";
 import { startGatewayServer } from "./server.js";
@@ -50,7 +51,7 @@ async function createEmptyBundledPluginsDir(tempHome: string): Promise<string> {
 }
 
 async function createGatewayConfigPath(tempHome: string): Promise<string> {
-  const configPath = path.join(tempHome, ".openclaw", "openclaw.json");
+  const configPath = path.join(tempHome, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   return configPath;
 }
@@ -81,7 +82,7 @@ async function writeWorkspacePlugin(params: {
   body: string;
   activation?: { onStartup?: boolean };
 }): Promise<void> {
-  const pluginDir = path.join(params.workspaceDir, ".openclaw", "extensions", params.id);
+  const pluginDir = path.join(params.workspaceDir, APP_STATE_DIRNAME, "extensions", params.id);
   await fs.mkdir(pluginDir, { recursive: true });
   await fs.writeFile(
     path.join(pluginDir, "openclaw.plugin.json"),
@@ -137,7 +138,7 @@ async function setupGatewayTempHome(params: { prefix: string; minimalGateway?: b
 
   const tempHome = await fs.mkdtemp(path.join(os.tmpdir(), params.prefix));
   setTestEnvValue("HOME", tempHome);
-  setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, ".openclaw"));
+  setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, APP_STATE_DIRNAME));
   deleteTestEnvValue("OPENCLAW_CONFIG_PATH");
   setTestEnvValue("OPENCLAW_SKIP_CHANNELS", "1");
   setTestEnvValue("OPENCLAW_SKIP_GMAIL_WATCHER", "1");
@@ -482,7 +483,7 @@ module.exports = {
       const configPath = await createGatewayConfigPath(tempHome);
       const bundledPluginsDir = path.join(tempHome, "openclaw-test-no-bundled-extensions");
       setTestEnvValue("HOME", tempHome);
-      setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, ".openclaw"));
+      setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, APP_STATE_DIRNAME));
       setTestEnvValue("OPENCLAW_CONFIG_PATH", configPath);
       setTestEnvValue("OPENCLAW_SKIP_CHANNELS", "1");
       setTestEnvValue("OPENCLAW_SKIP_GMAIL_WATCHER", "1");

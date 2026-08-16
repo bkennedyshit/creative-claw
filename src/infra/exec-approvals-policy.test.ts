@@ -3,11 +3,17 @@ import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import { DEFAULT_AGENT_ID } from "../routing/session-key.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import {
   makeMockCommandResolution,
   makeMockExecutableResolution,
 } from "./exec-approvals-test-helpers.js";
 import type { ExecApprovalsFile } from "./exec-approvals.js";
+
+// Mirrors DEFAULT_EXEC_APPROVALS_STATE_DIR in exec-approvals.ts: the host
+// defaults file lives in the branded state dir, so this label moves with the
+// app rather than staying pinned to the historical directory name.
+const EXEC_APPROVALS_DEFAULTS_FILE = `~/${APP_STATE_DIRNAME}/exec-approvals.json`;
 
 vi.unmock("./exec-approvals.js");
 vi.unmock("./exec-approvals-effective.js");
@@ -105,7 +111,7 @@ function expectMalformedAgentAskUsesDefaults(agentAsk: unknown): void {
   expectFields(summary.ask, {
     requested: "off",
     host: "always",
-    hostSource: "~/.openclaw/exec-approvals.json defaults.ask",
+    hostSource: `${EXEC_APPROVALS_DEFAULTS_FILE} defaults.ask`,
     effective: "always",
     note: "more aggressive ask wins",
   });
@@ -439,19 +445,19 @@ describe("exec approvals policy helpers", () => {
       requested: "full",
       host: "allowlist",
       effective: "allowlist",
-      hostSource: "~/.openclaw/exec-approvals.json defaults.security",
+      hostSource: `${EXEC_APPROVALS_DEFAULTS_FILE} defaults.security`,
       note: "stricter host security wins",
     });
     expectFields(summary.ask, {
       requested: "off",
       host: "always",
       effective: "always",
-      hostSource: "~/.openclaw/exec-approvals.json defaults.ask",
+      hostSource: `${EXEC_APPROVALS_DEFAULTS_FILE} defaults.ask`,
       note: "more aggressive ask wins",
     });
     expect(summary.askFallback).toEqual({
       effective: "deny",
-      source: "~/.openclaw/exec-approvals.json defaults.askFallback",
+      source: `${EXEC_APPROVALS_DEFAULTS_FILE} defaults.askFallback`,
     });
   });
 
@@ -676,7 +682,7 @@ describe("exec approvals policy helpers", () => {
 
     expect(summary.askFallback).toEqual({
       effective: "allowlist",
-      source: "~/.openclaw/exec-approvals.json defaults.askFallback",
+      source: `${EXEC_APPROVALS_DEFAULTS_FILE} defaults.askFallback`,
     });
   });
 
@@ -720,15 +726,15 @@ describe("exec approvals policy helpers", () => {
 
     expectFields(summary.security, {
       host: "allowlist",
-      hostSource: "~/.openclaw/exec-approvals.json agents.*.security",
+      hostSource: `${EXEC_APPROVALS_DEFAULTS_FILE} agents.*.security`,
     });
     expectFields(summary.ask, {
       host: "always",
-      hostSource: "~/.openclaw/exec-approvals.json agents.*.ask",
+      hostSource: `${EXEC_APPROVALS_DEFAULTS_FILE} agents.*.ask`,
     });
     expect(summary.askFallback).toEqual({
       effective: "deny",
-      source: "~/.openclaw/exec-approvals.json agents.*.askFallback",
+      source: `${EXEC_APPROVALS_DEFAULTS_FILE} agents.*.askFallback`,
     });
   });
 
@@ -851,11 +857,11 @@ describe("exec approvals policy helpers", () => {
     expect(snapshots.map((snapshot) => snapshot.scopeLabel)).toEqual(["tools.exec"]);
     expectFields(snapshots[0]?.security, {
       host: "allowlist",
-      hostSource: "~/.openclaw/exec-approvals.json agents.main.security",
+      hostSource: `${EXEC_APPROVALS_DEFAULTS_FILE} agents.main.security`,
     });
     expectFields(snapshots[0]?.ask, {
       host: "always",
-      hostSource: "~/.openclaw/exec-approvals.json agents.main.ask",
+      hostSource: `${EXEC_APPROVALS_DEFAULTS_FILE} agents.main.ask`,
     });
   });
 

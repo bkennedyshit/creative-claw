@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { clearLoadInstalledPluginIndexInstallRecordsCache } from "../plugins/installed-plugin-index-records.js";
 import { writePersistedInstalledPluginIndex } from "../plugins/installed-plugin-index-store.js";
 import { validateConfigObjectWithPlugins } from "./validation.js";
@@ -133,7 +134,7 @@ describe("config plugin validation", () => {
     ({
       HOME: suiteHome,
       OPENCLAW_HOME: undefined,
-      OPENCLAW_STATE_DIR: path.join(suiteHome, ".openclaw"),
+      OPENCLAW_STATE_DIR: path.join(suiteHome, APP_STATE_DIRNAME),
       OPENCLAW_BUNDLED_PLUGINS_DIR: undefined,
       OPENCLAW_VERSION: undefined,
       VITEST: "true",
@@ -1244,7 +1245,7 @@ describe("config plugin validation", () => {
   });
 
   it("uses persisted installed-plugin records as stale channel evidence", async () => {
-    const stateDir = path.join(suiteHome, ".openclaw");
+    const stateDir = path.join(suiteHome, APP_STATE_DIRNAME);
     clearLoadInstalledPluginIndexInstallRecordsCache();
     await writePersistedInstalledPluginIndex(
       {
@@ -1402,7 +1403,7 @@ describe("config plugin validation", () => {
   });
 
   it("ignores standalone helper scripts in auto-discovered global extensions", async () => {
-    const helperPath = path.join(suiteHome, ".openclaw", "extensions", "my-helper.mjs");
+    const helperPath = path.join(suiteHome, APP_STATE_DIRNAME, "extensions", "my-helper.mjs");
     await mkdirSafe(path.dirname(helperPath));
     await fs.writeFile(helperPath, "export default {};\n", "utf-8");
     try {

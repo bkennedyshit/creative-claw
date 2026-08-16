@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { clearAgentHarnesses, registerAgentHarness } from "../../agents/harness/registry.js";
 import type { ChannelMessagingAdapter } from "../../channels/plugins/types.core.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import {
   clearApprovalNativeRouteStateForTest,
   createApprovalNativeRouteReporter,
@@ -6631,8 +6632,7 @@ describe("dispatchReplyFromConfig", () => {
     setNoAbort();
     const order: string[] = [];
     const rawPath = "/Users/demo/Library/Messages/Attachments/ab/cd/photo.jpg";
-    const stagedPath =
-      "/tmp/openclaw-proof/.openclaw/media/remote-cache/agent-main-imessage/photo.jpg";
+    const stagedPath = `/tmp/openclaw-proof/${APP_STATE_DIRNAME}/media/remote-cache/agent-main-imessage/photo.jpg`;
     stageSandboxMediaMocks.stageSandboxMedia.mockImplementationOnce(async (paramsUnknown) => {
       order.push("stage");
       const params = paramsUnknown as {
@@ -6643,7 +6643,7 @@ describe("dispatchReplyFromConfig", () => {
         remoteMediaMode?: string;
       };
       expect(params.sessionKey).toBe("agent:main:imessage:direct:user");
-      expect(params.workspaceDir).toContain(".openclaw/workspace");
+      expect(params.workspaceDir).toContain(`${APP_STATE_DIRNAME}/workspace`);
       expect(params.remoteMediaMode).toBe("cache");
       params.ctx.MediaPath = stagedPath;
       params.ctx.MediaPaths = [stagedPath];

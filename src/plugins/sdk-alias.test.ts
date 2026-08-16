@@ -8,6 +8,7 @@ import {
   bundledPluginRoot,
 } from "openclaw/plugin-sdk/test-fixtures";
 import { afterAll, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnv } from "../test-utils/env.js";
 import {
   buildPluginLoaderAliasMap,
@@ -310,7 +311,7 @@ function writeInstalledPluginEntry(params: {
 function createUserInstalledPluginSdkAliasFixture() {
   const { fixture, sourcePluginEntryPath, sourceRootAlias, sourceChannelRuntimePath } =
     createPluginSdkAliasTargetFixture();
-  const externalPluginRoot = path.join(makeTempDir(), ".openclaw", "extensions", "demo");
+  const externalPluginRoot = path.join(makeTempDir(), APP_STATE_DIRNAME, "extensions", "demo");
   const externalPluginEntry = path.join(externalPluginRoot, "index.ts");
   mkdirSafeDir(externalPluginRoot);
   fs.writeFileSync(
@@ -752,15 +753,20 @@ describe("plugin sdk alias helpers", () => {
     );
     const { packageRoot: installedCodexRoot, pluginEntry: installedCodexEntry } =
       writeInstalledPluginEntry({
-        installRoot: path.join(makeTempDir(), ".openclaw", "npm"),
+        installRoot: path.join(makeTempDir(), APP_STATE_DIRNAME, "npm"),
         packageName: "@openclaw/codex",
       });
     const { packageRoot: installedOtherRoot, pluginEntry: installedOtherEntry } =
       writeInstalledPluginEntry({
-        installRoot: path.join(makeTempDir(), ".openclaw", "npm"),
+        installRoot: path.join(makeTempDir(), APP_STATE_DIRNAME, "npm"),
         packageName: "@openclaw/demo",
       });
-    const shadowCodexRoot = path.join(makeTempDir(), ".openclaw", "extensions", "codex-shadow");
+    const shadowCodexRoot = path.join(
+      makeTempDir(),
+      APP_STATE_DIRNAME,
+      "extensions",
+      "codex-shadow",
+    );
     const shadowCodexEntry = path.join(shadowCodexRoot, "dist", "index.js");
     mkdirSafeDir(path.dirname(shadowCodexEntry));
     fs.writeFileSync(
@@ -1088,15 +1094,20 @@ describe("plugin sdk alias helpers", () => {
     );
     const { packageRoot: installedCodexRoot, pluginEntry: installedCodexEntry } =
       writeInstalledPluginEntry({
-        installRoot: path.join(makeTempDir(), ".openclaw", "npm"),
+        installRoot: path.join(makeTempDir(), APP_STATE_DIRNAME, "npm"),
         packageName: "@openclaw/codex",
       });
     const { packageRoot: installedOtherRoot, pluginEntry: installedOtherEntry } =
       writeInstalledPluginEntry({
-        installRoot: path.join(makeTempDir(), ".openclaw", "npm"),
+        installRoot: path.join(makeTempDir(), APP_STATE_DIRNAME, "npm"),
         packageName: "@openclaw/demo",
       });
-    const shadowCodexRoot = path.join(makeTempDir(), ".openclaw", "extensions", "codex-shadow");
+    const shadowCodexRoot = path.join(
+      makeTempDir(),
+      APP_STATE_DIRNAME,
+      "extensions",
+      "codex-shadow",
+    );
     const shadowCodexEntry = path.join(shadowCodexRoot, "dist", "index.js");
     mkdirSafeDir(path.dirname(shadowCodexEntry));
     fs.writeFileSync(
@@ -1256,7 +1267,7 @@ describe("plugin sdk alias helpers", () => {
     fs.writeFileSync(distRuntimeBrowserEntry, entryBody, "utf-8");
     const { packageRoot: installedOllamaRoot, pluginEntry: installedOllamaEntry } =
       writeInstalledPluginEntry({
-        installRoot: path.join(makeTempDir(), ".openclaw", "npm"),
+        installRoot: path.join(makeTempDir(), APP_STATE_DIRNAME, "npm"),
         packageName: "@openclaw/ollama",
       });
 

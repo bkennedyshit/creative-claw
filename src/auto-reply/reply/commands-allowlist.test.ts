@@ -5,6 +5,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChannelPlugin } from "../../channels/plugins/types.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import { APP_CONFIG_FILENAME } from "../../infra/app-branding.js";
 import { formatAllowFromLowercase } from "../../plugin-sdk/allow-from.js";
 import {
   buildDmGroupAccountAllowlistAdapter,
@@ -255,7 +256,7 @@ async function withTempConfigPath<T>(
   run: (configPath: string) => Promise<T>,
 ): Promise<T> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-allowlist-config-"));
-  const configPath = path.join(dir, "openclaw.json");
+  const configPath = path.join(dir, APP_CONFIG_FILENAME);
   const previous = process.env.OPENCLAW_CONFIG_PATH;
   setTestEnvValue("OPENCLAW_CONFIG_PATH", configPath);
   await fs.writeFile(configPath, JSON.stringify(initialConfig, null, 2), "utf-8");

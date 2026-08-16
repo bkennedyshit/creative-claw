@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { createTempHomeEnv, type TempHomeEnv } from "../test-utils/temp-home.js";
 import {
   backupVerifyCommandMock,
@@ -39,9 +40,9 @@ describe("backupCreateCommand atomic archive write", () => {
     archivePrefix: string;
     outputName?: string;
   }) {
-    const stateDir = path.join(tempHome.home, ".openclaw");
+    const stateDir = path.join(tempHome.home, APP_STATE_DIRNAME);
     const archiveDir = await fs.mkdtemp(path.join(os.tmpdir(), params.archivePrefix));
-    await fs.writeFile(path.join(stateDir, "openclaw.json"), JSON.stringify({}), "utf8");
+    await fs.writeFile(path.join(stateDir, APP_CONFIG_FILENAME), JSON.stringify({}), "utf8");
     await fs.writeFile(path.join(stateDir, "state.txt"), "state\n", "utf8");
 
     const runtime = createBackupTestRuntime();

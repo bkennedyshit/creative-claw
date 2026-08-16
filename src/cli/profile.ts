@@ -5,6 +5,7 @@ import {
   normalizeLowercaseStringOrEmpty,
   normalizeOptionalString,
 } from "@openclaw/normalization-core/string-coerce";
+import { APP_CONFIG_FILENAME, APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { resolveRequiredHomeDir } from "../infra/home-dir.js";
 import { resolveCliArgvInvocation } from "./argv-invocation.js";
 import { isValidProfileName } from "./profile-utils.js";
@@ -76,7 +77,13 @@ function resolveProfileStateDir(
   homedir: () => string,
 ): string {
   const suffix = normalizeLowercaseStringOrEmpty(profile) === "default" ? "" : `-${profile}`;
-  return path.join(resolveRequiredHomeDir(env as NodeJS.ProcessEnv, homedir), `.openclaw${suffix}`);
+  // Branded: `applyCliProfileEnv` below pairs this directory with
+  // APP_CONFIG_FILENAME, so a hardcoded dir name would produce a half-branded
+  // profile (`~/.openclaw-work/creativeclaw.json`).
+  return path.join(
+    resolveRequiredHomeDir(env as NodeJS.ProcessEnv, homedir),
+    `${APP_STATE_DIRNAME}${suffix}`,
+  );
 }
 
 export function applyCliProfileEnv(params: {
@@ -101,7 +108,7 @@ export function applyCliProfileEnv(params: {
   }
 
   if (!normalizeOptionalString(env.OPENCLAW_CONFIG_PATH)) {
-    env.OPENCLAW_CONFIG_PATH = path.join(stateDir, "openclaw.json");
+    env.OPENCLAW_CONFIG_PATH = path.join(stateDir, APP_CONFIG_FILENAME);
   }
 
   if (profile === "dev" && !env.OPENCLAW_GATEWAY_PORT?.trim()) {

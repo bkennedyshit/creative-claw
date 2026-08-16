@@ -610,7 +610,15 @@ describe("acquireSessionWriteLock", () => {
       }) as typeof fs.readFile);
 
       try {
-        const lock = await acquireSessionWriteLock({ sessionFile, timeoutMs: 800, staleMs: 10 });
+        // staleMs also sizes the payload-less-orphan grace window
+        // (`min(staleMs, orphanPayloadGraceMs)` in shouldReportContendedLockStale),
+        // which is what decides "fresh payload-less lock -> retry" vs
+        // "stale -> report". At staleMs: 10 that window was 10ms, i.e. the test
+        // raced its own 10ms deletion timer and lost on Linux, where the
+        // diagnostics read/stat round trip plus coarse inode mtime granularity
+        // easily exceed 10ms. 1s keeps the 120s-old owner lock stale (the
+        // behaviour under test) while making the freshness verdict deterministic.
+        const lock = await acquireSessionWriteLock({ sessionFile, timeoutMs: 800, staleMs: 1_000 });
         await lock.release();
         expect(lockReads).toBeGreaterThanOrEqual(3);
         await expectPathMissing(lockPath);

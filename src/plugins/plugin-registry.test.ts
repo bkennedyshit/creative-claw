@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   closeOpenClawStateDatabaseForTest,
   runOpenClawStateWriteTransaction,
@@ -763,7 +764,7 @@ describe("plugin registry facade", () => {
     fs.mkdirSync(firstRoot, { recursive: true });
     createCandidate(firstRoot, "first");
     const env = hermeticEnv({
-      OPENCLAW_CONFIG_PATH: path.join(configDir, "openclaw.json"),
+      OPENCLAW_CONFIG_PATH: path.join(configDir, APP_CONFIG_FILENAME),
       OPENCLAW_DISABLE_BUNDLED_PLUGINS: "1",
     });
 

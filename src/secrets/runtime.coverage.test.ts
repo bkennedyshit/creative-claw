@@ -190,6 +190,14 @@ vi.mock("../plugins/web-provider-public-artifacts.explicit.js", () => ({
   },
 }));
 
+/**
+ * `configFile` is a schema discriminator, not a filesystem path: prod types it as
+ * the literal union `"openclaw.json" | "auth-profiles.json"` and
+ * `target-registry-data.ts` stores that literal, so it must not follow the
+ * branding seam. Branding it here both broke the typecheck and made
+ * `collectOpenClawCoverageEntries` below filter to an empty set, silently
+ * voiding the coverage assertions.
+ */
 type SecretRegistryEntry = {
   id: string;
   configFile: "openclaw.json" | "auth-profiles.json";

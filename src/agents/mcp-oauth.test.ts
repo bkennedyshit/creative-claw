@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { withTempHome } from "openclaw/plugin-sdk/test-env";
 import { describe, expect, it } from "vitest";
 import { vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   clearMcpOAuthCredentials,
   createMcpOAuthClientProvider,
@@ -32,7 +33,7 @@ describe("MCP OAuth provider", () => {
 
         // Token files live under state, not workspace config, and are mode
         // 0600 because they contain bearer credentials.
-        const tokenDir = `${home}/.openclaw/mcp-oauth`;
+        const tokenDir = `${home}/${APP_STATE_DIRNAME}/mcp-oauth`;
         const entries = await fs.readdir(tokenDir);
         expect(entries).toHaveLength(1);
         expect(entries[0]).toMatch(/^Remote-Docs-[a-f0-9]{16}\.json$/);
@@ -136,7 +137,7 @@ describe("MCP OAuth provider", () => {
           }),
         ).rejects.toThrow("localhost redirect also rejected");
 
-        await expect(fs.readdir(`${home}/.openclaw/mcp-oauth`)).rejects.toThrow();
+        await expect(fs.readdir(`${home}/${APP_STATE_DIRNAME}/mcp-oauth`)).rejects.toThrow();
       },
       {
         prefix: "openclaw-mcp-oauth-localhost-failure-",
@@ -168,7 +169,7 @@ describe("MCP OAuth provider", () => {
           }),
         ).resolves.toBe("redirect");
 
-        const tokenDir = `${home}/.openclaw/mcp-oauth`;
+        const tokenDir = `${home}/${APP_STATE_DIRNAME}/mcp-oauth`;
         const entries = await fs.readdir(tokenDir);
         const store = JSON.parse(await fs.readFile(`${tokenDir}/${entries[0]}`, "utf-8")) as {
           codeVerifier?: string;

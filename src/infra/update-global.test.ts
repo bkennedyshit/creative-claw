@@ -12,6 +12,7 @@ import {
   withMockedWindowsPlatform,
   withRestoredMocks,
 } from "../test-utils/vitest-spies.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import {
   PACKAGE_DIST_INVENTORY_RELATIVE_PATH,
   writePackageDistInventory,
@@ -487,7 +488,7 @@ describe("update global helpers", () => {
 
   it("honors an explicitly selected direct npm node_modules package root", async () => {
     await withTempDir({ prefix: "openclaw-update-managed-service-root-" }, async (base) => {
-      const managedNpmRoot = path.join(base, ".openclaw", "npm", "node_modules");
+      const managedNpmRoot = path.join(base, APP_STATE_DIRNAME, "npm", "node_modules");
       const pkgRoot = path.join(managedNpmRoot, "openclaw");
       const pathNpmRoot = path.join(base, "shell", "lib", "node_modules");
       const otherPnpmRoot = path.join(base, "pnpm", "global", "5", "node_modules");

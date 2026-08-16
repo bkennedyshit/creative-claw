@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import type { SessionEntry } from "../config/sessions.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnv } from "../test-utils/env.js";
 import {
   clearAutoFallbackPrimaryProbeSelection,
@@ -1153,7 +1154,7 @@ describe("resolveAgentConfig", () => {
     const home = path.join(path.sep, "srv", "openclaw-home");
     withEnv({ OPENCLAW_HOME: home }, () => {
       const workspace = resolveAgentWorkspaceDir({} as OpenClawConfig, "main");
-      expect(workspace).toBe(path.join(path.resolve(home), ".openclaw", "workspace"));
+      expect(workspace).toBe(path.join(path.resolve(home), APP_STATE_DIRNAME, "workspace"));
     });
   });
 
@@ -1175,7 +1176,9 @@ describe("resolveAgentConfig", () => {
     const home = path.join(path.sep, "srv", "openclaw-home");
     withEnv({ OPENCLAW_HOME: home, OPENCLAW_STATE_DIR: "" }, () => {
       const agentDir = resolveAgentDir({} as OpenClawConfig, "main");
-      expect(agentDir).toBe(path.join(path.resolve(home), ".openclaw", "agents", "main", "agent"));
+      expect(agentDir).toBe(
+        path.join(path.resolve(home), APP_STATE_DIRNAME, "agents", "main", "agent"),
+      );
     });
   });
 

@@ -17,6 +17,7 @@ import { pluginHostHookHandlers } from "../../gateway/server-methods/plugin-host
 import { buildGatewaySessionRow } from "../../gateway/session-utils.js";
 import { withTempConfig } from "../../gateway/test-temp-config.js";
 import { emitAgentEvent, resetAgentEventsForTest } from "../../infra/agent-events.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { resolvePreferredOpenClawTmpDir } from "../../infra/tmp-openclaw-dir.js";
 import { withEnvAsync } from "../../test-utils/env.js";
 import { executePluginCommand, validatePluginCommandDefinition } from "../commands.js";
@@ -485,7 +486,14 @@ describe("host-hook fixture plugin contract", () => {
 
   it("allows the official npm Codex plugin to keep /codex command ownership", () => {
     const { config, registry } = createPluginRegistryFixture();
-    const codexRoot = path.join("/tmp", ".openclaw", "npm", "node_modules", "@openclaw", "codex");
+    const codexRoot = path.join(
+      "/tmp",
+      APP_STATE_DIRNAME,
+      "npm",
+      "node_modules",
+      "@openclaw",
+      "codex",
+    );
     registerTestPlugin({
       registry,
       config,
@@ -518,7 +526,7 @@ describe("host-hook fixture plugin contract", () => {
 
   it("allows the official ClawHub Codex plugin to keep /codex command ownership", () => {
     const { config, registry } = createPluginRegistryFixture();
-    const codexRoot = path.join("/tmp", ".openclaw", "extensions", "codex");
+    const codexRoot = path.join("/tmp", APP_STATE_DIRNAME, "extensions", "codex");
     registerTestPlugin({
       registry,
       config,
@@ -552,7 +560,7 @@ describe("host-hook fixture plugin contract", () => {
 
   it("rejects non-official global Codex plugins from /codex command ownership", () => {
     const { config, registry } = createPluginRegistryFixture();
-    const codexRoot = path.join("/tmp", ".openclaw", "extensions", "codex");
+    const codexRoot = path.join("/tmp", APP_STATE_DIRNAME, "extensions", "codex");
     registerTestPlugin({
       registry,
       config,

@@ -16,6 +16,10 @@ const { loadBundledPluginPublicArtifactModuleSyncMock } = vi.hoisted(() => ({
             {
               id: "channels.googlechat.serviceAccount",
               targetType: "channels.googlechat.serviceAccount",
+              // `configFile` in secret target registry entries is a schema discriminator,
+              // not a filesystem path: prod types it as the literal union
+              // `"openclaw.json" | "auth-profiles.json"` and target-registry-data.ts stores that
+              // literal, so these fixtures stay unbranded or the registry stops matching them.
               configFile: "openclaw.json",
               pathPattern: "channels.googlechat.serviceAccount",
               refPathPattern: "channels.googlechat.serviceAccountRef",

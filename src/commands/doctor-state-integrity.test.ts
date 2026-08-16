@@ -10,6 +10,7 @@ import {
   resolveSessionTranscriptsDirForAgent,
 } from "../config/sessions/paths.js";
 import type { SessionEntry } from "../config/sessions/types.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../test-utils/env.js";
 import {
   clearTuiLastSessionPointers,
@@ -117,7 +118,7 @@ describe("structured state integrity findings", () => {
     tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-doctor-state-integrity-"));
     setTestEnvValue("HOME", tempHome);
     setTestEnvValue("OPENCLAW_HOME", tempHome);
-    setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, ".openclaw"));
+    setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, APP_STATE_DIRNAME));
   });
 
   afterEach(() => {
@@ -135,18 +136,18 @@ describe("structured state integrity findings", () => {
 
     expect(issue).toEqual({
       kind: "missing-state-dir",
-      path: path.join(tempHome, ".openclaw"),
+      path: path.join(tempHome, APP_STATE_DIRNAME),
     });
     expect(stateIntegrityIssueToHealthFinding(issue)).toMatchObject({
       checkId: "core/doctor/state-integrity",
       severity: "error",
-      path: path.join(tempHome, ".openclaw"),
+      path: path.join(tempHome, APP_STATE_DIRNAME),
       fixHint: "Run `openclaw doctor --fix` to create the state directory.",
     });
     expect(stateIntegrityIssueToRepairEffect(issue)).toEqual({
       kind: "state",
       action: "would-create-state-dir",
-      target: path.join(tempHome, ".openclaw"),
+      target: path.join(tempHome, APP_STATE_DIRNAME),
       dryRunSafe: false,
     });
   });
@@ -155,8 +156,8 @@ describe("structured state integrity findings", () => {
     if (process.platform === "win32") {
       return;
     }
-    const stateDir = path.join(tempHome, ".openclaw");
-    const configPath = path.join(tempHome, "openclaw.json");
+    const stateDir = path.join(tempHome, APP_STATE_DIRNAME);
+    const configPath = path.join(tempHome, APP_CONFIG_FILENAME);
     fs.mkdirSync(stateDir, { recursive: true, mode: 0o755 });
     fs.chmodSync(stateDir, 0o755);
     fs.writeFileSync(configPath, "{}\n", { mode: 0o644 });
@@ -188,8 +189,8 @@ describe("structured state integrity findings", () => {
     if (process.platform === "win32") {
       return;
     }
-    const stateDir = path.join(tempHome, ".openclaw");
-    const configPath = path.join(tempHome, "openclaw.json");
+    const stateDir = path.join(tempHome, APP_STATE_DIRNAME);
+    const configPath = path.join(tempHome, APP_CONFIG_FILENAME);
     fs.writeFileSync(configPath, "{}\n", { mode: 0o644 });
     fs.chmodSync(configPath, 0o644);
 
@@ -255,7 +256,7 @@ describe("doctor state integrity oauth dir checks", () => {
       "OPENCLAW_AGENT_DIR",
     ]);
     tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-doctor-state-integrity-"));
-    const stateDir = path.join(tempHome, ".openclaw");
+    const stateDir = path.join(tempHome, APP_STATE_DIRNAME);
     setTestEnvValue("HOME", tempHome);
     setTestEnvValue("OPENCLAW_HOME", tempHome);
     setTestEnvValue("OPENCLAW_STATE_DIR", stateDir);
@@ -568,7 +569,7 @@ describe("doctor state integrity oauth dir checks", () => {
       );
       fs.symlinkSync(originalHome, symlinkHome, "dir");
       try {
-        const symlinkStateDir = path.join(symlinkHome, ".openclaw");
+        const symlinkStateDir = path.join(symlinkHome, APP_STATE_DIRNAME);
         setTestEnvValue("HOME", symlinkHome);
         setTestEnvValue("OPENCLAW_HOME", symlinkHome);
         setTestEnvValue("OPENCLAW_STATE_DIR", symlinkStateDir);

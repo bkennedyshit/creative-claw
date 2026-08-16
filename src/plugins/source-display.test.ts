@@ -1,14 +1,15 @@
 // Verifies plugin source display formatting.
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withPathResolutionEnv } from "../test-utils/env.js";
 import { resolveBundledPluginsDir } from "./bundled-dir.js";
 import { formatPluginSourceForTable, resolvePluginSourceRoots } from "./source-display.js";
 
 const PLUGIN_SOURCE_ROOTS = {
   stock: path.resolve(path.sep, "opt", "homebrew", "lib", "node_modules", "openclaw", "extensions"),
-  global: path.resolve(path.sep, "Users", "x", ".openclaw", "extensions"),
-  workspace: path.resolve(path.sep, "Users", "x", "ws", ".openclaw", "extensions"),
+  global: path.resolve(path.sep, "Users", "x", APP_STATE_DIRNAME, "extensions"),
+  workspace: path.resolve(path.sep, "Users", "x", "ws", APP_STATE_DIRNAME, "extensions"),
 };
 
 function expectFormattedSource(params: {
@@ -90,7 +91,7 @@ describe("formatPluginSourceForTable", () => {
       expected: {
         stock,
         global: path.join(homeDir, "state", "extensions"),
-        workspace: path.join(homeDir, "ws", ".openclaw", "extensions"),
+        workspace: path.join(homeDir, "ws", APP_STATE_DIRNAME, "extensions"),
       },
     });
   });

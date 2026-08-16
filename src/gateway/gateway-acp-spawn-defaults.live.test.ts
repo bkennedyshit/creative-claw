@@ -20,6 +20,7 @@ import { resolveStorePath } from "../config/sessions/paths.js";
 import { loadSessionStore } from "../config/sessions/store.js";
 import type { SessionEntry } from "../config/sessions/types.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import { clearPluginLoaderCache } from "../plugins/loader.js";
 import { resetPluginRuntimeStateForTest } from "../plugins/runtime.js";
@@ -273,7 +274,7 @@ describeLive("gateway live (ACP spawn defaults)", () => {
     async () => {
       const previousEnv = snapshotAcpSpawnDefaultsLiveEnv();
       const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-live-acp-spawn-"));
-      const tempConfigPath = path.join(tempRoot, "openclaw.json");
+      const tempConfigPath = path.join(tempRoot, APP_CONFIG_FILENAME);
       const tempStateDir = path.join(tempRoot, "state");
       const port = await getFreeGatewayPort();
       const token = `test-${randomUUID()}`;

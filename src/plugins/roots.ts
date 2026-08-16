@@ -1,6 +1,7 @@
 // Resolves plugin root directories for bundled and installed plugins.
 import path from "node:path";
 import { normalizeStringEntries } from "@openclaw/normalization-core/string-normalization";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { resolveConfigDir, resolveUserPath } from "../utils.js";
 import { resolveBundledPluginsDir } from "./bundled-dir.js";
 
@@ -23,7 +24,12 @@ export function resolvePluginSourceRoots(params: {
   const workspaceRoot = params.workspaceDir ? resolveUserPath(params.workspaceDir, env) : undefined;
   const stock = resolveBundledPluginsDir(env);
   const global = path.join(resolveConfigDir(env), "extensions");
-  const workspace = workspaceRoot ? path.join(workspaceRoot, ".openclaw", "extensions") : undefined;
+  // Workspace plugins live under the fork's own state dirname, matching the
+  // branded `global` root above. Hardcoding `.openclaw` here would make a
+  // rebranded install miss workspace-installed plugins under `~/.creativeclaw`.
+  const workspace = workspaceRoot
+    ? path.join(workspaceRoot, APP_STATE_DIRNAME, "extensions")
+    : undefined;
   return { stock, global, workspace };
 }
 

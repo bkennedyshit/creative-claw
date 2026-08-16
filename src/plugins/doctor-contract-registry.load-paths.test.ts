@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { findLegacyConfigIssues } from "../config/legacy.js";
 import type { OpenClawConfig } from "../config/types.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   applyPluginDoctorCompatibilityMigrations,
   clearPluginDoctorContractRegistryCache,
@@ -30,7 +31,7 @@ function makeHermeticDoctorEnv(stateDir: string): NodeJS.ProcessEnv {
     HOME: stateDir,
     OPENCLAW_HOME: stateDir,
     OPENCLAW_STATE_DIR: stateDir,
-    OPENCLAW_CONFIG_PATH: path.join(stateDir, "openclaw.json"),
+    OPENCLAW_CONFIG_PATH: path.join(stateDir, APP_CONFIG_FILENAME),
     OPENCLAW_DISABLE_BUNDLED_PLUGINS: "1",
   };
 }

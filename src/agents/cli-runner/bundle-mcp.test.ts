@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { writeClaudeBundleManifest } from "../../plugins/bundle-mcp.test-support.js";
 import { prepareCliBundleMcpCaptureAttempt, prepareCliBundleMcpConfig } from "./bundle-mcp.js";
 import {
@@ -62,7 +63,7 @@ describe("prepareCliBundleMcpConfig", () => {
     const workspaceDir = await cliBundleMcpHarness.tempHarness.createTempDir(
       "openclaw-cli-bundle-mcp-workspace-root-",
     );
-    const pluginRoot = path.join(workspaceDir, ".openclaw", "extensions", "workspace-probe");
+    const pluginRoot = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "workspace-probe");
     // Workspace-local plugins should be resolved relative to workspaceDir, not HOME.
     const serverPath = path.join(pluginRoot, "servers", "probe.mjs");
     await fs.mkdir(path.dirname(serverPath), { recursive: true });

@@ -1,5 +1,6 @@
 // Launchd restart handoff tests cover restart coordination on macOS.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 
 const spawnMock = vi.hoisted(() => vi.fn());
 const unrefMock = vi.hoisted(() => vi.fn());
@@ -61,7 +62,9 @@ describe("scheduleDetachedLaunchdRestartHandoff", () => {
     expect(args[6]).toBe("9876");
     expect(args[7]).toBe("ai.openclaw.gateway");
     expect(args[1]).toContain('while kill -0 "$wait_pid" >/dev/null 2>&1; do');
-    expect(args[1]).toContain("exec >>'/Users/test/.openclaw/logs/gateway-restart.log' 2>&1");
+    expect(args[1]).toContain(
+      `exec >>'/Users/test/${APP_STATE_DIRNAME}/logs/gateway-restart.log' 2>&1`,
+    );
     expect(args[1]).toContain("openclaw restart attempt source=launchd-handoff mode=kickstart");
     expect(args[1]).toContain('launchctl enable "$service_target"');
     expect(args[1]).toContain('if launchctl kickstart -k "$service_target"; then');
@@ -134,7 +137,9 @@ describe("scheduleDetachedLaunchdRestartHandoff", () => {
     });
 
     const [, args, options] = requireSpawnCall();
-    expect(args[1]).toContain("exec >>'/Users/test/.openclaw/logs/gateway-restart.log' 2>&1");
+    expect(args[1]).toContain(
+      `exec >>'/Users/test/${APP_STATE_DIRNAME}/logs/gateway-restart.log' 2>&1`,
+    );
     expect(args[1]).not.toContain("/tmp/evil-bin");
     expect(args[1]).not.toContain("/tmp/evil.dylib");
     expect(args[1]).not.toContain("/tmp/evil-npmrc");

@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { WebSocket } from "ws";
 import type { ChannelOutboundAdapter } from "../channels/plugins/types.js";
 import { clearConfigCache, clearRuntimeConfigSnapshot } from "../config/config.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { createOutboundTestPlugin } from "../test-utils/channel-plugins.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { createTempHomeEnv } from "../test-utils/temp-home.js";
@@ -380,7 +381,7 @@ describe("gateway server models + voicewake", () => {
         expect(after.payload?.triggers).toEqual(["hi", "there"]);
 
         await expect(
-          fs.readFile(path.join(homeDir, ".openclaw", "settings", "voicewake.json"), "utf8"),
+          fs.readFile(path.join(homeDir, APP_STATE_DIRNAME, "settings", "voicewake.json"), "utf8"),
         ).rejects.toThrow(/ENOENT/u);
       });
     },
@@ -458,7 +459,10 @@ describe("gateway server models + voicewake", () => {
       ]);
 
       await expect(
-        fs.readFile(path.join(homeDir, ".openclaw", "settings", "voicewake-routing.json"), "utf8"),
+        fs.readFile(
+          path.join(homeDir, APP_STATE_DIRNAME, "settings", "voicewake-routing.json"),
+          "utf8",
+        ),
       ).rejects.toThrow(/ENOENT/u);
 
       const invalid = await rpcReq(ws, "voicewake.routing.set", { config: null });

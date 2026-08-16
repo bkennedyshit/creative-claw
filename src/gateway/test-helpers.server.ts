@@ -16,6 +16,7 @@ import {
   type SessionEntry,
 } from "../config/sessions.js";
 import { resetAgentRunContextForTest } from "../infra/agent-events.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   loadOrCreateDeviceIdentity,
   publicKeyRawBase64UrlFromPem,
@@ -137,7 +138,7 @@ async function persistTestSessionConfig(): Promise<void> {
     configPaths.add(process.env.OPENCLAW_CONFIG_PATH);
   }
   if (process.env.OPENCLAW_STATE_DIR) {
-    configPaths.add(path.join(process.env.OPENCLAW_STATE_DIR, "openclaw.json"));
+    configPaths.add(path.join(process.env.OPENCLAW_STATE_DIR, APP_CONFIG_FILENAME));
   }
   const parsedConfigs = new Map<string, Record<string, unknown>>();
   let preservedTemplateStore: string | undefined;
@@ -237,7 +238,7 @@ async function setupGatewayTestHome() {
   tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-home-"));
   process.env.HOME = tempHome;
   process.env.USERPROFILE = tempHome;
-  process.env.OPENCLAW_STATE_DIR = path.join(tempHome, ".openclaw");
+  process.env.OPENCLAW_STATE_DIR = path.join(tempHome, APP_STATE_DIRNAME);
   delete process.env.OPENCLAW_CONFIG_PATH;
   delete process.env.OPENCLAW_AGENT_DIR;
 }

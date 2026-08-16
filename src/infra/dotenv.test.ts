@@ -13,6 +13,7 @@ import type { PluginManifestRecord } from "../plugins/manifest-registry.js";
 import type { PluginMetadataSnapshot } from "../plugins/plugin-metadata-snapshot.types.js";
 import { listKnownProviderAuthEnvVarNames } from "../secrets/provider-env-vars.js";
 import { captureFullEnv, deleteTestEnvValue, setTestEnvValue } from "../test-utils/env.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import { loadDotEnv, loadWorkspaceDotEnvFile } from "./dotenv.js";
 
 const loggerMocks = vi.hoisted(() => ({
@@ -219,7 +220,7 @@ describe("loadDotEnv", () => {
     await withIsolatedEnvAndCwd(async () => {
       await withDotEnvFixture(async ({ base, cwdDir }) => {
         setTestEnvValue("HOME", base);
-        const defaultStateDir = path.join(base, ".openclaw");
+        const defaultStateDir = path.join(base, APP_STATE_DIRNAME);
         setTestEnvValue("OPENCLAW_STATE_DIR", defaultStateDir);
         await writeEnvFile(path.join(defaultStateDir, ".env"), "FOO=from-global\n");
         await writeEnvFile(
@@ -666,7 +667,7 @@ describe("loadCliDotEnv", () => {
     await withIsolatedEnvAndCwd(async () => {
       await withDotEnvFixture(async ({ base, cwdDir }) => {
         setTestEnvValue("HOME", base);
-        const defaultStateDir = path.join(base, ".openclaw");
+        const defaultStateDir = path.join(base, APP_STATE_DIRNAME);
         setTestEnvValue("OPENCLAW_STATE_DIR", defaultStateDir);
         await writeEnvFile(path.join(defaultStateDir, ".env"), "FOO=from-global\n");
         await writeEnvFile(
@@ -690,7 +691,7 @@ describe("loadCliDotEnv", () => {
     await withIsolatedEnvAndCwd(async () => {
       await withDotEnvFixture(async ({ base, cwdDir }) => {
         setTestEnvValue("HOME", base);
-        const defaultStateDir = path.join(base, ".openclaw");
+        const defaultStateDir = path.join(base, APP_STATE_DIRNAME);
         setTestEnvValue("OPENCLAW_STATE_DIR", defaultStateDir);
         await writeEnvFile(path.join(cwdDir, ".env"), "BAZ=from-workspace\n");
         await writeEnvFile(path.join(defaultStateDir, ".env"), "FOO=from-global\n");

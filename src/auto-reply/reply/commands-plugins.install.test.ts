@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { withTempHome } from "../../config/home-env.test-harness.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../../infra/app-branding.js";
 import { expectObjectFields, mockFirstObjectArg } from "../../test-utils/mock-call-assertions.js";
 import { createCommandWorkspaceHarness } from "./commands-filesystem.test-support.js";
 import { handlePluginsCommand } from "./commands-plugins.js";
@@ -98,8 +99,8 @@ function expectPersistedInstall(pluginId: string, expectedInstall: Record<string
   expectObjectFields(persisted.snapshot, {
     writeOptions: expect.objectContaining({
       assertConfigPathForWrite: expect.any(Function),
-      expectedConfigPath: expect.stringContaining("openclaw.json"),
-      ownedConfigPathForWrite: expect.stringContaining("openclaw.json"),
+      expectedConfigPath: expect.stringContaining(APP_CONFIG_FILENAME),
+      ownedConfigPathForWrite: expect.stringContaining(APP_CONFIG_FILENAME),
     }),
   });
   expect(writeOptions).not.toHaveProperty("basePluginMetadataSnapshot");
@@ -153,7 +154,7 @@ describe("handleCommands /plugins install", () => {
 
     await withTempHome("openclaw-command-plugins-home-", async (home) => {
       await fs.writeFile(
-        path.join(home, ".openclaw", "openclaw.json"),
+        path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME),
         `${JSON.stringify(policyConfig, null, 2)}\n`,
       );
       const workspaceDir = await workspaceHarness.createWorkspace();
@@ -498,10 +499,10 @@ describe("handleCommands /plugins install", () => {
 
   it("refuses installs through a root include before package installer side effects", async () => {
     await withTempHome("openclaw-command-plugins-home-", async (home) => {
-      const sharedConfigPath = path.join(home, ".openclaw", "shared.json5");
+      const sharedConfigPath = path.join(home, APP_STATE_DIRNAME, "shared.json5");
       await fs.writeFile(sharedConfigPath, `${JSON.stringify({ plugins: {} }, null, 2)}\n`);
       await fs.writeFile(
-        path.join(home, ".openclaw", "openclaw.json"),
+        path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME),
         `${JSON.stringify({ $include: "./shared.json5" }, null, 2)}\n`,
       );
       const workspaceDir = await workspaceHarness.createWorkspace();

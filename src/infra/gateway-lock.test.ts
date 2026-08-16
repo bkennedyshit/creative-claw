@@ -9,6 +9,7 @@ import { setTimeout as nativeSleep } from "node:timers/promises";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveConfigPath, resolveStateDir } from "../config/paths.js";
 import { createSuiteTempRootTracker } from "../test-helpers/temp-dir.js";
+import { APP_CONFIG_FILENAME } from "./app-branding.js";
 import { acquireGatewayLock, GatewayLockError, type GatewayLockOptions } from "./gateway-lock.js";
 
 type GatewayLock = NonNullable<Awaited<ReturnType<typeof acquireGatewayLock>>>;
@@ -23,7 +24,7 @@ function resolveTestLockDir() {
 
 async function makeEnv() {
   const dir = await fixtureRootTracker.make("case");
-  const configPath = path.join(dir, "openclaw.json");
+  const configPath = path.join(dir, APP_CONFIG_FILENAME);
   await fs.writeFile(configPath, "{}", "utf8");
   return {
     ...process.env,

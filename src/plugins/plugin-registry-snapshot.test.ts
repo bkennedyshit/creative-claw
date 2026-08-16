@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   clearCurrentPluginMetadataSnapshot,
   setCurrentPluginMetadataSnapshot,
@@ -560,7 +561,7 @@ describe("loadPluginRegistrySnapshotWithMetadata", () => {
     const first = loadPluginRegistrySnapshotWithMetadata({ config: {}, env, workspaceDir });
     expect(first.snapshot.plugins.map((plugin) => plugin.pluginId)).not.toContain("demo");
 
-    writePackagePlugin(path.join(workspaceDir, ".openclaw", "extensions", "demo"));
+    writePackagePlugin(path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "demo"));
 
     const second = loadPluginRegistrySnapshotWithMetadata({ config: {}, env, workspaceDir });
     expect(second.snapshot.plugins.map((plugin) => plugin.pluginId)).toContain("demo");

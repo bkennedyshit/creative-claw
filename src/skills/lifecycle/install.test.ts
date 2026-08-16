@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import {
   initializeGlobalHookRunner,
   resetGlobalHookRunner,
@@ -167,7 +168,9 @@ describe("installSkill before_install hooks", () => {
           homedir: () => "/Users/tester",
           platform: "darwin",
         }),
-      ).toBe("/Users/tester/.openclaw");
+        // resolveDefaultNodeInstallStateDir returns <home>/<state dir>, and the
+        // state dir follows the branding seam (install.ts).
+      ).toBe(`/Users/tester/${APP_STATE_DIRNAME}`);
     } finally {
       envSnapshot.restore();
     }

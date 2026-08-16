@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   persistBoundedClobberedConfigSnapshot,
   persistBoundedClobberedConfigSnapshotSync,
@@ -25,7 +26,7 @@ describe("config clobber snapshots", () => {
 
   async function withCase<T>(fn: (configPath: string) => Promise<T>): Promise<T> {
     const home = path.join(fixtureRoot, `case-${caseId++}`);
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
     await fsp.mkdir(path.dirname(configPath), { recursive: true });
     await fsp.writeFile(configPath, "{}\n", "utf-8");
     return await fn(configPath);

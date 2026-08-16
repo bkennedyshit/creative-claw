@@ -121,10 +121,19 @@ async function writeCompletedWorkspaceState(workspaceDir: string): Promise<void>
   );
 }
 
+/**
+ * `<workspace>/.openclaw/workspace-state.json` is a frozen on-disk artifact from
+ * older versions, not the branded home state dir. `workspace.ts` reads that exact
+ * literal (`LEGACY_WORKSPACE_STATE_DIRNAME`) so a rebranded install can still
+ * detect completed setup written before the rename, so this must NOT follow
+ * `APP_STATE_DIRNAME`. See VERIFY-ON-LINUX.md bucket 3.
+ */
+const LEGACY_WORKSPACE_METADATA_DIRNAME = ".openclaw";
+
 async function writeLegacyCompletedWorkspaceState(workspaceDir: string): Promise<void> {
-  await fs.mkdir(path.join(workspaceDir, ".openclaw"), { recursive: true });
+  await fs.mkdir(path.join(workspaceDir, LEGACY_WORKSPACE_METADATA_DIRNAME), { recursive: true });
   await fs.writeFile(
-    path.join(workspaceDir, ".openclaw", "workspace-state.json"),
+    path.join(workspaceDir, LEGACY_WORKSPACE_METADATA_DIRNAME, "workspace-state.json"),
     `${JSON.stringify({
       version: 1,
       bootstrapSeededAt: "2026-05-16T00:00:00.000Z",

@@ -35,6 +35,18 @@ import {
   resolveSessionTranscriptCandidates,
 } from "./session-utils.fs.js";
 
+/**
+ * The last transcript candidate is the *historical global* sessions directory
+ * (`~/.openclaw/sessions`), kept read-only so tagged upgrades can still find
+ * transcripts written before per-agent paths existed. It is deliberately NOT
+ * branded: current transcripts live under the branded per-agent root
+ * (`<state>/agents/<id>/sessions`), and nothing has ever written
+ * `~/.creativeclaw/sessions`, so branding this literal would drop the upgrade
+ * fallback for a Creative Claw install that previously ran OpenClaw and gain
+ * nothing. Matches `session-transcript-files.fs.ts`; VERIFY-ON-LINUX.md bucket 3.
+ */
+const LEGACY_GLOBAL_SESSIONS_DIRNAME = ".openclaw";
+
 function buildSessionAssistantMessage(text: string, timestamp: number) {
   return {
     role: "assistant" as const,
@@ -1131,7 +1143,7 @@ describe("readSessionMessages", () => {
       { type: "session", version: 1, id: sessionId },
       { message: { role: "assistant", content: "older store archive" } },
     ]);
-    const legacySessionsDir = path.join(tmpDir, ".openclaw", "sessions");
+    const legacySessionsDir = path.join(tmpDir, LEGACY_GLOBAL_SESSIONS_DIRNAME, "sessions");
     fs.mkdirSync(legacySessionsDir, { recursive: true });
     writeResetArchive(legacySessionsDir, sessionId, "2026-02-16T22-26-34.000Z", [
       { type: "session", version: 1, id: sessionId },
@@ -2271,7 +2283,12 @@ describe("resolveSessionTranscriptCandidates", () => {
       const candidates = resolveSessionTranscriptCandidates("sess-1", undefined);
       const fallback = candidates[candidates.length - 1];
       expect(fallback).toBe(
-        path.join(path.resolve("/srv/openclaw-home"), ".openclaw", "sessions", "sess-1.jsonl"),
+        path.join(
+          path.resolve("/srv/openclaw-home"),
+          LEGACY_GLOBAL_SESSIONS_DIRNAME,
+          "sessions",
+          "sess-1.jsonl",
+        ),
       );
     });
   });

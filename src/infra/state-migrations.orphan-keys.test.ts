@@ -4,6 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import { withTempDir } from "../test-helpers/temp-dir.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import {
   migrateOrphanedSessionKeys,
   sessionStoreTextMayNeedCanonicalization,
@@ -43,7 +44,7 @@ async function withStateFixture(
   run: (params: { tmpDir: string; stateDir: string }) => Promise<void>,
 ): Promise<void> {
   await withTempDir({ prefix: "orphan-keys-test-" }, async (tmpDir) => {
-    const stateDir = path.join(tmpDir, ".openclaw");
+    const stateDir = path.join(tmpDir, APP_STATE_DIRNAME);
     fs.mkdirSync(stateDir, { recursive: true });
     await run({ tmpDir, stateDir });
   });

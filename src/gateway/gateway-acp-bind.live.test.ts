@@ -13,6 +13,7 @@ import {
   clearRuntimeConfigSnapshot,
   getRuntimeConfig,
 } from "../config/config.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import { clearPluginLoaderCache } from "../plugins/loader.js";
 import {
@@ -576,7 +577,7 @@ describeLive("gateway live (ACP bind)", () => {
         process.env.OPENCLAW_LIVE_ACP_BIND_AGENT_COMMAND?.trim() || undefined;
       const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-live-acp-bind-"));
       const tempStateDir = path.join(tempRoot, "state");
-      const tempConfigPath = path.join(tempRoot, "openclaw.json");
+      const tempConfigPath = path.join(tempRoot, APP_CONFIG_FILENAME);
       const port = await getFreeGatewayPort();
       const token = `test-${randomUUID()}`;
       const parentModel = resolveLiveParentModel();

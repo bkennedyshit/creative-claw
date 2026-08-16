@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { captureFullEnv } from "../test-utils/env.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import { getWindowsCmdExePath } from "./windows-install-roots.js";
 
 const spawnMock = vi.hoisted(() => vi.fn());
@@ -11,7 +12,7 @@ const resolvePreferredOpenClawTmpDirMock = vi.hoisted(() => vi.fn(() => os.tmpdi
 const resolveTaskScriptPathMock = vi.hoisted(() =>
   vi.fn((env: Record<string, string | undefined>) => {
     const home = env.USERPROFILE || env.HOME || os.homedir();
-    return path.join(home, ".openclaw", "gateway.cmd");
+    return path.join(home, APP_STATE_DIRNAME, "gateway.cmd");
   }),
 );
 
@@ -87,7 +88,7 @@ describe("relaunchGatewayScheduledTask", () => {
     resolveTaskScriptPathMock.mockReset();
     resolveTaskScriptPathMock.mockImplementation((env: Record<string, string | undefined>) => {
       const home = env.USERPROFILE || env.HOME || os.homedir();
-      return path.join(home, ".openclaw", "gateway.cmd");
+      return path.join(home, APP_STATE_DIRNAME, "gateway.cmd");
     });
   });
 

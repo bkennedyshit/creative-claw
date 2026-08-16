@@ -14,6 +14,7 @@ import {
   recordMcpLoopbackToolCallResult,
 } from "../gateway/mcp-http.loopback-runtime.js";
 import { onAgentEvent, resetAgentEventsForTest } from "../infra/agent-events.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   onInternalDiagnosticEvent,
   waitForDiagnosticEventsDrained,
@@ -274,9 +275,9 @@ async function withTempExecApprovalsFile(
   run: () => Promise<void>,
 ): Promise<void> {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cli-exec-approvals-"));
-  await fs.mkdir(path.join(home, ".openclaw"), { recursive: true });
+  await fs.mkdir(path.join(home, APP_STATE_DIRNAME), { recursive: true });
   await fs.writeFile(
-    path.join(home, ".openclaw", "exec-approvals.json"),
+    path.join(home, APP_STATE_DIRNAME, "exec-approvals.json"),
     `${JSON.stringify(file)}\n`,
     "utf-8",
   );
@@ -2207,7 +2208,7 @@ ${JSON.stringify({
 
   it("does not create exec approvals file while resolving Claude live policy", async () => {
     await withTempOpenClawHome(async (home) => {
-      const approvalsPath = path.join(home, ".openclaw", "exec-approvals.json");
+      const approvalsPath = path.join(home, APP_STATE_DIRNAME, "exec-approvals.json");
       let stdoutListener: ((chunk: string) => void) | undefined;
       const stdin = {
         write: vi.fn((_data: string, cb?: (err?: Error | null) => void) => {

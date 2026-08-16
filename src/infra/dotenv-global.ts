@@ -5,6 +5,7 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { resolveConfigDir } from "../utils.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import { resolveRequiredHomeDir } from "./home-dir.js";
 import { normalizeEnvVarKey } from "./host-env-security.js";
 
@@ -130,7 +131,7 @@ export function loadGlobalRuntimeDotEnvFiles(opts?: GlobalRuntimeDotEnvOptions) 
   const globalEnvPaths = [...new Set([stateEnvPath, ...(opts?.additionalEnvPaths ?? [])])];
   const defaultStateEnvPath = path.join(
     resolveRequiredHomeDir(process.env, os.homedir),
-    ".openclaw",
+    APP_STATE_DIRNAME,
     ".env",
   );
   const hasExplicitNonDefaultStateDir =

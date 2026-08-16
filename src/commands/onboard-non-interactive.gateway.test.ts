@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import type { MigrationApplyResult, MigrationPlan } from "../plugins/types.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { makeTempWorkspace } from "../test-helpers/workspace.js";
@@ -60,7 +61,7 @@ function resolveTestConfigPath() {
   if (!stateDir) {
     throw new Error("OPENCLAW_STATE_DIR must be set before config IO in this test");
   }
-  return path.join(stateDir, "openclaw.json");
+  return path.join(stateDir, APP_CONFIG_FILENAME);
 }
 
 // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- Test helper lets assertions ascribe stored config shape.
@@ -970,7 +971,7 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
     }
     await withStateDir("state-lan-", async (stateDir) => {
       setTestEnvValue("OPENCLAW_STATE_DIR", stateDir);
-      setTestEnvValue("OPENCLAW_CONFIG_PATH", path.join(stateDir, "openclaw.json"));
+      setTestEnvValue("OPENCLAW_CONFIG_PATH", path.join(stateDir, APP_CONFIG_FILENAME));
 
       const port = getPseudoPort(40_000);
       const workspace = path.join(stateDir, "openclaw");

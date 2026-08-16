@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { withTempDir } from "../test-helpers/temp-dir.js";
+import { APP_STATE_DIRNAME } from "./app-branding.js";
 import { writePackageDistInventory } from "./package-dist-inventory.js";
 import {
   markPackagePostInstallDoctorAdvisory,
@@ -286,7 +287,7 @@ describe("runGlobalPackageUpdateSteps", () => {
 
   it("swaps staged npm updates into an explicitly selected direct node_modules root", async () => {
     await withTempDir({ prefix: "openclaw-package-update-direct-root-" }, async (base) => {
-      const managedRoot = path.join(base, ".openclaw", "npm", "node_modules");
+      const managedRoot = path.join(base, APP_STATE_DIRNAME, "npm", "node_modules");
       const packageRoot = path.join(managedRoot, "openclaw");
       await writePackageRoot(packageRoot, "1.0.0");
 

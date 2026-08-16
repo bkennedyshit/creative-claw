@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { APP_STATE_DIRNAME } from "openclaw/plugin-sdk/state-paths";
 import { withEnv } from "openclaw/plugin-sdk/test-env";
 import { afterEach, describe, expect, it } from "vitest";
 import { getCredentialBackupFile, getLegacyCredentialBackupFile } from "./data-paths.js";
@@ -57,7 +58,7 @@ describe("qqbot legacy credential backup paths", () => {
     const homeDir = createTempDir("qqbot-openclaw-home-");
     withEnv({ OPENCLAW_STATE_DIR: "", OPENCLAW_HOME: homeDir }, () => {
       expect(getCredentialBackupFile("default")).toBe(
-        path.join(homeDir, ".openclaw", "qqbot", "data", "credential-backup-default.json"),
+        path.join(homeDir, APP_STATE_DIRNAME, "qqbot", "data", "credential-backup-default.json"),
       );
     });
   });

@@ -7,6 +7,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   onInternalDiagnosticEvent,
   onDiagnosticEvent,
@@ -658,7 +659,7 @@ describe("before_tool_call loop detection behavior", () => {
   });
 
   it("matches home-compacted skill instruction paths from prompts", async () => {
-    const skillBaseDir = path.join(os.homedir(), ".openclaw", "skills", "home-skill");
+    const skillBaseDir = path.join(os.homedir(), APP_STATE_DIRNAME, "skills", "home-skill");
     const skillFilePath = path.join(skillBaseDir, "SKILL.md");
     const execute = vi.fn().mockResolvedValue({ content: [{ type: "text", text: "skill" }] });
     const tool = wrapToolWithBeforeToolCallHook({ name: "read", execute } as any, {

@@ -1,5 +1,6 @@
 // Coverage for overflow compaction routing, runtime context, and failover.
 import fs from "node:fs/promises";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -404,7 +405,7 @@ describe("runEmbeddedAgent overflow compaction trigger routing", () => {
       mockedEnsureAuthProfileStoreWithoutExternalProfiles,
     ) as [string | undefined, { allowKeychainPrompt?: boolean } | undefined];
     expect(typeof agentDir).toBe("string");
-    expect(String(agentDir).replaceAll("\\", "/").endsWith("/.openclaw/agents/main/agent")).toBe(
+    expect(String(agentDir).replaceAll("\\", "/").endsWith(`/${APP_STATE_DIRNAME}/agents/main/agent`)).toBe(
       true,
     );
     expect(authStoreOptions).toEqual({ allowKeychainPrompt: false });

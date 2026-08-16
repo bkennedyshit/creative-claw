@@ -5,6 +5,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as modelThinkingDefault from "../agents/model-thinking-default.js";
 import type { SessionEntry } from "../config/sessions.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { runCronIsolatedAgentTurn } from "./isolated-agent.js";
 import {
   makeCfg,
@@ -75,7 +76,7 @@ describe("runCronIsolatedAgentTurn session identity", () => {
 
       expect(res.status).toBe("ok");
       const call = lastEmbeddedAgentCall();
-      expect(call.agentDir).toBe(path.join(home, ".openclaw", "agents", "main", "agent"));
+      expect(call.agentDir).toBe(path.join(home, APP_STATE_DIRNAME, "agents", "main", "agent"));
     });
   });
 
@@ -102,7 +103,7 @@ describe("runCronIsolatedAgentTurn session identity", () => {
 
       const cfg = makeCfg(
         home,
-        path.join(home, ".openclaw", "agents", "{agentId}", "sessions", "sessions.json"),
+        path.join(home, APP_STATE_DIRNAME, "agents", "{agentId}", "sessions", "sessions.json"),
         {
           agents: {
             defaults: { workspace: path.join(home, "default-workspace") },
@@ -147,7 +148,7 @@ describe("runCronIsolatedAgentTurn session identity", () => {
       const call = lastEmbeddedAgentCall();
 
       expect(call.sessionFile).toContain(
-        path.join(home, ".openclaw", "agents", "main", "sessions"),
+        path.join(home, APP_STATE_DIRNAME, "agents", "main", "sessions"),
       );
       expect(String(call.sessionFile).endsWith(".jsonl")).toBe(true);
     });

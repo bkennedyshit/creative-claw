@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { DefaultPackageManager } from "./package-manager.js";
 import { SettingsManager } from "./settings-manager.js";
 
@@ -128,7 +129,7 @@ describe("DefaultPackageManager", () => {
     // Project resources may be auto-discovered, but each resource type remains
     // confined to its expected root.
     const root = await makeTempDir("openclaw-package-manager-");
-    const configRoot = join(root, ".openclaw");
+    const configRoot = join(root, APP_STATE_DIRNAME);
     const outsideRoot = join(root, "outside");
     const insidePrompt = join(configRoot, "prompts", "inside.md");
     const insideTheme = join(configRoot, "themes", "inside.json");

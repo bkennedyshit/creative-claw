@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import { getRuntimeConfig, writeConfigFile } from "../config/config.js";
 import { withTempHome } from "../config/home-env.test-harness.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import {
   asConfig,
@@ -79,9 +80,9 @@ describe("secrets runtime snapshot gateway-auth integration", () => {
           provider: "default",
           id: "MISSING_GATEWAY_AUTH_TOKEN",
         } as const;
-        await fs.mkdir(path.join(home, ".openclaw"), { recursive: true });
+        await fs.mkdir(path.join(home, APP_STATE_DIRNAME), { recursive: true });
         await fs.writeFile(
-          path.join(home, ".openclaw", "openclaw.json"),
+          path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME),
           `${JSON.stringify(
             {
               gateway: {
@@ -137,7 +138,7 @@ describe("secrets runtime snapshot gateway-auth integration", () => {
         expect(activeAfterFailure.sourceConfig.gateway?.auth?.token).toEqual(initialTokenRef);
 
         const persistedConfig = JSON.parse(
-          await fs.readFile(path.join(home, ".openclaw", "openclaw.json"), "utf8"),
+          await fs.readFile(path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME), "utf8"),
         ) as OpenClawConfig;
         expect(persistedConfig.gateway?.auth?.token).toEqual(initialTokenRef);
       });

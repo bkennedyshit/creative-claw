@@ -8,6 +8,7 @@ import { clearAllBootstrapSnapshots } from "../agents/bootstrap-cache.js";
 import { clearConfigCache, clearRuntimeConfigSnapshot } from "../config/config.js";
 import { clearSessionStoreCacheForTest } from "../config/sessions/store.js";
 import { resetAgentRunContextForTest } from "../infra/agent-events.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { PROXY_ENV_KEYS } from "../infra/net/proxy-env.js";
 import { clearGatewaySubagentRuntime } from "../plugins/runtime/index.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../test-utils/env.js";
@@ -81,7 +82,7 @@ describe("gateway network runtime", () => {
       process.env.HTTPS_PROXY = "http://127.0.0.1:9";
 
       setTestEnvValue("HOME", tempHome);
-      setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, ".openclaw"));
+      setTestEnvValue("OPENCLAW_STATE_DIR", path.join(tempHome, APP_STATE_DIRNAME));
       process.env.OPENCLAW_SKIP_CHANNELS = "1";
       process.env.OPENCLAW_SKIP_GMAIL_WATCHER = "1";
       process.env.OPENCLAW_SKIP_CRON = "1";
@@ -94,7 +95,7 @@ describe("gateway network runtime", () => {
 
       const token = `proxy-token-${process.pid}-${process.env.VITEST_POOL_ID ?? "0"}`;
       process.env.OPENCLAW_GATEWAY_TOKEN = token;
-      const configPath = path.join(tempHome, ".openclaw", "openclaw.json");
+      const configPath = path.join(tempHome, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,

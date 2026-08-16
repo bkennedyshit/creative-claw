@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "./infra/app-branding.js";
 import { MAX_TIMER_TIMEOUT_MS } from "./shared/number-coercion.js";
 import { withTempDir } from "./test-helpers/temp-dir.js";
 import { withEnv } from "./test-utils/env.js";
@@ -59,7 +60,7 @@ describe("sleep", () => {
 describe("resolveConfigDir", () => {
   it("prefers ~/.openclaw when legacy dir is missing", async () => {
     await withTempDir({ prefix: "openclaw-config-dir-" }, async (root) => {
-      const newDir = path.join(root, ".openclaw");
+      const newDir = path.join(root, APP_STATE_DIRNAME);
       await fs.promises.mkdir(newDir, { recursive: true });
       const resolved = resolveConfigDir({} as NodeJS.ProcessEnv, () => root);
       expect(resolved).toBe(newDir);

@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StaleOpenClawUpdateLaunchdJob } from "../../daemon/launchd.js";
 import { createMockGatewayService } from "../../daemon/service.test-helpers.js";
+import { APP_CONFIG_FILENAME } from "../../infra/app-branding.js";
 import type { PortConnections } from "../../infra/ports.js";
 import type { GatewayRestartHandoff } from "../../infra/restart-handoff.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../../test-utils/env.js";
@@ -654,7 +655,7 @@ describe("gatherDaemonStatus", () => {
 
   it("uses the fast config path for plain same-file status reads", async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-status-config-"));
-    const configPath = path.join(tmp, "openclaw.json");
+    const configPath = path.join(tmp, APP_CONFIG_FILENAME);
     await fs.writeFile(
       configPath,
       JSON.stringify({
@@ -698,7 +699,7 @@ describe("gatherDaemonStatus", () => {
 
   it("uses full plugin-aware config validation for deep status", async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-status-config-"));
-    const configPath = path.join(tmp, "openclaw.json");
+    const configPath = path.join(tmp, APP_CONFIG_FILENAME);
     await fs.writeFile(
       configPath,
       JSON.stringify({

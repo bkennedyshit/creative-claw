@@ -16,6 +16,7 @@ import {
   resolveGatewayRestartLogPath,
   shellEscapeRestartLogValue,
 } from "../../daemon/restart-logs.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { getWindowsCmdExePath } from "../../infra/windows-install-roots.js";
 
 /**
@@ -310,7 +311,7 @@ function Get-OpenClawListenerPids {
 }
 
 function Invoke-OpenClawStartupLauncher {
-  $launcherPath = Join-Path $env:USERPROFILE ".openclaw\\gateway.cmd"
+  $launcherPath = Join-Path $env:USERPROFILE "${APP_STATE_DIRNAME}\\gateway.cmd"
   if (-not (Test-Path -LiteralPath $launcherPath)) {
     Write-RestartLog "openclaw restart startup launcher missing source=update path=$launcherPath"
     return 1

@@ -21,6 +21,7 @@ vi.mock("../channels/read-only-account-inspect.js", () => ({
   inspectReadOnlyChannelAccount: vi.fn(async () => null),
 }));
 
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { noteSecurityWarnings } from "./doctor-security.js";
 
 describe("noteSecurityWarnings gateway exposure", () => {
@@ -74,9 +75,9 @@ describe("noteSecurityWarnings gateway exposure", () => {
   ): Promise<void> {
     const home = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-doctor-security-"));
     process.env.HOME = home;
-    await fs.mkdir(path.join(home, ".openclaw"), { recursive: true });
+    await fs.mkdir(path.join(home, APP_STATE_DIRNAME), { recursive: true });
     await fs.writeFile(
-      path.join(home, ".openclaw", "exec-approvals.json"),
+      path.join(home, APP_STATE_DIRNAME, "exec-approvals.json"),
       JSON.stringify(file, null, 2),
     );
     await run();

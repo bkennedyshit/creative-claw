@@ -1,6 +1,7 @@
 // Trajectory command export helpers implement CLI export behavior.
 import fsp from "node:fs/promises";
 import path from "node:path";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { pathExists } from "../infra/fs-safe.js";
 import { isPathInside } from "../infra/path-guards.js";
 import { exportTrajectoryBundle, resolveDefaultTrajectoryExportDir } from "./export.js";
@@ -54,7 +55,7 @@ async function resolveTrajectoryExportBaseDir(workspaceDir: string): Promise<{
 }> {
   const workspacePath = path.resolve(workspaceDir);
   const realWorkspace = await fsp.realpath(workspacePath);
-  const stateDir = path.join(workspacePath, ".openclaw");
+  const stateDir = path.join(workspacePath, APP_STATE_DIRNAME);
   await mkdirIfMissingThenValidate({
     dir: stateDir,
     label: "OpenClaw state directory",

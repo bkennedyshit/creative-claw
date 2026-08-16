@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, vi, type Mock } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { withFastReplyConfig } from "./reply/get-reply-fast-path.js";
 
@@ -139,12 +140,14 @@ export function createTempHomeHarness(options: { prefix: string; beforeEachCase?
 
   async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise<T> {
     const home = path.join(fixtureRoot, `case-${++caseId}`);
-    await fs.mkdir(path.join(home, ".openclaw", "agents", "main", "sessions"), { recursive: true });
+    await fs.mkdir(path.join(home, APP_STATE_DIRNAME, "agents", "main", "sessions"), {
+      recursive: true,
+    });
     const env: Record<string, string | undefined> = {
       HOME: home,
       USERPROFILE: home,
-      OPENCLAW_STATE_DIR: path.join(home, ".openclaw"),
-      OPENCLAW_AGENT_DIR: path.join(home, ".openclaw", "agent"),
+      OPENCLAW_STATE_DIR: path.join(home, APP_STATE_DIRNAME),
+      OPENCLAW_AGENT_DIR: path.join(home, APP_STATE_DIRNAME, "agent"),
     };
     if (process.platform === "win32") {
       const match = home.match(/^([A-Za-z]:)(.*)$/);

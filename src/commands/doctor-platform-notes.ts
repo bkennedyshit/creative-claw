@@ -11,6 +11,7 @@ import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { hasConfiguredSecretInput } from "../config/types.secrets.js";
 import { findStaleOpenClawUpdateLaunchdJobs } from "../daemon/launchd.js";
 import { resolveGatewayService, type GatewayService } from "../daemon/service.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { shortenHomePath } from "../utils.js";
 
 const execFileAsync = promisify(execFile);
@@ -29,7 +30,7 @@ export function collectMacLaunchAgentOverrideWarning(deps?: {
     return null;
   }
   const home = deps?.homeDir ?? resolveHomeDir();
-  const markerCandidates = [path.join(home, ".openclaw", "disable-launchagent")];
+  const markerCandidates = [path.join(home, APP_STATE_DIRNAME, "disable-launchagent")];
   const exists = deps?.exists ?? fs.existsSync;
   const markerPath = markerCandidates.find((candidate) => exists(candidate));
   if (!markerPath) {

@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_CONFIG_FILENAME } from "../../infra/app-branding.js";
 import { makeTempWorkspace } from "../../test-helpers/workspace.js";
 import { captureEnv } from "../../test-utils/env.js";
 import { createCliRuntimeCapture } from "../test-runtime-capture.js";
@@ -51,7 +52,7 @@ describe("runDaemonInstall integration", () => {
       "OPENCLAW_GATEWAY_PASSWORD",
     ]);
     tempHome = await makeTempWorkspace("openclaw-daemon-install-int-");
-    configPath = path.join(tempHome, "openclaw.json");
+    configPath = path.join(tempHome, APP_CONFIG_FILENAME);
     process.env.HOME = tempHome;
     process.env.OPENCLAW_STATE_DIR = tempHome;
     process.env.OPENCLAW_CONFIG_PATH = configPath;

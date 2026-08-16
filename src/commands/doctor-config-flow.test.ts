@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { withTempHome } from "openclaw/plugin-sdk/test-env";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { loadAndMaybeMigrateDoctorConfig } from "./doctor-config-flow.js";
 import {
   getDoctorConfigInputForTest,
@@ -1259,8 +1260,8 @@ vi.mock("./doctor-config-preflight.js", async () => {
   function resolveConfigPath() {
     const stateDir =
       process.env.OPENCLAW_STATE_DIR ||
-      (process.env.HOME ? pathLocal.join(process.env.HOME, ".openclaw") : "");
-    return process.env.OPENCLAW_CONFIG_PATH || pathLocal.join(stateDir, "openclaw.json");
+      (process.env.HOME ? pathLocal.join(process.env.HOME, APP_STATE_DIRNAME) : "");
+    return process.env.OPENCLAW_CONFIG_PATH || pathLocal.join(stateDir, APP_CONFIG_FILENAME);
   }
 
   function normalizeDiscordStreamingCompat(cfg: Record<string, unknown>): Record<string, unknown> {
@@ -2118,8 +2119,8 @@ describe("doctor config flow", () => {
   it("keeps discord streaming aliases on disk during repair so downgrades stay recoverable", async () => {
     await withTempHome(
       async (home) => {
-        const configDir = path.join(home, ".openclaw");
-        const configPath = path.join(configDir, "openclaw.json");
+        const configDir = path.join(home, APP_STATE_DIRNAME);
+        const configPath = path.join(configDir, APP_CONFIG_FILENAME);
         await fs.mkdir(configDir, { recursive: true });
         await fs.writeFile(
           configPath,
@@ -2420,10 +2421,10 @@ describe("doctor config flow", () => {
   it("converts numeric discord ids to strings on repair", async () => {
     await withTempHome(
       async (home) => {
-        const configDir = path.join(home, ".openclaw");
+        const configDir = path.join(home, APP_STATE_DIRNAME);
         await fs.mkdir(configDir, { recursive: true });
         await fs.writeFile(
-          path.join(configDir, "openclaw.json"),
+          path.join(configDir, APP_CONFIG_FILENAME),
           JSON.stringify(
             {
               channels: {
@@ -2591,11 +2592,11 @@ describe("doctor config flow", () => {
   it('repairs dmPolicy="allowlist" by restoring allowFrom from pairing store on repair', async () => {
     const result = await withTempHome(
       async (home) => {
-        const configDir = path.join(home, ".openclaw");
+        const configDir = path.join(home, APP_STATE_DIRNAME);
         const credentialsDir = path.join(configDir, "credentials");
         await fs.mkdir(credentialsDir, { recursive: true });
         await fs.writeFile(
-          path.join(configDir, "openclaw.json"),
+          path.join(configDir, APP_CONFIG_FILENAME),
           JSON.stringify(
             {
               channels: {
@@ -2965,10 +2966,10 @@ describe("doctor config flow", () => {
     await withTempHome(
       async (home) => {
         const providerId = "acme-speech";
-        const configDir = path.join(home, ".openclaw");
+        const configDir = path.join(home, APP_STATE_DIRNAME);
         await fs.mkdir(configDir, { recursive: true });
         await fs.writeFile(
-          path.join(configDir, "openclaw.json"),
+          path.join(configDir, APP_CONFIG_FILENAME),
           JSON.stringify(
             {
               talk: {

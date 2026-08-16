@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { collectFilesystemFindings } from "./audit.js";
 import { AsyncTempCaseFactory } from "./test-temp-cases.js";
 
@@ -31,7 +32,7 @@ describe("security audit config symlink findings", () => {
     await fs.writeFile(targetConfigPath, "{}\n", "utf-8");
     await fs.chmod(targetConfigPath, 0o444);
 
-    const configPath = path.join(stateDir, "openclaw.json");
+    const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
     await fs.symlink(targetConfigPath, configPath);
 
     const findings = await collectFilesystemFindings({

@@ -10,6 +10,7 @@ import { TEST_BUNDLED_RUNTIME_SIDECAR_PATHS } from "../../test/helpers/bundled-r
 import type { OpenClawConfig, ConfigFileSnapshot } from "../config/types.openclaw.js";
 import type { PluginInstallRecord } from "../config/types.plugins.js";
 import { GATEWAY_SERVICE_RUNTIME_PID_ENV } from "../daemon/constants.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import type { ClawHubRiskAcknowledgementRequest } from "../infra/clawhub-install-trust.js";
 import { writePackageDistInventory } from "../infra/package-dist-inventory.js";
 import { isBetaTag } from "../infra/update-channels.js";
@@ -4994,7 +4995,7 @@ describe("update-cli", () => {
 
   it("restores pre-update channels when post-core resume sees post-doctor config without them", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const preUpdateConfig = {
       update: { channel: "stable" },
       channels: {
@@ -5068,7 +5069,7 @@ describe("update-cli", () => {
 
   it("restores pre-update channel model overrides when post-core resume restores a channel", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const preUpdateConfig = {
       update: { channel: "stable" },
       channels: {
@@ -5166,7 +5167,7 @@ describe("update-cli", () => {
 
   it("does not restore stale backup channels when current pre-update snapshot has none", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const removedChannelBackup = {
       update: { channel: "stable" },
       channels: {
@@ -5231,7 +5232,7 @@ describe("update-cli", () => {
 
   it("ignores pre-update channel snapshots older than the current update attempt", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const oldPreUpdateConfig = {
       update: { channel: "stable" },
       channels: {
@@ -5298,7 +5299,7 @@ describe("update-cli", () => {
 
   it("uses the Windows parent process start time for old post-core parents", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const preUpdateConfig = {
       update: { channel: "stable" },
       channels: {
@@ -5378,7 +5379,7 @@ describe("update-cli", () => {
 
   it("ignores disk fallback snapshots when the update attempt start is unknown", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const preUpdateConfig = {
       update: { channel: "stable" },
       channels: {
@@ -5525,7 +5526,7 @@ describe("update-cli", () => {
 
   it("resolves included pre-update channels for old post-core parents", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const channelsPath = path.join(tempDir, "channels.json5");
     const includedChannels = {
       whatsapp: {
@@ -5597,7 +5598,7 @@ describe("update-cli", () => {
 
   it("ignores stale pre-update channel snapshots during post-core resume", async () => {
     const tempDir = createCaseDir("openclaw-update");
-    const configPath = path.join(tempDir, "openclaw.json");
+    const configPath = path.join(tempDir, APP_CONFIG_FILENAME);
     const staleConfig = {
       channels: {
         whatsapp: {

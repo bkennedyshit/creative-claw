@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   buildEmbeddedAgentSettingsSnapshot,
   DEFAULT_EMBEDDED_AGENT_PROJECT_SETTINGS_POLICY,
@@ -150,7 +151,7 @@ describe("createPreparedEmbeddedAgentSettingsManager", () => {
     try {
       const cwd = path.join(baseDir, "workspace");
       const agentDir = path.join(baseDir, "agent");
-      const projectSettingsDir = path.join(cwd, ".openclaw");
+      const projectSettingsDir = path.join(cwd, APP_STATE_DIRNAME);
       const agentSettingsPath = path.join(agentDir, "settings.json");
       await fs.mkdir(projectSettingsDir, { recursive: true });
       await fs.mkdir(agentDir, { recursive: true });

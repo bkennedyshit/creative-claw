@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { resolveAuthProfileDatabasePath } from "../agents/auth-profiles/sqlite.js";
 import { saveAuthProfileStore } from "../agents/auth-profiles/store.js";
 import type { AuthProfileStore } from "../agents/auth-profiles/types.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   closeOpenClawAgentDatabasesForTest,
   openOpenClawAgentDatabase,
@@ -90,12 +91,12 @@ function createOpenAiProviderConfig(apiKey: unknown = "sk-openai-plaintext") {
 }
 
 function buildFixturePaths(rootDir: string) {
-  const stateDir = path.join(rootDir, ".openclaw");
+  const stateDir = path.join(rootDir, APP_STATE_DIRNAME);
   const agentDir = path.join(stateDir, "agents", "main", "agent");
   return {
     rootDir,
     stateDir,
-    configPath: path.join(stateDir, "openclaw.json"),
+    configPath: path.join(stateDir, APP_CONFIG_FILENAME),
     agentDir,
     authStorePath: resolveAuthProfileDatabasePath(agentDir),
     authJsonPath: path.join(agentDir, "auth.json"),

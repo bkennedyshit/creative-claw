@@ -9,6 +9,7 @@ import {
   setRuntimeConfigSnapshot,
 } from "../config/config.js";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { clearSecretsRuntimeSnapshot } from "../secrets/runtime.js";
 
 function withStableOwnerDisplaySecretForTest(cfg: unknown): unknown {
@@ -42,7 +43,7 @@ export async function withTempConfig(params: {
 
   const testConfig = withStableOwnerDisplaySecretForTest(params.cfg) as OpenClawConfig;
   const dir = await mkdtemp(path.join(os.tmpdir(), params.prefix ?? "openclaw-test-config-"));
-  const configPath = path.join(dir, "openclaw.json");
+  const configPath = path.join(dir, APP_CONFIG_FILENAME);
 
   process.env.OPENCLAW_CONFIG_PATH = configPath;
 

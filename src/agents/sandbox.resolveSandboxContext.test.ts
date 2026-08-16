@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { registerSandboxBackend } from "./sandbox/backend.js";
 import { ensureSandboxWorkspaceForSession, resolveSandboxContext } from "./sandbox/context.js";
 
@@ -363,7 +364,7 @@ describe("resolveSandboxContext", () => {
     const workspaceDir = await createSandboxFixtureDir("workspace");
     const userOwnedSandboxSkillsDir = path.join(
       workspaceDir,
-      ".openclaw",
+      APP_STATE_DIRNAME,
       "sandbox-skills",
       "skills",
       "user-owned",
@@ -378,7 +379,7 @@ describe("resolveSandboxContext", () => {
             mode: "all",
             scope: "session",
             workspaceAccess: "rw",
-            workspaceRoot: path.join(workspaceDir, ".openclaw", "sandboxes"),
+            workspaceRoot: path.join(workspaceDir, APP_STATE_DIRNAME, "sandboxes"),
           },
         },
       },
@@ -405,17 +406,17 @@ describe("resolveSandboxContext", () => {
     const [syncOptions] = syncCalls[0] ?? [];
     expect(syncOptions?.sourceWorkspaceDir).toBe(workspaceDir);
     expect(syncOptions?.targetWorkspaceDir).toContain(
-      path.join(".openclaw", "sandbox", "skills-workspaces"),
+      path.join(APP_STATE_DIRNAME, "sandbox", "skills-workspaces"),
     );
     expect(syncOptions?.targetWorkspaceDir).toMatch(
       /[\\/]agent-main-main-[a-f0-9]{8}[\\/]\.openclaw[\\/]sandbox-skills$/,
     );
     expect(syncOptions?.targetWorkspaceDir).not.toBe(
-      path.join(workspaceDir, ".openclaw", "sandbox-skills"),
+      path.join(workspaceDir, APP_STATE_DIRNAME, "sandbox-skills"),
     );
-    expect(syncOptions?.targetWorkspaceDir?.startsWith(path.join(workspaceDir, ".openclaw"))).toBe(
-      false,
-    );
+    expect(
+      syncOptions?.targetWorkspaceDir?.startsWith(path.join(workspaceDir, APP_STATE_DIRNAME)),
+    ).toBe(false);
     expect(syncOptions?.config).toBe(cfg);
     expect(syncOptions?.agentId).toBe("main");
     expect(syncOptions?.eligibility).toEqual({ remote: { note: "test-remote" } });
@@ -459,7 +460,7 @@ describe("resolveSandboxContext", () => {
     );
     expect(result?.containerWorkdir).not.toBe("/workspace");
     expect(result?.skillsWorkspaceDir).toContain(
-      path.join(".openclaw", "sandbox", "skills-workspaces"),
+      path.join(APP_STATE_DIRNAME, "sandbox", "skills-workspaces"),
     );
   }, 15_000);
 
@@ -468,7 +469,7 @@ describe("resolveSandboxContext", () => {
     const workspaceDir = await createSandboxFixtureDir("shared-workspace");
     const userOwnedSandboxSkillsDir = path.join(
       workspaceDir,
-      ".openclaw",
+      APP_STATE_DIRNAME,
       "sandbox-skills",
       "skills",
       "user-owned",
@@ -507,13 +508,13 @@ describe("resolveSandboxContext", () => {
     const [syncOptions] = syncCalls[0] ?? [];
     expect(syncOptions?.sourceWorkspaceDir).toBe(workspaceDir);
     expect(syncOptions?.targetWorkspaceDir).toContain(
-      path.join(".openclaw", "sandbox", "skills-workspaces"),
+      path.join(APP_STATE_DIRNAME, "sandbox", "skills-workspaces"),
     );
     expect(syncOptions?.targetWorkspaceDir).toMatch(
       /[\\/]shared-[a-f0-9]{8}[\\/]\.openclaw[\\/]sandbox-skills$/,
     );
     expect(syncOptions?.targetWorkspaceDir).not.toBe(
-      path.join(workspaceDir, ".openclaw", "sandbox-skills"),
+      path.join(workspaceDir, APP_STATE_DIRNAME, "sandbox-skills"),
     );
     await expect(
       fs.readFile(path.join(userOwnedSandboxSkillsDir, "SKILL.md"), "utf8"),

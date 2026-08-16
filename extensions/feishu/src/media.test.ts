@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { APP_STATE_DIRNAME } from "openclaw/plugin-sdk/state-paths";
 import { withTempDir } from "openclaw/plugin-sdk/test-env";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClawdbotConfig } from "../runtime-api.js";
@@ -952,7 +953,9 @@ describe("saveMessageResourceFeishu", () => {
         maxBytes: 1024,
       });
 
-      expect(result.saved.path).toContain(`${path.sep}.openclaw${path.sep}media${path.sep}inbound`);
+      expect(result.saved.path).toContain(
+        `${path.sep}${APP_STATE_DIRNAME}${path.sep}media${path.sep}inbound`,
+      );
       expect(result.saved.id).toMatch(/^photo---[a-f0-9-]{36}\.jpg$/);
       expect(result.saved.size).toBe(4);
       await expect(fs.readFile(result.saved.path)).resolves.toEqual(

@@ -9,6 +9,7 @@ import {
 } from "@openclaw/normalization-core/string-normalization";
 import { resolveSandboxPath } from "../../agents/sandbox-paths.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { walkDirectorySync } from "../../infra/fs-safe.js";
 import { resolveOsHomeDir } from "../../infra/home-dir.js";
 import { isPathInside } from "../../infra/path-guards.js";
@@ -39,7 +40,7 @@ import { resolveAllowedSkillSymlinkTargetRealPaths, tryRealpath } from "./symlin
 
 const fsp = fs.promises;
 const skillsLogger = createSubsystemLogger("skills");
-const SKILL_SOURCE_ORIGIN_RELATIVE_PATH = path.join(".openclaw", "source-origin.json");
+const SKILL_SOURCE_ORIGIN_RELATIVE_PATH = path.join(APP_STATE_DIRNAME, "source-origin.json");
 const MAX_SKILL_SOURCE_ORIGIN_BYTES = 16 * 1024;
 
 /**
@@ -64,8 +65,8 @@ function resolveNativeUserHomeDir(): string | undefined {
 }
 
 function resolveCompactHomePrefixes(): string[] {
-  const homes = [resolveUserHomeDir(), resolveNativeUserHomeDir()].filter(
-    (home): home is string => Boolean(home),
+  const homes = [resolveUserHomeDir(), resolveNativeUserHomeDir()].filter((home): home is string =>
+    Boolean(home),
   );
   const resolvedHomes = homes.map((home) => path.resolve(home));
   const realHomes = resolvedHomes
@@ -111,15 +112,15 @@ function resolvePromptTildeRoots(): string[] {
     return [];
   }
   const realNativeHome = tryRealpath(resolvedNativeHome);
-  return uniqueStrings([
-    resolvedNativeHome,
-    ...(realNativeHome ? [realNativeHome] : []),
-  ]);
+  return uniqueStrings([resolvedNativeHome, ...(realNativeHome ? [realNativeHome] : [])]);
 }
 
 function isContainerStateHomeWherePromptTildeEscapes(home: string): boolean {
   const configDir = path.resolve(resolveConfigDir());
-  return home === "/data" && (configDir === "/data/.openclaw" || isPathInside("/data/.openclaw", configDir));
+  return (
+    home === "/data" &&
+    (configDir === "/data/.openclaw" || isPathInside("/data/.openclaw", configDir))
+  );
 }
 
 function shouldPreservePromptSkillPath(

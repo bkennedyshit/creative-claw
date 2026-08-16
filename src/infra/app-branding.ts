@@ -87,33 +87,57 @@ function readBranding(): BrandingPackageJson["openclawConfig"] {
   }
 }
 
-const branding = readBranding();
-
 /** Trimmed override, or undefined when absent/blank. */
 function override(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 }
 
-/** Product name used for env-var prefixes and user-facing labels. */
-export const APP_NAME: string = override(branding?.name) ?? DEFAULT_APP_NAME;
-
-/** Home-relative state/config directory name, e.g. `.openclaw`. */
-export const APP_STATE_DIRNAME: string = override(branding?.configDir) ?? DEFAULT_STATE_DIRNAME;
+/** Resolved product identity. */
+export interface Branding {
+  /** Product name used for env-var prefixes and user-facing labels. */
+  appName: string;
+  /** Home-relative state/config directory name, e.g. `.openclaw`. */
+  stateDirname: string;
+  /** Config file name inside {@link Branding.stateDirname}. */
+  configFilename: string;
+  /** True when no rebrand is configured, i.e. the historical defaults apply. */
+  isDefault: boolean;
+}
 
 /**
- * Config file name inside {@link APP_STATE_DIRNAME}.
+ * Pure resolution of a branding block into concrete identity values.
  *
- * Defaults to `<name>.json` when the fork sets a product name but no explicit
- * file name, so a rebrand does not leave a `creativeclaw` install reading a file
- * called `openclaw.json`.
+ * Kept pure (no I/O) so tests can prove BOTH that an unbranded install still
+ * yields the historical `.openclaw` / `openclaw.json` names AND that a fork's
+ * block yields the isolated names, without mutating package.json on disk. The
+ * config filename defaults to `<name>.json` when a fork sets a product name but
+ * no explicit file name, so a rebrand does not leave a `creativeclaw` install
+ * reading a file called `openclaw.json`.
  */
-export const APP_CONFIG_FILENAME: string =
-  override(branding?.configFileName) ??
-  (APP_NAME === DEFAULT_APP_NAME ? DEFAULT_CONFIG_FILENAME : `${APP_NAME}.json`);
+export function resolveBranding(config: BrandingPackageJson["openclawConfig"]): Branding {
+  const appName = override(config?.name) ?? DEFAULT_APP_NAME;
+  const stateDirname = override(config?.configDir) ?? DEFAULT_STATE_DIRNAME;
+  const configFilename =
+    override(config?.configFileName) ??
+    (appName === DEFAULT_APP_NAME ? DEFAULT_CONFIG_FILENAME : `${appName}.json`);
+  const isDefault =
+    appName === DEFAULT_APP_NAME &&
+    stateDirname === DEFAULT_STATE_DIRNAME &&
+    configFilename === DEFAULT_CONFIG_FILENAME;
+  return { appName, stateDirname, configFilename, isDefault };
+}
+
+const resolved = resolveBranding(readBranding());
+
+/** Product name used for env-var prefixes and user-facing labels. */
+export const APP_NAME: string = resolved.appName;
+
+/** Home-relative state/config directory name, e.g. `.openclaw`. */
+export const APP_STATE_DIRNAME: string = resolved.stateDirname;
+
+/** Config file name inside {@link APP_STATE_DIRNAME}. */
+export const APP_CONFIG_FILENAME: string = resolved.configFilename;
 
 /** True when no rebrand is configured, i.e. the historical defaults apply. */
-export const IS_DEFAULT_BRANDING: boolean =
-  APP_NAME === DEFAULT_APP_NAME &&
-  APP_STATE_DIRNAME === DEFAULT_STATE_DIRNAME &&
-  APP_CONFIG_FILENAME === DEFAULT_CONFIG_FILENAME;
+export const IS_DEFAULT_BRANDING: boolean = resolved.isDefault;

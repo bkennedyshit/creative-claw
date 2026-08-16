@@ -3,6 +3,7 @@ import fsNode from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { executeSqliteQueryTakeFirstSync, getNodeSqliteKysely } from "../infra/kysely-sync.js";
 import { readPersistedInstalledPluginIndex } from "../plugins/installed-plugin-index-store.js";
 import type { PluginManifestRegistry } from "../plugins/manifest-registry.js";
@@ -192,8 +193,8 @@ describe("config io write", () => {
 
   it("writes health state to SQLite through public config reads", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const healthPath = path.join(home, ".openclaw", "logs", "config-health.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const healthPath = path.join(home, APP_STATE_DIRNAME, "logs", "config-health.json");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -224,7 +225,7 @@ describe("config io write", () => {
 
   it("refuses direct config writes in Nix mode without changing the file", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const initialRaw = `${JSON.stringify({ gateway: { mode: "local" } }, null, 2)}\n`;
       await fs.writeFile(configPath, initialRaw, "utf-8");
@@ -248,8 +249,8 @@ describe("config io write", () => {
 
   it("loads shipped plugin install config records without mutating config or plugin index", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const pluginDir = path.join(home, ".openclaw", "plugins", "demo");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const pluginDir = path.join(home, APP_STATE_DIRNAME, "plugins", "demo");
       const manifestPath = path.join(pluginDir, "openclaw.plugin.json");
       const source = path.join(pluginDir, "index.ts");
       await fs.mkdir(pluginDir, { recursive: true });
@@ -324,7 +325,7 @@ describe("config io write", () => {
         });
         await expect(
           readPersistedInstalledPluginIndex({
-            stateDir: path.join(home, ".openclaw"),
+            stateDir: path.join(home, APP_STATE_DIRNAME),
           }),
         ).resolves.toBeNull();
         await expect(fs.readFile(configPath, "utf-8")).resolves.toBe(initialRaw);
@@ -339,8 +340,8 @@ describe("config io write", () => {
 
   it("retains included shipped plugin install records in write snapshots", async () => {
     await withSuiteHome(async (home) => {
-      const configDir = path.join(home, ".openclaw");
-      const configPath = path.join(configDir, "openclaw.json");
+      const configDir = path.join(home, APP_STATE_DIRNAME);
+      const configPath = path.join(configDir, APP_CONFIG_FILENAME);
       const pluginsPath = path.join(configDir, "plugins.json5");
       await fs.mkdir(configDir, { recursive: true });
       await fs.writeFile(
@@ -382,8 +383,8 @@ describe("config io write", () => {
 
   it("migrates shipped plugin install config records into the plugin index during explicit writes", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const pluginDir = path.join(home, ".openclaw", "plugins", "demo");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const pluginDir = path.join(home, APP_STATE_DIRNAME, "plugins", "demo");
       const manifestPath = path.join(pluginDir, "openclaw.plugin.json");
       const source = path.join(pluginDir, "index.ts");
       await fs.mkdir(pluginDir, { recursive: true });
@@ -445,7 +446,7 @@ describe("config io write", () => {
 
         const index = requireRecord(
           await readPersistedInstalledPluginIndex({
-            stateDir: path.join(home, ".openclaw"),
+            stateDir: path.join(home, APP_STATE_DIRNAME),
           }),
           "persisted plugin index",
         );
@@ -474,8 +475,8 @@ describe("config io write", () => {
 
   it("migrates shipped plugin install config records during explicit writes even when the manifest is missing", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const pluginDir = path.join(home, ".openclaw", "plugins", "missing");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const pluginDir = path.join(home, APP_STATE_DIRNAME, "plugins", "missing");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -507,7 +508,7 @@ describe("config io write", () => {
 
       const index = requireRecord(
         await readPersistedInstalledPluginIndex({
-          stateDir: path.join(home, ".openclaw"),
+          stateDir: path.join(home, APP_STATE_DIRNAME),
         }),
         "persisted plugin index",
       );
@@ -530,8 +531,8 @@ describe("config io write", () => {
       plugins: [],
     } satisfies PluginManifestRegistry);
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const unwritableStatePath = path.join(home, ".openclaw");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const unwritableStatePath = path.join(home, APP_STATE_DIRNAME);
       const pluginDir = path.join(unwritableStatePath, "plugins", "demo");
       const original = {
         plugins: {
@@ -580,8 +581,8 @@ describe("config io write", () => {
 
   it("keeps shipped plugin install index migration when config write fails", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const pluginDir = path.join(home, ".openclaw", "plugins", "demo");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const pluginDir = path.join(home, APP_STATE_DIRNAME, "plugins", "demo");
       const original = {
         plugins: {
           entries: { demo: { enabled: true } },
@@ -610,7 +611,7 @@ describe("config io write", () => {
         installPath: pluginDir,
       });
       const persistedIndex = await readPersistedInstalledPluginIndex({
-        stateDir: path.join(home, ".openclaw"),
+        stateDir: path.join(home, APP_STATE_DIRNAME),
       });
       expectInstallRecord(persistedIndex?.installRecords.demo, {
         source: "npm",
@@ -637,7 +638,7 @@ describe("config io write", () => {
     "tightens world-writable state dir when writing the default config",
     async () => {
       await withSuiteHome(async (home) => {
-        const stateDir = path.join(home, ".openclaw");
+        const stateDir = path.join(home, APP_STATE_DIRNAME);
         await fs.mkdir(stateDir, { recursive: true, mode: 0o777 });
         await fs.chmod(stateDir, 0o777);
 
@@ -657,7 +658,7 @@ describe("config io write", () => {
 
   it("keeps writes inside an OPENCLAW_STATE_DIR override even when the real home config exists", async () => {
     await withSuiteHome(async (home) => {
-      const liveConfigPath = path.join(home, ".openclaw", "openclaw.json");
+      const liveConfigPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(liveConfigPath), { recursive: true });
       await fs.writeFile(
         liveConfigPath,
@@ -673,7 +674,7 @@ describe("config io write", () => {
         logger: silentLogger,
       });
 
-      expect(io.configPath).toBe(path.join(overrideDir, "openclaw.json"));
+      expect(io.configPath).toBe(path.join(overrideDir, APP_CONFIG_FILENAME));
 
       await io.writeConfigFile({
         agents: { list: [{ id: "main", default: true }] },
@@ -687,7 +688,7 @@ describe("config io write", () => {
       expect(livePersisted.gateway).toEqual({ mode: "local", port: 18789 });
 
       const overridePersisted = JSON.parse(
-        await fs.readFile(path.join(overrideDir, "openclaw.json"), "utf-8"),
+        await fs.readFile(path.join(overrideDir, APP_CONFIG_FILENAME), "utf-8"),
       ) as {
         session?: { store?: unknown };
       };
@@ -697,7 +698,7 @@ describe("config io write", () => {
 
   it("does not mutate caller config when unsetPaths is applied on first write", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const io = createConfigIO({
         env: {} as NodeJS.ProcessEnv,
         homedir: () => home,
@@ -745,7 +746,7 @@ describe("config io write", () => {
 
   it("does not print overwrite audit output by default when updating config", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -775,7 +776,7 @@ describe("config io write", () => {
 
   it("does not print benign missing-meta write anomalies by default", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -805,7 +806,7 @@ describe("config io write", () => {
 
   it("prints missing-meta write anomalies when anomaly logging is requested", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -837,7 +838,7 @@ describe("config io write", () => {
 
   it("suppresses overwrite audit output when skipOutputLogs is set", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -873,7 +874,7 @@ describe("config io write", () => {
 
   it("preserves root $schema during partial writes", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -896,7 +897,7 @@ describe("config io write", () => {
 
   it("recovers configs polluted by a leading status line", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const cleanConfig = {
         gateway: { mode: "local" },
         agents: { list: [{ id: "main", default: true }, { id: "discord-dm" }] },
@@ -940,7 +941,7 @@ describe("config io write", () => {
 
   it("rotates repeated prefix-recovery clobber snapshots for doctor-style repair loops", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const cleanConfig = {
         gateway: { mode: "local" },
         agents: { list: [{ id: "main", default: true }] },
@@ -982,7 +983,7 @@ describe("config io write", () => {
 
   it("rejects destructive internal writes before replacing the config", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const original = {
         gateway: { mode: "local" },
@@ -1040,7 +1041,7 @@ describe("config io write", () => {
 
   it("does not preflight runtime secrets before rejecting blocked root writes", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const original = {
         meta: { lastTouchedVersion: "2026.4.30" },
@@ -1090,7 +1091,7 @@ describe("config io write", () => {
 
   it("allows intentional size-drop writes without disabling gateway-mode protection", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const original = {
         meta: { lastTouchedVersion: "2026.4.30" },
@@ -1148,7 +1149,7 @@ describe("config io write", () => {
 
   it("keeps authored agent provider params during narrowed internal agent writes", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const original = {
         gateway: { mode: "local" },
@@ -1228,7 +1229,7 @@ describe("config io write", () => {
 
   it("preserves parsed source config when snapshot validation fails", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const original = {
         gateway: { mode: "local" },
@@ -1251,7 +1252,7 @@ describe("config io write", () => {
 
   it("returns the read-time environment snapshot for invalid config repairs", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -1288,7 +1289,7 @@ describe("config io write", () => {
 
   it("returns the read-time environment snapshot when invalid reads fall back after resolution", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -1328,8 +1329,8 @@ describe("config io write", () => {
 
   it("returns the snapshot-time hash when an included file is malformed", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const includePath = path.join(home, ".openclaw", "plugins.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const includePath = path.join(home, APP_STATE_DIRNAME, "plugins.json5");
       const malformedRaw = "{ malformed";
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
@@ -1359,8 +1360,8 @@ describe("config io write", () => {
 
   it("returns a write guard that rejects a changed active config path", async () => {
     await withSuiteHome(async (home) => {
-      const firstConfigPath = path.join(home, ".openclaw", "first.json");
-      const secondConfigPath = path.join(home, ".openclaw", "second.json");
+      const firstConfigPath = path.join(home, APP_STATE_DIRNAME, "first.json");
+      const secondConfigPath = path.join(home, APP_STATE_DIRNAME, "second.json");
       await fs.mkdir(path.dirname(firstConfigPath), { recursive: true });
       await fs.writeFile(firstConfigPath, "{}", "utf-8");
       await fs.writeFile(secondConfigPath, "{}", "utf-8");
@@ -1381,8 +1382,8 @@ describe("config io write", () => {
 
   it("rejects write snapshots when the IO instance no longer owns its config path", async () => {
     await withSuiteHome(async (home) => {
-      const firstConfigPath = path.join(home, ".openclaw", "first.json");
-      const secondConfigPath = path.join(home, ".openclaw", "second.json");
+      const firstConfigPath = path.join(home, APP_STATE_DIRNAME, "first.json");
+      const secondConfigPath = path.join(home, APP_STATE_DIRNAME, "second.json");
       await fs.mkdir(path.dirname(firstConfigPath), { recursive: true });
       await fs.writeFile(firstConfigPath, "{}", "utf-8");
       await fs.writeFile(secondConfigPath, "{}", "utf-8");
@@ -1401,8 +1402,8 @@ describe("config io write", () => {
 
   it("rejects local write ownership when config env changes path selection during the read", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const configuredNextPath = path.join(home, ".openclaw", "next.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const configuredNextPath = path.join(home, APP_STATE_DIRNAME, "next.json");
       const sourceConfig = {
         env: { OPENCLAW_CONFIG_PATH: configuredNextPath },
         gateway: { mode: "local" },
@@ -1419,8 +1420,8 @@ describe("config io write", () => {
 
   it("follows config env path selection before returning global write ownership", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const configuredNextPath = path.join(home, ".openclaw", "next.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const configuredNextPath = path.join(home, APP_STATE_DIRNAME, "next.json");
       const sourceConfig = {
         env: { OPENCLAW_CONFIG_PATH: configuredNextPath },
         gateway: { mode: "local" },
@@ -1469,8 +1470,8 @@ describe("config io write", () => {
 
   it("does not use expectedConfigPath as the write destination", async () => {
     await withSuiteHome(async (home) => {
-      const expectedConfigPath = path.join(home, ".openclaw", "expected.json");
-      const activeConfigPath = path.join(home, ".openclaw", "active.json");
+      const expectedConfigPath = path.join(home, APP_STATE_DIRNAME, "expected.json");
+      const activeConfigPath = path.join(home, APP_STATE_DIRNAME, "active.json");
       await fs.mkdir(path.dirname(expectedConfigPath), { recursive: true });
       await fs.writeFile(
         expectedConfigPath,
@@ -1507,8 +1508,8 @@ describe("config io write", () => {
 
   it("returns the missing-file hash when an included file is absent", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const includePath = path.join(home, ".openclaw", "plugins.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const includePath = path.join(home, APP_STATE_DIRNAME, "plugins.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -1535,8 +1536,8 @@ describe("config io write", () => {
 
   it("rejects root-include partial writes instead of flattening the root config", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const includePath = path.join(home, ".openclaw", "extra.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const includePath = path.join(home, APP_STATE_DIRNAME, "extra.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         includePath,
@@ -1559,7 +1560,7 @@ describe("config io write", () => {
 
   it("rejects a stale base snapshot before overwriting the root config", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -1589,8 +1590,8 @@ describe("config io write", () => {
 
   it("rejects a base snapshot from a different config path before overwriting the root config", async () => {
     await withSuiteHome(async (home) => {
-      const firstConfigPath = path.join(home, ".openclaw", "first.json");
-      const secondConfigPath = path.join(home, ".openclaw", "second.json");
+      const firstConfigPath = path.join(home, APP_STATE_DIRNAME, "first.json");
+      const secondConfigPath = path.join(home, APP_STATE_DIRNAME, "second.json");
       await fs.mkdir(path.dirname(firstConfigPath), { recursive: true });
       const originalRaw = `${JSON.stringify(
         { gateway: { mode: "local", port: 18789 } },
@@ -1626,8 +1627,8 @@ describe("config io write", () => {
 
   it("rolls back a root write when config path ownership changes during commit", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const secondConfigPath = path.join(home, ".openclaw", "second.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const secondConfigPath = path.join(home, APP_STATE_DIRNAME, "second.json");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const originalRaw = `${JSON.stringify(
         { gateway: { mode: "local", port: 18789 } },
@@ -1668,7 +1669,7 @@ describe("config io write", () => {
 
   it("rejects a base snapshot changed during preflight before replacing the root config", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -1706,7 +1707,7 @@ describe("config io write", () => {
 
   it("rejects a base snapshot changed during backup rotation", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -1738,7 +1739,7 @@ describe("config io write", () => {
 
   it("rejects a missing base config created empty during preflight", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const io = createConfigIO({
         configPath,
         env: { OPENCLAW_TEST_FAST: "1" } as NodeJS.ProcessEnv,
@@ -1766,7 +1767,7 @@ describe("config io write", () => {
 
   it("assigns distinct snapshot hashes to missing and empty root config", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const io = createConfigIO({
         configPath,
         env: { OPENCLAW_TEST_FAST: "1" } as NodeJS.ProcessEnv,
@@ -1786,7 +1787,7 @@ describe("config io write", () => {
 
   it("rejects an empty base config removed during preflight", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(configPath, "", "utf-8");
       const io = createConfigIO({
@@ -1816,8 +1817,8 @@ describe("config io write", () => {
 
   it("rejects invalid include-backed repairs instead of persisting substituted secrets", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const includePath = path.join(home, ".openclaw", "gateway.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const includePath = path.join(home, APP_STATE_DIRNAME, "gateway.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         includePath,
@@ -1867,8 +1868,8 @@ describe("config io write", () => {
 
   it("repairs invalid root-authored siblings without flattening included config", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const includePath = path.join(home, ".openclaw", "agent-defaults.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const includePath = path.join(home, APP_STATE_DIRNAME, "agent-defaults.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         includePath,
@@ -1909,8 +1910,8 @@ describe("config io write", () => {
 
   it("rejects repairs that would flatten a valid outer include with a broken nested include", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const pluginsPath = path.join(home, ".openclaw", "plugins.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const pluginsPath = path.join(home, APP_STATE_DIRNAME, "plugins.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         pluginsPath,
@@ -1943,7 +1944,7 @@ describe("config io write", () => {
 
   it("allows replacement repair of a malformed include directive", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -1995,8 +1996,8 @@ describe("config io write", () => {
     } satisfies PluginManifestRegistry);
 
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const agentsPath = path.join(home, ".openclaw", "agents.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const agentsPath = path.join(home, APP_STATE_DIRNAME, "agents.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         agentsPath,
@@ -2046,8 +2047,8 @@ describe("config io write", () => {
 
   it("repairs invalid config without flattening array-nested includes", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const includePath = path.join(home, ".openclaw", "main-agent.json5");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const includePath = path.join(home, APP_STATE_DIRNAME, "main-agent.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         includePath,
@@ -2153,7 +2154,7 @@ describe("config io write", () => {
 
   it("writes runtime-derived edits back to source SecretRef markers", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -2244,7 +2245,7 @@ describe("config io write", () => {
 
   it("notifies in-process reloaders with resolved source config when persisted env refs are restored", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -2325,7 +2326,7 @@ describe("config io write", () => {
 
   it("rejects ambiguous removals from arrays containing environment references", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const originalRaw = `${JSON.stringify(
         { plugins: { allow: ["${PLUGIN_A}", "${PLUGIN_B}"] } },
@@ -2353,7 +2354,7 @@ describe("config io write", () => {
 
   it("preserves escaped literals when config writes reorder arrays", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -2402,7 +2403,7 @@ describe("config io write", () => {
     } satisfies PluginManifestRegistry);
 
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const sourceConfig = {
         gateway: { mode: "local" },
@@ -2462,7 +2463,7 @@ describe("config io write", () => {
 
   it("rolls back the root config when post-write runtime refresh fails", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const initialConfig = { gateway: { mode: "local", port: 18789 } } satisfies OpenClawConfig;
       const initialRaw = `${JSON.stringify(initialConfig, null, 2)}\n`;
@@ -2490,7 +2491,7 @@ describe("config io write", () => {
 
   it("does not delete an existing root config when rollback has no previous raw payload", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const initialConfig = { gateway: { mode: "local", port: 18789 } } satisfies OpenClawConfig;
       await fs.writeFile(configPath, `${JSON.stringify(initialConfig, null, 2)}\n`, "utf-8");
@@ -2537,7 +2538,7 @@ describe("config io write", () => {
 
   it("does not overwrite concurrent root config edits during failed refresh rollback", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,
@@ -2573,8 +2574,8 @@ describe("config io write", () => {
 
   it("keeps plugin install index migration when runtime refresh fails", async () => {
     await withSuiteHome(async (home) => {
-      const stateDir = path.join(home, ".openclaw");
-      const configPath = path.join(stateDir, "openclaw.json");
+      const stateDir = path.join(home, APP_STATE_DIRNAME);
+      const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
       const pluginDir = path.join(stateDir, "plugins", "demo");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const initialConfig = {
@@ -2626,7 +2627,7 @@ describe("config io write", () => {
 
   it("blocks runtime preflight failures before committing root writes", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const initialRaw = `${JSON.stringify({ gateway: { mode: "local" } }, null, 2)}\n`;
       let observedSource: OpenClawConfig | undefined;
 
@@ -2661,7 +2662,7 @@ describe("config io write", () => {
 
   it("blocks runtime preflight failures before direct config IO commits root writes", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const initialRaw = `${JSON.stringify({ gateway: { mode: "local" } }, null, 2)}\n`;
       const env = {
         ...process.env,
@@ -2697,7 +2698,7 @@ describe("config io write", () => {
 
   it("restores config env vars when post-write runtime refresh rollback succeeds", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       const envKey = "OPENCLAW_TEST_RUNTIME_ROLLBACK_ENV";
       const initialConfig = { gateway: { mode: "local", port: 18789 } } satisfies OpenClawConfig;
       const initialRaw = `${JSON.stringify(initialConfig, null, 2)}\n`;
@@ -2738,8 +2739,8 @@ describe("config io write", () => {
 
   it("rolls back root writes when canonical reread changes config path ownership", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const nextConfigPath = path.join(home, ".openclaw", "next.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const nextConfigPath = path.join(home, APP_STATE_DIRNAME, "next.json");
       const initialConfig = { gateway: { mode: "local", port: 18789 } } satisfies OpenClawConfig;
       const initialRaw = `${JSON.stringify(initialConfig, null, 2)}\n`;
       await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -2778,8 +2779,8 @@ describe("config io write", () => {
 
   it("uses injected filesystem operations when rolling back ownership loss", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const otherConfigPath = path.join(home, ".openclaw", "other.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const otherConfigPath = path.join(home, APP_STATE_DIRNAME, "other.json");
       const initialConfig = { gateway: { mode: "local", port: 18789 } } satisfies OpenClawConfig;
       const initialRaw = `${JSON.stringify(initialConfig, null, 2)}\n`;
       await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -2856,7 +2857,7 @@ describe("config io write", () => {
     } satisfies PluginManifestRegistry);
 
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       const sourceConfig = {
         gateway: { mode: "local" },
@@ -2894,7 +2895,7 @@ describe("config io write", () => {
 
   it("skipPluginValidation bypasses plugin schema rejection on writeConfigFile (#76800)", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(configPath, "{}\n", "utf-8");
       mockLoadPluginManifestRegistry.mockReturnValue({
@@ -2952,7 +2953,7 @@ describe("config io write", () => {
 
   it("preserves authored tilde paths when runtime-shaped writes hand back absolute paths", async () => {
     await withSuiteHome(async (home) => {
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(
         configPath,

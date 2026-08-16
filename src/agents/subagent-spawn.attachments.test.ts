@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { decodeStrictBase64 } from "./subagent-attachments.js";
 import {
@@ -187,8 +188,16 @@ describe("spawnSubagentDirect filename validation", () => {
       );
 
       expect(result.status).toBe("accepted");
-      const explicitAttachmentsRoot = path.join(explicitWorkspaceDir, ".openclaw", "attachments");
-      const targetAttachmentsRoot = path.join(workspaceDirOverride, ".openclaw", "attachments");
+      const explicitAttachmentsRoot = path.join(
+        explicitWorkspaceDir,
+        APP_STATE_DIRNAME,
+        "attachments",
+      );
+      const targetAttachmentsRoot = path.join(
+        workspaceDirOverride,
+        APP_STATE_DIRNAME,
+        "attachments",
+      );
       expect(fs.existsSync(explicitAttachmentsRoot)).toBe(true);
       expect(fs.existsSync(targetAttachmentsRoot)).toBe(false);
     } finally {
@@ -224,7 +233,7 @@ describe("spawnSubagentDirect filename validation", () => {
         );
 
         expect(result.status).toBe("accepted");
-        const attachmentsRoot = path.join(expectedCwd, ".openclaw", "attachments");
+        const attachmentsRoot = path.join(expectedCwd, APP_STATE_DIRNAME, "attachments");
         expect(fs.existsSync(attachmentsRoot)).toBe(true);
         const childSessionKey = result.childSessionKey as string;
         expect(persistedStore?.[childSessionKey]?.spawnedCwd).toBe(expectedCwd);
@@ -269,7 +278,7 @@ describe("spawnSubagentDirect filename validation", () => {
 
     expect(result.status).toBe("error");
     expect(result.error).toContain("lineage patch failed");
-    const attachmentsRoot = path.join(workspaceDirOverride, ".openclaw", "attachments");
+    const attachmentsRoot = path.join(workspaceDirOverride, APP_STATE_DIRNAME, "attachments");
     const retainedDirs = fs.existsSync(attachmentsRoot)
       ? fs.readdirSync(attachmentsRoot).filter((entry) => !entry.startsWith("."))
       : [];

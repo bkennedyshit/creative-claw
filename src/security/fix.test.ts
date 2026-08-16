@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ChannelPlugin } from "../channels/plugins/types.js";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import {
   applySecurityFixConfigMutations,
   collectSecurityPermissionTargets,
@@ -227,7 +228,7 @@ describe("security fix", () => {
     const stateDir = await createStateDir("invalid-config");
     await fs.chmod(stateDir, 0o755);
 
-    const configPath = path.join(stateDir, "openclaw.json");
+    const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
     await fs.writeFile(configPath, "{ this is not json }\n", "utf-8");
     await fs.chmod(configPath, 0o644);
 
@@ -248,7 +249,7 @@ describe("security fix", () => {
     await fs.writeFile(includePath, "{ logging: { redactSensitive: 'off' } }\n", "utf-8");
     await fs.chmod(includePath, 0o644);
 
-    const configPath = path.join(stateDir, "openclaw.json");
+    const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
     await fs.writeFile(
       configPath,
       `{ "$include": "./includes/extra.json5", channels: { whatsapp: { groupPolicy: "open" } } }\n`,

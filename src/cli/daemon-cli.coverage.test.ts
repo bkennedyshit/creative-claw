@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../test-utils/env.js";
 import { registerDaemonCli } from "./daemon-cli/register.js";
 
@@ -192,7 +193,7 @@ describe("daemon-cli coverage", () => {
       "OPENCLAW_PROFILE",
     ]);
     setTestEnvValue("OPENCLAW_STATE_DIR", tmpDir);
-    setTestEnvValue("OPENCLAW_CONFIG_PATH", path.join(tmpDir, "openclaw.json"));
+    setTestEnvValue("OPENCLAW_CONFIG_PATH", path.join(tmpDir, APP_CONFIG_FILENAME));
     deleteTestEnvValue("OPENCLAW_GATEWAY_PORT");
     deleteTestEnvValue("OPENCLAW_PROFILE");
     serviceReadCommand.mockResolvedValue(null);

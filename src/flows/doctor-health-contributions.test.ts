@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorPrompter } from "../commands/doctor-prompter.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { CORE_HEALTH_CHECKS } from "./doctor-core-checks.js";
 import {
   createDoctorHealthContribution,
@@ -1189,7 +1190,7 @@ describe("doctor health contributions", () => {
           checkId: "core/doctor/test-structured-findings",
           severity: "warning",
           message: "structured finding needs attention",
-          path: "openclaw.json",
+          path: APP_CONFIG_FILENAME,
           line: 12,
           fixHint: "run openclaw doctor --fix",
         },
@@ -1222,7 +1223,9 @@ describe("doctor health contributions", () => {
     await contribution.run(ctx);
 
     expect(ctx.runtime.log).toHaveBeenCalledWith(
-      "[warning] core/doctor/test-structured-findings openclaw.json:12 - structured finding needs attention",
+      // The finding's `path` above is APP_CONFIG_FILENAME, so the rendered label
+      // has to come from the same constant instead of the historical literal.
+      `[warning] core/doctor/test-structured-findings ${APP_CONFIG_FILENAME}:12 - structured finding needs attention`,
     );
     expect(ctx.runtime.log).toHaveBeenCalledWith("  fix: run openclaw doctor --fix");
   });

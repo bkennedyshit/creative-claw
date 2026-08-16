@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 
 let modelsListCommand: typeof import("./models/list.list-command.js").modelsListCommand;
@@ -383,7 +384,7 @@ describe("models list/status", () => {
   }
 
   async function writeWorkspaceAuthEvidencePlugin(workspaceDir: string) {
-    const pluginDir = path.join(workspaceDir, ".openclaw", "extensions", "workspace-cloud");
+    const pluginDir = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "workspace-cloud");
     await fs.mkdir(pluginDir, { recursive: true });
     await fs.writeFile(path.join(pluginDir, "index.ts"), "export default {}\n", "utf8");
     await fs.writeFile(

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { withEnv } from "../test-utils/env.js";
 import {
   getDefaultRedactPatterns,
@@ -20,7 +21,7 @@ let tempDirs: string[] = [];
 function writeConfig(source: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-redact-config-"));
   tempDirs.push(dir);
-  const configPath = path.join(dir, "openclaw.json");
+  const configPath = path.join(dir, APP_CONFIG_FILENAME);
   fs.writeFileSync(configPath, source);
   return configPath;
 }

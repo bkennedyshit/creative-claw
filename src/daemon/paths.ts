@@ -1,6 +1,7 @@
 /** Resolves daemon state, home, and generated task-script paths. */
 import path from "node:path";
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { resolveGatewayProfileSuffix } from "./constants.js";
 
 const windowsAbsolutePath = /^[a-zA-Z]:[\\/]/;
@@ -43,9 +44,13 @@ export function resolveGatewayStateDir(env: Record<string, string | undefined>):
   }
   const home = resolveHomeDir(env);
   const suffix = resolveGatewayProfileSuffix(env.OPENCLAW_PROFILE);
-  // Profile suffixes isolate managed service files while preserving the default
-  // historical ~/.openclaw state path.
-  return path.join(home, `.openclaw${suffix}`);
+  // Profile suffixes isolate managed service files while the unsuffixed name is
+  // the app's default state dir. This MUST come from the branding seam: the
+  // managed service's working directory, generated `gateway.cmd` wrapper and task
+  // script are all derived from here, so a hardcoded name would point launchd /
+  // systemd / schtasks at a different directory than the one the config resolver
+  // (src/config/paths.ts) actually uses.
+  return path.join(home, `${APP_STATE_DIRNAME}${suffix}`);
 }
 
 export function resolveGatewayTaskScriptPath(env: Record<string, string | undefined>): string {

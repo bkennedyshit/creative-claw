@@ -7,6 +7,7 @@ import {
   setRuntimeConfigSnapshot,
 } from "../../config/runtime-snapshot.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { clearPluginMetadataLifecycleCaches } from "../../plugins/plugin-metadata-lifecycle.js";
 import { captureEnv, withPathResolutionEnv } from "../../test-utils/env.js";
 import { createFixtureSuite } from "../../test-utils/fixture-suite.js";
@@ -153,7 +154,7 @@ beforeAll(async () => {
   process.env.OPENCLAW_DISABLE_BUNDLED_PLUGINS = "1";
   tempHome = await createTempHomeEnv("openclaw-skills-home-");
   skillsHomeEnv = setMockSkillsHomeEnv(tempHome.home);
-  await fs.mkdir(path.join(tempHome.home, ".openclaw", "agents", "main", "sessions"), {
+  await fs.mkdir(path.join(tempHome.home, APP_STATE_DIRNAME, "agents", "main", "sessions"), {
     recursive: true,
   });
 });
@@ -296,7 +297,7 @@ describe("buildWorkspaceSkillCommandSpecs", () => {
       config,
     });
 
-    const pluginRoot = path.join(workspaceDir, ".openclaw", "extensions", "compound-bundle");
+    const pluginRoot = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "compound-bundle");
     await fs.mkdir(path.join(pluginRoot, ".claude-plugin"), { recursive: true });
     await fs.mkdir(path.join(pluginRoot, "commands"), { recursive: true });
     await fs.writeFile(

@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { resetDiagnosticEventsForTest } from "../infra/diagnostic-events.js";
 import { withEnv } from "../test-utils/env.js";
 import { clearPluginLoaderCache, loadOpenClawPlugins } from "./loader.js";
@@ -118,7 +119,7 @@ export function loadBundleFixture(params: {
   useNoBundledPlugins();
   const workspaceDir = makeTempDir();
   const stateDir = makeTempDir();
-  const bundleRoot = path.join(workspaceDir, ".openclaw", "extensions", params.pluginId);
+  const bundleRoot = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", params.pluginId);
   params.build(bundleRoot);
   return withEnv({ OPENCLAW_STATE_DIR: stateDir, ...params.env }, () =>
     loadOpenClawPlugins({

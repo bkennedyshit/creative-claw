@@ -10,6 +10,7 @@ import {
 import { formatConfigIssueLines } from "../config/issue-format.js";
 import type { ConfigFileSnapshot, LegacyConfigIssue } from "../config/types.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_CONFIG_FILENAME, APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import { resolveHomeDir } from "../utils.js";
 import { noteIncludeConfinementWarning } from "./doctor-config-analysis.js";
@@ -39,8 +40,8 @@ async function maybeMigrateLegacyConfig(): Promise<string[]> {
     return changes;
   }
 
-  const targetDir = path.join(home, ".openclaw");
-  const targetPath = path.join(targetDir, "openclaw.json");
+  const targetDir = path.join(home, APP_STATE_DIRNAME);
+  const targetPath = path.join(targetDir, APP_CONFIG_FILENAME);
   try {
     await fs.access(targetPath);
     return changes;

@@ -7,6 +7,7 @@ import { resolveAuthProfileDatabasePath } from "../agents/auth-profiles/sqlite.j
 import { saveAuthProfileStore } from "../agents/auth-profiles/store.js";
 import type { AuthProfileStore } from "../agents/auth-profiles/types.js";
 import * as configRuntime from "../config/config.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { captureEnv } from "./env.js";
 import { cleanupSessionStateForTest } from "./session-state-cleanup.js";
 
@@ -117,11 +118,11 @@ function resolveLayout(
 } {
   if (layout === "home") {
     const home = path.join(root, "home");
-    const stateDir = path.join(home, ".openclaw");
+    const stateDir = path.join(home, APP_STATE_DIRNAME);
     return {
       home,
       stateDir,
-      configPath: path.join(stateDir, "openclaw.json"),
+      configPath: path.join(stateDir, APP_CONFIG_FILENAME),
       workspaceDir: path.join(home, "workspace"),
     };
   }
@@ -131,7 +132,7 @@ function resolveLayout(
     return {
       home,
       stateDir,
-      configPath: path.join(root, "config", "openclaw.json"),
+      configPath: path.join(root, "config", APP_CONFIG_FILENAME),
       workspaceDir: path.join(root, "workspace"),
     };
   }
@@ -139,7 +140,7 @@ function resolveLayout(
   return {
     home: path.join(root, "home"),
     stateDir,
-    configPath: path.join(stateDir, "openclaw.json"),
+    configPath: path.join(stateDir, APP_CONFIG_FILENAME),
     workspaceDir: path.join(root, "workspace"),
   };
 }

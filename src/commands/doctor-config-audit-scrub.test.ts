@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import {
   configAuditScrubToHealthFinding,
   configAuditScrubToRepairEffect,
@@ -25,7 +26,7 @@ afterEach(async () => {
 describe("detectConfigAuditScrubIssue", () => {
   it("detects config-audit scrub work without rewriting the log", async () => {
     const home = await makeHome();
-    const auditPath = path.join(home, ".openclaw", "logs", "config-audit.jsonl");
+    const auditPath = path.join(home, APP_STATE_DIRNAME, "logs", "config-audit.jsonl");
     await fs.mkdir(path.dirname(auditPath), { recursive: true, mode: 0o700 });
     const record = {
       ts: "2026-05-02T00:03:48.471Z",
@@ -51,7 +52,7 @@ describe("detectConfigAuditScrubIssue", () => {
 
   it("maps scrub work to structured findings and dry-run effects", async () => {
     const home = await makeHome();
-    const auditPath = path.join(home, ".openclaw", "logs", "config-audit.jsonl");
+    const auditPath = path.join(home, APP_STATE_DIRNAME, "logs", "config-audit.jsonl");
     const result = { scanned: 2, rewritten: 1, skipped: 0, aborted: false, auditPath };
 
     expect(configAuditScrubToHealthFinding(result)).toEqual(

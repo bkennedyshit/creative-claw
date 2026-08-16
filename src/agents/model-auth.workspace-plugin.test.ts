@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import type { AuthProfileStore } from "./auth-profiles.js";
 import { resolveEnvApiKey } from "./model-auth-env.js";
@@ -17,7 +18,7 @@ import { hasAuthForModelProvider } from "./model-provider-auth.js";
 async function writeWorkspaceAuthEvidencePlugin(workspaceDir: string) {
   // Creates a trusted workspace plugin manifest with local-file auth evidence
   // so runtime and picker checks exercise the same scoped metadata path.
-  const pluginDir = path.join(workspaceDir, ".openclaw", "extensions", "workspace-cloud");
+  const pluginDir = path.join(workspaceDir, APP_STATE_DIRNAME, "extensions", "workspace-cloud");
   await fs.mkdir(pluginDir, { recursive: true });
   await fs.writeFile(path.join(pluginDir, "index.ts"), "export default {}\n", "utf8");
   await fs.writeFile(

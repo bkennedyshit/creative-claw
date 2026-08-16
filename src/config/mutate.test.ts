@@ -3,6 +3,7 @@ import fsNode from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { createSuiteTempRootTracker } from "../test-helpers/temp-dir.js";
 import { hashConfigIncludeRaw } from "./includes.js";
 import type { ConfigWriteOptions } from "./io.js";
@@ -611,8 +612,8 @@ describe("config mutate helpers", () => {
 
   it("repairs invalid config through a single-file top-level plugins include", async () => {
     const home = await suiteRootTracker.make("include");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -768,8 +769,8 @@ describe("config mutate helpers", () => {
 
   it("repairs a malformed single-file top-level include", async () => {
     const home = await suiteRootTracker.make("malformed-include");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -834,8 +835,8 @@ describe("config mutate helpers", () => {
 
   it("repairs a missing single-file top-level include from its snapshot", async () => {
     const home = await suiteRootTracker.make("missing-include");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -901,8 +902,8 @@ describe("config mutate helpers", () => {
     async () => {
       const home = await suiteRootTracker.make("missing-include-symlink-escape");
       const outside = await suiteRootTracker.make("missing-include-symlink-outside");
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const linkPath = path.join(home, ".openclaw", "link");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const linkPath = path.join(home, APP_STATE_DIRNAME, "link");
       const pluginsPath = path.join(linkPath, "plugins.json5");
       const outsidePluginsPath = path.join(outside, "plugins.json5");
       await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -955,8 +956,8 @@ describe("config mutate helpers", () => {
 
   it("does not overwrite a malformed include changed after its snapshot", async () => {
     const home = await suiteRootTracker.make("malformed-include-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     const snapshotRaw = "{ malformed";
     const concurrentRaw = "{ differently malformed";
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
@@ -1009,8 +1010,8 @@ describe("config mutate helpers", () => {
 
   it("prefers mutation-start include hashes over commit-time reread hashes", async () => {
     const home = await suiteRootTracker.make("include-mutation-start-hash");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     const initialRaw = `${JSON.stringify({ entries: {} }, null, 2)}\n`;
     const concurrentRaw = `${JSON.stringify(
       { entries: { concurrent: { enabled: true } } },
@@ -1064,8 +1065,8 @@ describe("config mutate helpers", () => {
 
   it("uses a provided mutation-start snapshot even without write options", async () => {
     const home = await suiteRootTracker.make("include-mutation-start-snapshot");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     const concurrentRaw = `${JSON.stringify(
       { entries: { concurrent: { enabled: true } } },
       null,
@@ -1105,8 +1106,8 @@ describe("config mutate helpers", () => {
 
   it("keeps single-file top-level plugins include writes when plugin validation is skipped", async () => {
     const home = await suiteRootTracker.make("include-skip-plugin-validation");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -1177,7 +1178,7 @@ describe("config mutate helpers", () => {
   it("rejects direct mutations to external include roots", async () => {
     const home = await suiteRootTracker.make("include-allowed-root");
     const sharedRoot = path.join(home, "shared");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
     const pluginsPath = path.join(sharedRoot, "plugins.json5");
     await fs.mkdir(sharedRoot, { recursive: true });
     await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -1232,8 +1233,8 @@ describe("config mutate helpers", () => {
 
   it("preflights single-file top-level include writes before persisting", async () => {
     const home = await suiteRootTracker.make("include-runtime-preflight");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -1284,8 +1285,8 @@ describe("config mutate helpers", () => {
 
   it("does not overwrite concurrent include edits made during preflight", async () => {
     const home = await suiteRootTracker.make("include-preflight-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -1340,8 +1341,8 @@ describe("config mutate helpers", () => {
 
   it("does not overwrite concurrent include edits made during backup rotation", async () => {
     const home = await suiteRootTracker.make("include-backup-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     const rootConfig = { plugins: { $include: "./config/plugins.json5" } };
     const initialPluginsRaw = `${JSON.stringify({ entries: {} }, null, 2)}\n`;
     const concurrentPluginsRaw = `${JSON.stringify(
@@ -1386,8 +1387,8 @@ describe("config mutate helpers", () => {
 
   it("does not write an include after its root ownership changes during backup rotation", async () => {
     const home = await suiteRootTracker.make("include-root-backup-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     const rootConfig = { plugins: { $include: "./config/plugins.json5" } };
     const initialPluginsRaw = `${JSON.stringify({ entries: {} }, null, 2)}\n`;
     const concurrentRootRaw = `${JSON.stringify(
@@ -1433,8 +1434,8 @@ describe("config mutate helpers", () => {
 
   it("does not write an include after its root ownership changes during preflight", async () => {
     const home = await suiteRootTracker.make("include-root-preflight-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     const rootConfig = { plugins: { $include: "./config/plugins.json5" } };
     const initialPluginsRaw = `${JSON.stringify({ entries: {} }, null, 2)}\n`;
     const concurrentRootRaw = `${JSON.stringify(
@@ -1488,8 +1489,8 @@ describe("config mutate helpers", () => {
 
   it("does not write an include after the active config path changes during preflight", async () => {
     const home = await suiteRootTracker.make("include-active-path-preflight-concurrent");
-    const firstConfigPath = path.join(home, "first", "openclaw.json");
-    const secondConfigPath = path.join(home, "second", "openclaw.json");
+    const firstConfigPath = path.join(home, "first", APP_CONFIG_FILENAME);
+    const secondConfigPath = path.join(home, "second", APP_CONFIG_FILENAME);
     const pluginsPath = path.join(home, "first", "plugins.json5");
     const rootConfig = { plugins: { $include: "./plugins.json5" } };
     const initialPluginsRaw = `${JSON.stringify({ entries: {} }, null, 2)}\n`;
@@ -1549,8 +1550,8 @@ describe("config mutate helpers", () => {
 
   it("rolls back an include write when config path ownership changes during commit", async () => {
     const home = await suiteRootTracker.make("include-active-path-commit-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "plugins.json5");
     const rootConfig = { plugins: { $include: "./plugins.json5" } };
     const initialPluginsRaw = `${JSON.stringify({ entries: {} }, null, 2)}\n`;
     await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -1603,8 +1604,8 @@ describe("config mutate helpers", () => {
       const home = await suiteRootTracker.make(
         `include-post-write-${changeKind.replaceAll(" ", "-")}`,
       );
-      const configPath = path.join(home, "first", "openclaw.json");
-      const otherConfigPath = path.join(home, "second", "openclaw.json");
+      const configPath = path.join(home, "first", APP_CONFIG_FILENAME);
+      const otherConfigPath = path.join(home, "second", APP_CONFIG_FILENAME);
       const pluginsPath = path.join(home, "first", "plugins.json5");
       const rootConfig = { plugins: { $include: "./plugins.json5" } };
       const initialPluginsRaw = `${JSON.stringify({ entries: {} }, null, 2)}\n`;
@@ -1665,9 +1666,9 @@ describe("config mutate helpers", () => {
     async () => {
       const home = await suiteRootTracker.make("include-preflight-parent-swap");
       const outside = await suiteRootTracker.make("include-preflight-parent-swap-outside");
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
-      const includeDir = path.join(home, ".openclaw", "config");
-      const movedIncludeDir = path.join(home, ".openclaw", "config-original");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+      const includeDir = path.join(home, APP_STATE_DIRNAME, "config");
+      const movedIncludeDir = path.join(home, APP_STATE_DIRNAME, "config-original");
       const pluginsPath = path.join(includeDir, "plugins.json5");
       const outsidePluginsPath = path.join(outside, "plugins.json5");
       await fs.mkdir(includeDir, { recursive: true });
@@ -1742,8 +1743,8 @@ describe("config mutate helpers", () => {
 
   it("does not overwrite include edits made after the mutation snapshot", async () => {
     const home = await suiteRootTracker.make("include-snapshot-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -1791,8 +1792,8 @@ describe("config mutate helpers", () => {
 
   it("preflights the restored include payload with the current environment", async () => {
     const home = await suiteRootTracker.make("include-restored-preflight");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -1862,8 +1863,8 @@ describe("config mutate helpers", () => {
 
   it("does not re-substitute resolved root values during include preflight", async () => {
     const home = await suiteRootTracker.make("include-root-escaped-env");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -1930,8 +1931,8 @@ describe("config mutate helpers", () => {
 
   it("preserves unresolved optional env refs during include write-through", async () => {
     const home = await suiteRootTracker.make("include-unresolved-env");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -1993,8 +1994,8 @@ describe("config mutate helpers", () => {
 
   it("rolls back single-file top-level include writes when runtime refresh fails", async () => {
     const home = await suiteRootTracker.make("include-runtime-refresh-rollback");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     const env = {} as NodeJS.ProcessEnv;
     const envKey = "OPENCLAW_TEST_INCLUDE_ROLLBACK_ENV";
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
@@ -2064,8 +2065,8 @@ describe("config mutate helpers", () => {
 
   it("does not overwrite concurrent include edits during failed refresh rollback", async () => {
     const home = await suiteRootTracker.make("include-runtime-refresh-concurrent");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -2131,8 +2132,8 @@ describe("config mutate helpers", () => {
 
   it("rejects invalid base config before skipped-plugin include writes", async () => {
     const home = await suiteRootTracker.make("include-skip-invalid-base");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
-    const pluginsPath = path.join(home, ".openclaw", "config", "plugins.json5");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
+    const pluginsPath = path.join(home, APP_STATE_DIRNAME, "config", "plugins.json5");
     await fs.mkdir(path.dirname(pluginsPath), { recursive: true });
     await fs.writeFile(
       configPath,
@@ -2229,7 +2230,7 @@ describe("config mutate helpers", () => {
 
   it("preflights injected root writers before persisting", async () => {
     const home = await suiteRootTracker.make("injected-root-runtime-preflight");
-    const configPath = path.join(home, ".openclaw", "openclaw.json");
+    const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
     await fs.mkdir(path.dirname(configPath), { recursive: true });
     const initialConfig = { gateway: { mode: "local" } } satisfies OpenClawConfig;
     const initialRaw = `${JSON.stringify(initialConfig, null, 2)}\n`;

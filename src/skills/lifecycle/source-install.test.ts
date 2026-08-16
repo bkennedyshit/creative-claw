@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { runCommandWithTimeout } from "../../process/exec.js";
 import { withTempDir } from "../../test-helpers/temp-dir.js";
 import { buildWorkspaceSkillStatus } from "../discovery/status.js";
@@ -160,7 +161,7 @@ describe("installSkillFromSource", () => {
 
       expect(result).toMatchObject({ ok: true });
       await fs.writeFile(
-        path.join(workspaceDir, "skills", "custom-name", ".openclaw", "source-origin.json"),
+        path.join(workspaceDir, "skills", "custom-name", APP_STATE_DIRNAME, "source-origin.json"),
         "x".repeat(20 * 1024),
       );
 

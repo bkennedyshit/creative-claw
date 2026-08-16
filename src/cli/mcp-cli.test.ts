@@ -5,6 +5,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withTempHome } from "../config/home-env.test-harness.js";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { registerMcpCli } from "./mcp-cli.js";
 
 const mocks = vi.hoisted(() => {
@@ -104,7 +105,7 @@ describe("mcp cli", () => {
   it("sets and shows a configured MCP server", async () => {
     await withTempHome("openclaw-cli-mcp-home-", async (home) => {
       const workspaceDir = await createWorkspace();
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       vi.spyOn(process, "cwd").mockReturnValue(workspaceDir);
 
       await runMcpCommand(["mcp", "set", "context7", '{"command":"uvx","args":["context7-mcp"]}']);
@@ -182,7 +183,7 @@ describe("mcp cli", () => {
   it("updates per-server MCP tool filters", async () => {
     await withTempHome("openclaw-cli-mcp-home-", async (home) => {
       const workspaceDir = await createWorkspace();
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       vi.spyOn(process, "cwd").mockReturnValue(workspaceDir);
 
       await runMcpCommand(["mcp", "set", "docs", '{"command":"node","args":["server.mjs"]}']);
@@ -667,7 +668,7 @@ describe("mcp cli", () => {
   it("fails named probes for disabled MCP servers", async () => {
     await withTempHome("openclaw-cli-mcp-home-", async (home) => {
       const workspaceDir = await createWorkspace();
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       vi.spyOn(process, "cwd").mockReturnValue(workspaceDir);
 
       await runMcpCommand(["mcp", "set", "docs", '{"enabled":false}']);
@@ -682,7 +683,7 @@ describe("mcp cli", () => {
   it("fails when removing an unknown MCP server", async () => {
     await withTempHome("openclaw-cli-mcp-home-", async (home) => {
       const workspaceDir = await createWorkspace();
-      const configPath = path.join(home, ".openclaw", "openclaw.json");
+      const configPath = path.join(home, APP_STATE_DIRNAME, APP_CONFIG_FILENAME);
       vi.spyOn(process, "cwd").mockReturnValue(workspaceDir);
 
       await expect(runMcpCommand(["mcp", "unset", "missing"])).rejects.toThrow("__exit__:1");

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { note } from "../../../packages/terminal-core/src/note.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../../test-utils/env.js";
 import { formatCliCommand } from "../command-format.js";
 import { ensureConfigReady, testApi } from "./config-guard.js";
@@ -106,20 +107,20 @@ describe("ensureConfigReady", () => {
   }
 
   function writeLegacyTaskSidecarMarker(root: string): void {
-    const markerPath = path.join(root, ".openclaw", "tasks", "runs.sqlite");
+    const markerPath = path.join(root, APP_STATE_DIRNAME, "tasks", "runs.sqlite");
     fs.mkdirSync(path.dirname(markerPath), { recursive: true });
     fs.writeFileSync(markerPath, "");
   }
 
   function writePendingTaskSidecarArchiveMarker(root: string): void {
-    const markerPath = path.join(root, ".openclaw", "tasks", "runs.sqlite");
+    const markerPath = path.join(root, APP_STATE_DIRNAME, "tasks", "runs.sqlite");
     fs.mkdirSync(path.dirname(markerPath), { recursive: true });
     fs.writeFileSync(`${markerPath}.migrated`, "");
     fs.writeFileSync(`${markerPath}-wal`, "");
   }
 
   function writeStateMarker(root: string, relativePath: string): void {
-    const markerPath = path.join(root, ".openclaw", relativePath);
+    const markerPath = path.join(root, APP_STATE_DIRNAME, relativePath);
     fs.mkdirSync(path.dirname(markerPath), { recursive: true });
     fs.writeFileSync(markerPath, "{}");
   }
@@ -208,7 +209,7 @@ describe("ensureConfigReady", () => {
 
   it("runs doctor flow for legacy sessions without task sidecars", async () => {
     const root = useTempOpenClawHome();
-    fs.mkdirSync(path.join(root, ".openclaw", "sessions"), { recursive: true });
+    fs.mkdirSync(path.join(root, APP_STATE_DIRNAME, "sessions"), { recursive: true });
 
     await runEnsureConfigReady(["status"]);
 

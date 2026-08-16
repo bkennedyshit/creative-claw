@@ -12,6 +12,7 @@ import type { OpenClawConfig } from "../../config/config.js";
 import type { SessionEntry } from "../../config/sessions.js";
 import { runExclusiveSessionStoreWrite } from "../../config/sessions/store-writer.js";
 import { readSessionStoreForTest } from "../../config/sessions/test-helpers.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { formatZonedTimestamp } from "../../infra/format-time/format-datetime.ts";
 import {
   testing as sessionBindingTesting,
@@ -30,10 +31,10 @@ import {
 } from "../../test-utils/channel-plugins.js";
 import { withEnvAsync } from "../../test-utils/env.js";
 import { createSessionConversationTestRegistry } from "../../test-utils/session-conversation-registry.js";
+import { replyRunRegistry } from "./reply-run-registry.js";
 import { drainFormattedSystemEvents } from "./session-updates.js";
 import { persistSessionUsageUpdate } from "./session-usage.js";
 import { initSessionState } from "./session.js";
-import { replyRunRegistry } from "./reply-run-registry.js";
 
 const sessionForkMocks = vi.hoisted(() => ({
   forkSessionFromParent: vi.fn(),
@@ -1722,7 +1723,7 @@ describe("initSessionState RawBody", () => {
 
   it("uses the default per-agent sessions store when config store is unset", async () => {
     const root = await makeCaseDir("openclaw-session-store-default-");
-    const stateDir = path.join(root, ".openclaw");
+    const stateDir = path.join(root, APP_STATE_DIRNAME);
     const agentId = "worker1";
     const sessionKey = `agent:${agentId}:telegram:12345`;
     const sessionId = "sess-worker-1";

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeStateDirDotEnv } from "../config/test-helpers.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { collectPreservedExistingServiceEnvVars } from "./daemon-install-helpers.js";
 
 const mocks = vi.hoisted(() => ({
@@ -170,7 +171,7 @@ function mockNodeGatewayPlanFixture(
 }
 
 describe("buildGatewayInstallPlan", () => {
-  // Prevent tests from reading the developer's real ~/.openclaw/.env when
+  // Prevent tests from reading the developer's real ~/<state dir>/.env when
   // passing `env: {}` (which falls back to os.homedir for state-dir resolution).
   let isolatedHome: string;
   beforeEach(() => {
@@ -282,7 +283,7 @@ describe("buildGatewayInstallPlan", () => {
       platform: "darwin",
     });
 
-    expect(plan.workingDirectory).toBe(path.join(isolatedHome, ".openclaw"));
+    expect(plan.workingDirectory).toBe(path.join(isolatedHome, APP_STATE_DIRNAME));
     expect(mocks.buildServiceEnvironment).toHaveBeenCalledOnce();
     expect(firstMockArg(mocks.buildServiceEnvironment, "buildServiceEnvironment").platform).toBe(
       "darwin",
@@ -335,7 +336,7 @@ describe("buildGatewayInstallPlan", () => {
   });
 
   it("clears a Windows wrapper env that points at the generated gateway.cmd script", async () => {
-    const selfWrapperPath = path.join(isolatedHome, ".openclaw", "gateway.cmd");
+    const selfWrapperPath = path.join(isolatedHome, APP_STATE_DIRNAME, "gateway.cmd");
     const warn = vi.fn();
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {
@@ -923,7 +924,7 @@ describe("buildGatewayInstallPlan", () => {
 
   it("does not inline config env SecretRef values already backed by state-dir dotenv", async () => {
     await writeStateDirDotEnv("DISCORD_BOT_TOKEN=discord-dotenv-token\n", {
-      stateDir: path.join(isolatedHome, ".openclaw"),
+      stateDir: path.join(isolatedHome, APP_STATE_DIRNAME),
     });
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {
@@ -1087,7 +1088,7 @@ describe("buildGatewayInstallPlan — dotenv merge", () => {
     await writeStateDirDotEnv(
       "BRAVE_API_KEY=BSA-from-env\nOPENROUTER_API_KEY=or-key\nMY_KEY=from-dotenv\nHOME=/from-dotenv\n",
       {
-        stateDir: path.join(tmpDir, ".openclaw"),
+        stateDir: path.join(tmpDir, APP_STATE_DIRNAME),
       },
     );
     mockNodeGatewayPlanFixture({
@@ -1122,7 +1123,7 @@ describe("buildGatewayInstallPlan — dotenv merge", () => {
 
   it("retains managed .env values for macOS LaunchAgent env files", async () => {
     await writeStateDirDotEnv("TAVILY_API_KEY=dotenv-tavily\nOPENROUTER_API_KEY=or-key\n", {
-      stateDir: path.join(tmpDir, ".openclaw"),
+      stateDir: path.join(tmpDir, APP_STATE_DIRNAME),
     });
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {
@@ -1148,7 +1149,7 @@ describe("buildGatewayInstallPlan — dotenv merge", () => {
 
   it("retains .env values for macOS LaunchAgent env SecretRefs", async () => {
     await writeStateDirDotEnv("MINIMAX_API_KEY=minimax-dotenv-key\n", {
-      stateDir: path.join(tmpDir, ".openclaw"),
+      stateDir: path.join(tmpDir, APP_STATE_DIRNAME),
     });
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {
@@ -1182,7 +1183,7 @@ describe("buildGatewayInstallPlan — dotenv merge", () => {
 
   it("retains .env values when config env has an unresolved self reference", async () => {
     await writeStateDirDotEnv("MINIMAX_API_KEY=minimax-dotenv-key\n", {
-      stateDir: path.join(tmpDir, ".openclaw"),
+      stateDir: path.join(tmpDir, APP_STATE_DIRNAME),
     });
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {
@@ -1221,7 +1222,7 @@ describe("buildGatewayInstallPlan — dotenv merge", () => {
 
   it("does not retain config env values for macOS LaunchAgent env files", async () => {
     await writeStateDirDotEnv("OPENROUTER_API_KEY=or-dotenv\nTAVILY_API_KEY=dotenv-tavily\n", {
-      stateDir: path.join(tmpDir, ".openclaw"),
+      stateDir: path.join(tmpDir, APP_STATE_DIRNAME),
     });
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {
@@ -1473,7 +1474,7 @@ describe("buildGatewayInstallPlan — dotenv merge", () => {
 
   it("drops legacy inline env values when the key is now managed by .env", async () => {
     await writeStateDirDotEnv("TAVILY_API_KEY=fresh-dotenv-value\n", {
-      stateDir: path.join(tmpDir, ".openclaw"),
+      stateDir: path.join(tmpDir, APP_STATE_DIRNAME),
     });
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {
@@ -1531,7 +1532,7 @@ describe("buildGatewayInstallPlan — dotenv merge", () => {
 
   it("does not embed auth-profile env refs when the key is already durable", async () => {
     await writeStateDirDotEnv("OPENAI_API_KEY=dotenv-openai\n", {
-      stateDir: path.join(tmpDir, ".openclaw"),
+      stateDir: path.join(tmpDir, APP_STATE_DIRNAME),
     });
     mockNodeGatewayPlanFixture({
       serviceEnvironment: {

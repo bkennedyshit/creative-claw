@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { captureEnv } from "../test-utils/env.js";
 import {
   detectRuntimeShell,
@@ -196,7 +197,7 @@ describe("getShellEnv", () => {
     const env = getShellEnv();
 
     expect(env.PATH).toContain("/usr/bin");
-    expect(env.PATH).toContain(".openclaw");
+    expect(env.PATH).toContain(APP_STATE_DIRNAME);
   });
 });
 

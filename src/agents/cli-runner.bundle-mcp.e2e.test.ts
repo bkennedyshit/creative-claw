@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import type { CliBackendConfig } from "../config/types.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../test-utils/env.js";
 import {
   writeBundleProbeMcpServer,
@@ -87,7 +88,7 @@ async function createBundleMcpFixture(params: {
   const fakeClaudePidPath = params.liveSession
     ? path.join(tempHome, "fake-live-claude.pid")
     : undefined;
-  const pluginRoot = path.join(tempHome, ".openclaw", "extensions", "bundle-probe");
+  const pluginRoot = path.join(tempHome, APP_STATE_DIRNAME, "extensions", "bundle-probe");
   await fs.mkdir(workspaceDir, { recursive: true });
   await writeBundleProbeMcpServer(serverScriptPath);
   if (params.liveSession) {

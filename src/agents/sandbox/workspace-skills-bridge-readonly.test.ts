@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { SANDBOX_PINNED_MUTATION_PYTHON } from "./fs-bridge-mutation-helper.js";
 import { createSandbox, withTempDir } from "./fs-bridge.test-helpers.js";
 import { buildSandboxFsMounts, resolveSandboxFsPathWithMounts } from "./fs-paths.js";
@@ -156,7 +157,7 @@ describe("workspace skills bridge mount policy", () => {
           fs.stat(
             path.join(
               canonicalRemoteWorkspaceDir,
-              ".openclaw",
+              APP_STATE_DIRNAME,
               "sandbox-skills",
               "skills",
               "demo",

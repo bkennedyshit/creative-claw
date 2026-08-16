@@ -2,6 +2,7 @@
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import type { InstalledPluginIndex } from "./installed-plugin-index.js";
 import {
   resolvePluginControlPlaneContext,
@@ -108,7 +109,7 @@ describe("plugin control-plane context", () => {
         loadPaths: ["/opt/plugins"],
         roots: {
           stock: path.join(os.tmpdir(), "openclaw-empty-bundled-plugins"),
-          global: "/openclaw/a/.openclaw/extensions",
+          global: `/openclaw/a/${APP_STATE_DIRNAME}/extensions`,
           workspace: undefined,
         },
       },

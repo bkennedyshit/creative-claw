@@ -5,6 +5,7 @@ import path from "node:path";
 import { bundledPluginRootAt } from "openclaw/plugin-sdk/test-fixtures";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import type { PluginNpmIntegrityDriftParams } from "./install.js";
 
@@ -1842,7 +1843,7 @@ describe("updateNpmInstalledPlugins", () => {
   it("expands home-relative install paths before checking installed npm versions", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-plugin-update-home-"));
     tempDirs.push(home);
-    const installPath = path.join(home, ".openclaw", "extensions", "lossless-claw");
+    const installPath = path.join(home, APP_STATE_DIRNAME, "extensions", "lossless-claw");
     fs.mkdirSync(installPath, { recursive: true });
     fs.writeFileSync(
       path.join(installPath, "package.json"),
@@ -1861,7 +1862,7 @@ describe("updateNpmInstalledPlugins", () => {
         config: createNpmInstallConfig({
           pluginId: "lossless-claw",
           spec: "@martian-engineering/lossless-claw",
-          installPath: "~/.openclaw/extensions/lossless-claw",
+          installPath: `~/${APP_STATE_DIRNAME}/extensions/lossless-claw`,
           resolvedName: "@martian-engineering/lossless-claw",
           resolvedVersion: "0.9.0",
           resolvedSpec: "@martian-engineering/lossless-claw@0.9.0",

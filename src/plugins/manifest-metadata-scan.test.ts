@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { writePersistedInstalledPluginIndexSync } from "./installed-plugin-index-store.js";
 import { listOpenClawPluginManifestMetadata } from "./manifest-metadata-scan.js";
 
@@ -68,7 +69,7 @@ describe("listOpenClawPluginManifestMetadata", () => {
         ],
         diagnostics: [],
       },
-      { stateDir: path.join(home, ".openclaw") },
+      { stateDir: path.join(home, APP_STATE_DIRNAME) },
     );
 
     const records = listOpenClawPluginManifestMetadata({

@@ -12,6 +12,7 @@ import type { AgentBinding } from "../config/types.agents.js";
 import type { HooksConfig } from "../config/types.hooks.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { RunCronAgentTurnResult } from "../cron/isolated-agent/run.types.js";
+import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import type { TailscaleWhoisIdentity } from "../infra/tailscale.js";
 import { resolveGlobalSingleton } from "../shared/global-singleton.js";
 
@@ -174,5 +175,5 @@ export const testConfigRoot = resolveGlobalSingleton(GATEWAY_TEST_CONFIG_ROOT_KE
 /** Updates the config root used by gateway config-module mocks. */
 export function setTestConfigRoot(root: string): void {
   testConfigRoot.value = root;
-  process.env.OPENCLAW_CONFIG_PATH = path.join(root, "openclaw.json");
+  process.env.OPENCLAW_CONFIG_PATH = path.join(root, APP_CONFIG_FILENAME);
 }

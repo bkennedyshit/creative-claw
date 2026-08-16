@@ -3,6 +3,7 @@ import fsNode from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME, APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { createConfigIO, resetConfigRuntimeState, writeConfigFile } from "./io.js";
 import type { ConfigWriteOptions } from "./io.js";
@@ -119,9 +120,9 @@ describe("config write guard after unreadable config", () => {
     async ({ writeOptions }) => {
       const home = fsNode.mkdtempSync(path.join(os.tmpdir(), "openclaw-unreadable-"));
       tempRoots.push(home);
-      const stateDir = path.join(home, ".openclaw");
+      const stateDir = path.join(home, APP_STATE_DIRNAME);
       fsNode.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-      const configPath = path.join(stateDir, "openclaw.json");
+      const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
       const liveConfig = {
         gateway: { mode: "local", port: 18789, auth: { mode: "token" } },
         channels: { telegram: { enabled: true } },
@@ -161,9 +162,9 @@ describe("config write guard after unreadable config", () => {
     async () => {
       const home = fsNode.mkdtempSync(path.join(os.tmpdir(), "openclaw-unreadable-"));
       tempRoots.push(home);
-      const stateDir = path.join(home, ".openclaw");
+      const stateDir = path.join(home, APP_STATE_DIRNAME);
       fsNode.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-      const configPath = path.join(stateDir, "openclaw.json");
+      const configPath = path.join(stateDir, APP_CONFIG_FILENAME);
       const liveConfig = {
         gateway: { mode: "local", port: 18789, auth: { mode: "token" } },
         meta: { lastTouchedVersion: "2026.5.3-1" },

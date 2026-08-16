@@ -5,6 +5,7 @@ import { expect } from "vitest";
 import type { AuthProfileStore } from "../agents/auth-profiles.js";
 import { getRuntimeConfig } from "../config/config.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import type { PluginOrigin } from "../plugins/plugin-origin.types.js";
 import type { captureEnv } from "../test-utils/env.js";
 import { getActiveSecretsRuntimeSnapshot } from "./runtime.js";
@@ -40,7 +41,7 @@ export function loadAuthStoreWithProfiles(
 }
 
 export async function createOpenAIFileRuntimeFixture(home: string) {
-  const configDir = path.join(home, ".openclaw");
+  const configDir = path.join(home, APP_STATE_DIRNAME);
   const secretFile = path.join(configDir, "secrets.json");
   const agentDir = path.join(configDir, "agents", "main", "agent");
   const authStorePath = path.join(agentDir, "auth-profiles.json");

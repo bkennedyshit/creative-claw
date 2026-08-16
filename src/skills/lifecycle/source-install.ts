@@ -5,6 +5,7 @@ import { redactSensitiveUrlLikeString } from "@openclaw/net-policy/redact-sensit
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import { sanitizeForLog } from "../../../packages/terminal-core/src/ansi.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { sanitizeHostExecEnv } from "../../infra/host-env-security.js";
 import { withTempDir } from "../../infra/install-source-utils.js";
 import { writeJson } from "../../infra/json-files.js";
@@ -44,7 +45,7 @@ type SkillSourceInstallResult =
     }
   | { ok: false; error: string };
 
-const SKILL_SOURCE_ORIGIN_RELATIVE_PATH = path.join(".openclaw", "source-origin.json");
+const SKILL_SOURCE_ORIGIN_RELATIVE_PATH = path.join(APP_STATE_DIRNAME, "source-origin.json");
 const DEFAULT_GIT_TIMEOUT_MS = 120_000;
 
 function createGitCommandEnv(): NodeJS.ProcessEnv {

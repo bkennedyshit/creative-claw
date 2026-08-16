@@ -1,6 +1,7 @@
 // Covers best-effort config IO reads and warning behavior.
 import fs from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_CONFIG_FILENAME, APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { executeSqliteQueryTakeFirstSync, getNodeSqliteKysely } from "../infra/kysely-sync.js";
 import type { DB as OpenClawStateKyselyDatabase } from "../state/openclaw-state-db.generated.js";
 import {
@@ -43,7 +44,7 @@ describe("readBestEffortConfig", () => {
 
       await readConfigFileSnapshot({ observe: false });
 
-      const healthPath = `${home}/.openclaw/logs/config-health.json`;
+      const healthPath = `${home}/${APP_STATE_DIRNAME}/logs/config-health.json`;
       await expect(fs.stat(healthPath)).rejects.toMatchObject({ code: "ENOENT" });
 
       await readConfigFileSnapshot();
@@ -147,7 +148,9 @@ describe("readBestEffortConfig", () => {
 
         expect(config.gateway?.mode).toBe("local");
         expect(process.env[key]).toBeUndefined();
-        await expect(fs.stat(`${home}/.openclaw/logs/config-health.json`)).rejects.toMatchObject({
+        await expect(
+          fs.stat(`${home}/${APP_STATE_DIRNAME}/logs/config-health.json`),
+        ).rejects.toMatchObject({
           code: "ENOENT",
         });
       });
@@ -195,8 +198,10 @@ describe("readBestEffortConfig", () => {
 
       expect(snapshot.sourceConfig).toEqual({ update: { channel: "beta" } });
       expect(await fs.readFile(configPath, "utf-8")).toBe(directEditRaw);
-      const entries = await fs.readdir(`${home}/.openclaw`);
-      expect(entries.some((entry) => entry.startsWith("openclaw.json.clobbered."))).toBe(false);
+      const entries = await fs.readdir(`${home}/${APP_STATE_DIRNAME}`);
+      expect(entries.some((entry) => entry.startsWith(`${APP_CONFIG_FILENAME}.clobbered.`))).toBe(
+        false,
+      );
     });
   });
 

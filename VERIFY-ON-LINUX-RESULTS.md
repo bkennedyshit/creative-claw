@@ -1,15 +1,17 @@
-# Linux verification results — `creative-claw-rebrand`
+# Linux verification results — Creative Claw rebrand
 
-Companion to `VERIFY-ON-LINUX.md`. This records an actual Linux run of the
-runbook, performed on a hosted Linux sandbox (the exact scenario the runbook
-describes: clone the branch, run from GitHub, no local machine needed).
+Companion to `VERIFY-ON-LINUX.md`. Records a **complete, non-aborted** run of the
+runbook on Linux/Node 24, superseding the earlier partial run whose
+`gateway-server` lane could not bind loopback sockets.
 
 - **Environment:** Linux x64, Node **v24.19.0**, pnpm **11.2.2** (matches the
-  `packageManager` pin). Open internet. No GPU (expected — native engines are
-  unavailable on Linux and their tests are skip-guarded).
-- **A/B baseline:** `creative-claw-engines` (the branch the rebrand was cut
-  from), installed and run identically in a separate worktree, used to
-  distinguish pre-existing failures from rebrand-introduced ones.
+  `packageManager` pin), 8 cores / 30 GB. Open internet. No GPU — expected, and
+  the engine-dependent tests are skip-guarded.
+- **Method:** every remaining failure is classified by A/B against base branding:
+  the same file is run twice, once as-is and once with the `openclawConfig` block
+  removed from `package.json`. Fails in both -> pre-existing. Fails only with the
+  rebrand active -> rebrand-caused, and fixed here. This is stronger than an
+  A/B across branches because it isolates the branding switch itself.
 
 ---
 
@@ -17,121 +19,220 @@ describes: clone the branch, run from GitHub, no local machine needed).
 
 | Gate                           | Result                                                                            |
 | ------------------------------ | --------------------------------------------------------------------------------- |
-| `pnpm install`                 | ✅ after a **build-config fix** (see below) — was hard-blocked before             |
+| `pnpm install`                 | ✅ exit 0 (~1m07s)                                                                |
 | `pnpm tsgo`                    | ✅ 0 errors                                                                       |
+| `pnpm tsgo:core:test`          | ✅ 0 errors — **was 7**; this gate is not in the runbook and had never been run   |
 | `pnpm check:import-cycles`     | ✅ 0 cycles                                                                       |
-| `pnpm tsgo:extensions`         | ✅ exit 0 (pre-existing upstream errors tolerated; 0 in the new plugins)          |
+| `pnpm format:docs:check`       | ✅ clean (670 files)                                                              |
 | Branding consistency one-liner | ✅ `creativeclaw .creativeclaw ~/.creativeclaw ~/.creativeclaw/creativeclaw.json` |
-| `pnpm test` (full core suite)  | ❌ aborted (SIGABRT) — see failures below                                         |
+| Full core suite (89 shards)    | ✅ **0 rebrand-caused failures**; 81,719 passing, 63 failing cases all bucket 1/3 |
+| SQLite worker teardown stress  | ✅ **5/5** extension-lane runs and **100/100** direct worker terminations         |
+| `pnpm lint`                    | ❌ 100 errors, **all pre-existing** in the fork's engine plugins (see below)      |
 
-The core rebrand seam is sound: typecheck, import-cycle, and the four-value
-branding check all pass. But `pnpm test` is **not green**, so per the runbook the
-branch is **not merge-ready** yet.
-
-The full-suite failure list below is a **lower bound**: the run was aborted by an
-environmental hang in the `gateway-server` lane (details in Bucket 3), so lanes
-still in flight at abort time may hide additional failures. A clean, complete
-list needs a run where that lane can bind loopback sockets (the repo's real CI).
+**The rebrand seam itself is clean.** Every failure that the rebrand caused is
+fixed; everything still red fails identically with the branding block removed.
 
 ---
 
-## The install blocker (fixed in this change)
+## Environment prerequisites (sandbox, not repo)
 
-A fresh `pnpm install` failed with `ERR_PNPM_IGNORED_BUILDS`, exit 1. Because
-every `pnpm <script>` runs a deps-status precheck that re-invokes `install`,
-**nothing** could run — not even `tsgo`.
+Two host-level issues masqueraded as test failures. Both are per-container in a
+hosted sandbox, so they must be re-applied for each run — see
+`.logs/run-chunk.sh` in the verification workspace.
 
-Root cause: `pnpm-workspace.yaml` `allowBuilds` had two unfinished placeholder
-values left from the Windows work:
+1. **IPv6 loopback is disabled.** `sysctl -w net.ipv6.conf.{all,lo,default}.disable_ipv6=0`.
+   This is what aborted the previous run: `listen EADDRNOTAVAIL ::1`. With it
+   applied, `server.plugin-node-capability-auth.test.ts` and the four
+   server-backed HTTP suites (`embeddings-http`, `models-http`, `openai-http`,
+   `openresponses-http`) pass, and the `gateway-server` lane is green standalone
+   (**1346 tests, exit 0**). The previous run's entire bucket 3 is cleared.
+2. **`/etc/profile` sources `$HOME/.cargo/env` unconditionally.** Tests that spawn
+   a login shell under a temp `HOME` and assert on captured stderr fail on the
+   resulting "No such file" line. Guarding the line with `[ -f ... ]` fixes
+   `test/scripts/docker-build-helper.test.ts` and both `package-mac-app` cases.
 
-```yaml
-better-sqlite3: set this to true or false
-sharp: set this to true or false
+## Why the suite is run in chunks
+
+`pnpm test` expands to **89 shards** and runs them at parallelism 4. On an 8-core
+box the lanes starve each other, and the runner's 300s no-output watchdog kills
+whichever lane is behind with `SIGABRT`, which fails the whole run. This is a
+local-parallelism artifact, not a product failure: `resolveParallelFullSuiteConcurrency`
+returns 1 for CI-like environments, so **CI runs lanes serially and never hits
+this.** The results below come from running all 89 shards in 4 chunks at
+parallelism 3.
+
+---
+
+## The seven handed-over "2b regressions"
+
+The prior report listed seven items as rebrand-introduced product regressions.
+A/B evidence reclassifies most of them. `git diff origin/creative-claw-engines...HEAD`
+shows `workspace.ts`, `bootstrap-files.ts`, `tools-manager.*` and
+`session-write-lock.*` were never touched by the rebrand.
+
+| Item                                                    | Verdict                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session-transcript-files.fs.ts` (the maintainer call)  | **Legacy-compat; keep the literal.** Under the rebrand the candidate list is `[…/.creativeclaw/agents/main/sessions/sess-1.jsonl, …/.openclaw/sessions/sess-1.jsonl]`: current transcripts are branded and per-agent, and the last entry is the pre-per-agent upgrade fallback. Nothing has ever written `~/.creativeclaw/sessions`, so branding it would drop the fallback and gain nothing. Both test assertions reverted. |
+| `session-utils.fs.test.ts` archive ordering             | Same root cause as above — the test wrote its legacy archive into the branded root. Fixed by the same revert; no ordering bug exists.                                                                                                                                                                                                                                                                                        |
+| `workspace.test.ts` (workspace-vanish guard)            | **Bucket 3, not 2b.** `<workspace>/.openclaw/workspace-state.json` is a frozen on-disk artifact and `workspace.ts:39` reads that literal by design. The test branded it, so the leftover directory stopped matching the ignore list.                                                                                                                                                                                         |
+| `workspace.test.ts` (`onboardingCompletedAt` migration) | Same cause: the legacy marker was written to the branded path, so the migration found nothing.                                                                                                                                                                                                                                                                                                                               |
+| `bootstrap-files.test.ts` (stale `BOOTSTRAP.md`)        | Same cause, via `isWorkspaceSetupCompleted`.                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tools-manager.test.ts`                                 | **Real product bug, fixed.** `src/agents/config.ts` derived `ENV_AGENT_DIR` from `APP_NAME`, so the rebrand silently renamed the override to `CREATIVECLAW_AGENT_DIR` while nine other modules still read `OPENCLAW_AGENT_DIR`. `getAgentDir()` now honors both, branded first.                                                                                                                                              |
+| `session-write-lock.test.ts`                            | **Bucket 1, pre-existing.** Fails 3/3 with the branding block removed. `staleMs: 10` also sizes the payload-less orphan grace window that `shouldReportContendedLockStale` compares against the test's own 10ms delete timer, so the test raced itself. Raised to 1s.                                                                                                                                                        |
+
+---
+
+## What the complete run found that the aborted one could not
+
+### 1. A gate gap: test files were never typechecked
+
+`pnpm tsgo` covers production only. `pnpm tsgo:core:test` had **7 errors**, all
+from the mechanical migration substituting branding constants into _type_
+positions (`dirname: APP_STATE_DIRNAME`, `APP_CONFIG_FILENAME as const`,
+`configFile: APP_CONFIG_FILENAME | "auth-profiles.json"`). Fixed, and the gate is
+now part of the runbook.
+
+### 2. `configFile` is a schema discriminator, not a path
+
+Production types it as the literal union `"openclaw.json" | "auth-profiles.json"`
+(`configure-plan.ts`, `configure.ts`, `credential-matrix.ts`) and
+`target-registry-data.ts` stores that literal. Nine test files had branded it.
+Two consequences, both fixed by reverting to the literal:
+
+- `target-registry.fast-path.test.ts` failed outright — the branded value missed
+  the fast path and fell through to the manifest registry.
+- `runtime.coverage.test.ts` **silently passed while asserting nothing**:
+  `collectOpenClawCoverageEntries` filtered on the branded name and returned an
+  empty set.
+
+### 3. Three production paths still bypassed the seam
+
+Found by branding the tests correctly instead of bending them:
+
+| File                                       | Impact                                                                                                                                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/daemon/paths.ts:48`                   | The managed-service state dir was hardcoded. launchd/systemd/schtasks working directory, the generated `gateway.cmd` wrapper and the task script all pointed at a different directory than the config resolver. |
+| `src/cli/profile.ts:80`                    | Half-branded profiles: `~/.openclaw-work/creativeclaw.json`, because the file name was branded and the directory was not.                                                                                       |
+| `src/cli/update-cli/restart-helper.ts:313` | The generated PowerShell startup launcher looked for `%USERPROFILE%\.openclaw\gateway.cmd` while the daemon now writes it under the branded dir.                                                                |
+
+### 4. A plugin-SDK seam for bundled plugin tests
+
+Bundled plugin tests had no sanctioned way to _name_ the state dir:
+`src/infra/app-branding.ts` is core-internal and importing it from `extensions/**`
+breaks the package boundary, so nine extension tests hardcoded `.openclaw` and
+diverged from the resolver the moment branding was set. `APP_STATE_DIRNAME` and
+`APP_CONFIG_FILENAME` are now exported from the existing
+`plugin-sdk/state-paths` subpath, with the docs rows and the
+`plugin-sdk-surface-report` public-export budget updated in the same change
+(10400 -> 10402, annotated with the reason).
+
+### 5. A second wave of stale test branding
+
+Roughly 30 further failures across 15 files were production-correct/test-stale
+pairs: exec-approvals host labels, skills install and skill-path compaction,
+media store, config health/backup paths, daemon install plans, plugin roots,
+workspace and media roots in dispatch, plugin update install paths, and the
+Matrix/qqbot/feishu/browser/telegram plugin state dirs. All fixed by deriving the
+expectation from the seam.
+
+---
+
+## Remaining failures — all bucket 1 or 3
+
+83 lanes, **81,719 passing tests**, 63 failing cases across 20 files. Every one
+either fails identically with branding disabled, or passes standalone and only
+fails under lane contention.
+
+### Pre-existing (fail identically under base branding)
+
+| Area                         | Files / cases                                                                                                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fork engine plugin contracts | `contracts/extension-runtime-dependencies` (3 — `creative-engines`, `gpu-broker`, `visual-memory` do not declare `typebox`), `contracts/boundary-invariants` (1), `contracts/plugin-sdk-package-contract-guardrails` (1)                         |
+| Plugin status/metadata       | `plugins/status.test.ts` (19), `plugins/bundled-plugin-metadata.test.ts` (2)                                                                                                                                                                     |
+| Provider catalogs            | `nvidia/provider-catalog` (7), `ollama/provider-discovery` (4), `nvidia/index` (2), `vercel-ai-gateway/provider-catalog` (1)                                                                                                                     |
+| Transport retry              | `mattermost/src/mattermost/client.retry.test.ts` (11)                                                                                                                                                                                            |
+| Repo hygiene / tooling       | `lint-suppressions` (1, tracks the 100 lint errors below), `package-manager-config` (1, `@aws-sdk/*` pins in `amazon-bedrock-mantle/npm-shrinkwrap.json` vs the lock), `e2e-temp-state-dir` (1, root ignores the permission failure it provokes) |
+| Other                        | `codex/src/app-server/run-attempt` (1), `node-host/invoke` (1), `ui/src/i18n/test/translate.test.ts` (1, locale key drift 1415 vs 1418), `config/io.eacces` (3, order-dependent within its lane — passes standalone)                             |
+
+### Environmental
+
+`test/scripts/docker-build-helper.test.ts` — passes once the `/etc/profile` guard
+above is applied.
+
+### Lane-only flakes (pass standalone, fail under contention)
+
+`extensions/imessage/src/monitor.watch-subscribe-retry.test.ts`,
+`test/scripts/plugin-lifecycle-measure.test.ts`,
+`extensions/codex/src/app-server/run-attempt.native-hook-relay.test.ts`.
+
+### Resolved: native worker teardown abort
+
+The remaining non-deterministic blocker was `better-sqlite3` **11.9.1** aborting
+the Node 24 parent process when Vitest terminated a worker with a live SQLite
+statement:
+
+```
+node[26]: void node::RemoveEnvironmentCleanupHook(v8::Isolate*, CleanupHook, void*) at ../src/api/hooks.cc:142
+Assertion failed: (env) != nullptr
+ 3: Statement::~Statement() [node_modules/better-sqlite3/build/Release/better_sqlite3.node]
 ```
 
-YAML parses those as strings, not booleans, so pnpm refuses to decide. Fixed by
-setting both to `true` — `better-sqlite3` is the native SQLite store backing the
-visual-memory extension and must compile to be importable; `sharp` is the image
-native dep and building it is harmless. After the fix, `better-sqlite3` compiles
-cleanly (`gyp info ok`) and `pnpm install` exits 0.
+The visual-memory plugin now pins **13.0.3**. Upstream shipped the worker
+termination fix in [13.0.2](https://github.com/WiseLibs/better-sqlite3/releases/tag/v13.0.2)
+for [issue #1507](https://github.com/WiseLibs/better-sqlite3/issues/1507), then
+released [13.0.3](https://github.com/WiseLibs/better-sqlite3/releases/tag/v13.0.3)
+as the next patch. Version 13.0.3 supports Node 22+ and uses the Node-API addon path instead of the old direct V8 cleanup-hook implementation.
+The lockfile change is intentionally limited to the visual-memory importer, the
+13.0.3 package integrity/engine metadata, and its `node-addon-api` dependency.
 
-> Note: running install here also rewrote ~470 lines of `pnpm-lock.yaml`
-> (re-serialized `overrides`, dropped a `sqlite-vec` optionalDependency, etc.).
-> That is environmental drift, unrelated to the `allowBuilds` fix, so the
-> lockfile change was **reverted** and is not part of this commit.
+Post-upgrade proof on Linux/Node 24.19.0:
 
----
+- `pnpm test extensions/visual-memory`: **5 files, 50 tests passed**.
+- `pnpm test test/vitest/vitest.extensions.config.ts`: **5 consecutive clean
+  runs**; each run ended with 233 files and 3,013 tests passed, with 4 files and
+  47 tests skipped. No process abort occurred.
+- A direct stress reproducer opened SQLite work in a worker and terminated it
+  **100 consecutive times** without aborting the parent process.
 
-## Failure classification
+The old version reproduced the lane abort in roughly 2 of 3 runs, so this closes
+the final native blocker rather than masking it with process-exit hooks or test
+isolation.
 
-14 files / 21 failing test cases were observed before the abort. Each is
-classified using the runbook's buckets, with A/B evidence.
+### `pnpm lint`: 100 pre-existing errors
 
-### Bucket 1 — pre-existing, not caused by the rebrand
-
-_(fail identically on `creative-claw-engines`)_
-
-| File                                                    | Test                                                    | Evidence                                                 |
-| ------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| `ui/src/i18n/test/translate.test.ts`                    | keeps shipped locales structurally aligned with English | Fails on base too (locale key drift: 1415 vs 1418 keys). |
-| `extensions/vercel-ai-gateway/provider-catalog.test.ts` | falls back from malformed live token metadata           | Fails on base too. Unrelated to path/branding.           |
-
-**Action:** none required for the rebrand. Track separately.
-
-### Bucket 3 — environmental (this sandbox), not real defects
-
-| File / lane                                              | Symptom                                                                 | Why environmental                                                                                                                                                                                                                                                                                                             |
-| -------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/gateway/server.plugin-node-capability-auth.test.ts` | `listen EADDRNOTAVAIL: address not available ::1`                       | Sandbox has no IPv6 loopback to bind.                                                                                                                                                                                                                                                                                         |
-| `test/scripts/docker-build-helper.test.ts`               | expected `''`, got `/etc/profile: line 81: …/.cargo/env: No such file…` | The sandbox `/etc/profile` sources `$HOME/.cargo/env`; under the test's temp `HOME` that file is absent, polluting captured stdout.                                                                                                                                                                                           |
-| **`gateway-server` lane (whole lane)**                   | silent for 300s → **SIGABRT**, which aborted the entire `pnpm test` run | The lane runs HTTP server integration tests (`embeddings-http`, `models-http`, `openai-http`, `openresponses-http`, `probe.auth.integration`) that bind loopback sockets; combined with the `::1` bind failure and a 60s test timeout in the same lane, they hang here. Needs a properly-networked Linux CI to confirm green. |
-
-**Action:** re-run on the repo's real CI (Linux, Node 24) where loopback binding
-works, to both clear these and surface any failures the abort hid.
-
-### Bucket 2 — real rebrand-introduced regressions
-
-_(pass on `creative-claw-engines`, fail on `creative-claw-rebrand`)_
-
-#### 2a. Stale / incomplete test branding — **FIXED in this change**
-
-Production is correctly branded (emits `~/.creativeclaw/…`); these tests still
-pinned the old literal or half-branded. All now pass after the fix, verified by
-re-running each file.
-
-| File                                                               | Fix                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/agents/sandbox/ssh.test.ts`                                   | Line 337 referenced an undefined `APP_STATE_DIRNAME` (`ReferenceError`). Its sibling assertions and the symlink it sets up use the literal `.openclaw` for the **fixed container `sandbox-skills` mount marker**, which the runbook says must stay literal. Reverted line 337 to `.openclaw` to match. |
-| `src/commands/configure.channels.test.ts`                          | 4 prompt strings pinned `~/.openclaw/openclaw.json`. Now derived from `APP_STATE_DIRNAME`/`APP_CONFIG_FILENAME`, mirroring the production prompt (`shortenHomePath(CONFIG_PATH)`). Fixes 5 failing cases.                                                                                              |
-| `src/agents/mcp-oauth.test.ts`                                     | Token dir pinned `${home}/.openclaw/mcp-oauth`. Now `${home}/${APP_STATE_DIRNAME}/mcp-oauth` (production uses `resolveStateDir()/mcp-oauth`).                                                                                                                                                          |
-| `src/commands/agents.commands.list.test.ts`                        | Human-output assertion pinned `~/.openclaw/workspace` + `~/.openclaw/agents/main/agent`. Now derived from `APP_STATE_DIRNAME`.                                                                                                                                                                         |
-| `src/agents/embedded-agent-runner/run.overflow-compaction.test.ts` | `endsWith("/.openclaw/agents/main/agent")` → `endsWith(\`/${APP_STATE_DIRNAME}/agents/main/agent\`)`.                                                                                                                                                                                                  |
-
-#### 2b. Production / logic regressions — **NOT fixed, need maintainer decisions**
-
-These pass on base and fail on the rebrand, i.e. the path/config changes broke
-real behavior. They need code changes and, in one case, a product decision.
-
-| File                                                                          | Test                                                                            | Analysis                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/gateway/session-transcript-files.fs.ts` (via `session-utils.fs.test.ts`) | fallback candidate uses OPENCLAW_HOME instead of os.homedir()                   | `resolveSessionTranscriptCandidates` builds its final fallback as `path.join(home, ".openclaw", "sessions")` (line ~172). The **test expects `APP_STATE_DIRNAME`**, but a code comment calls this the _legacy global sessions directory_ for pre-per-agent upgrades. **Conflict to resolve:** if it is truly legacy-compat → keep `.openclaw` literal (bucket 3) and revert the test; if it is the live fallback → brand it (real product bug: a Creative Claw install reads transcripts from `~/.openclaw`). **Maintainer call.** |
-| `src/gateway/session-utils.fs.test.ts`                                        | chooses the newest reset archive across candidate roots                         | Candidate-root ordering changed once both `.openclaw` and `.creativeclaw` roots can appear. Needs code review of the archive-selection ordering.                                                                                                                                                                                                                                                                                                                                                                                   |
-| `src/agents/workspace.test.ts`                                                | refuses to accept a wiped skip-bootstrap workspace with only metadata leftovers | Workspace-vanish guard resolves instead of rejecting on the rebrand. Logic regression in the workspace state check.                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `src/agents/workspace.test.ts`                                                | migrates legacy `onboardingCompletedAt` markers to `setupCompletedAt`           | Migration produces `undefined`; the legacy-marker migration path likely keys off the old state dir.                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `src/agents/bootstrap-files.test.ts`                                          | ignores stale workspace `BOOTSTRAP.md` when legacy setup state is completed     | Legacy-setup-state detection (tied to the state dir) no longer suppresses the stale bootstrap file.                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `src/agents/utils/tools-manager.test.ts`                                      | extracts Windows zip downloads with trusted System32 tools                      | Resolves the **real** `~/.creativeclaw/agent/bin` instead of the test's temp home — the home/env override seam is not honored by the tools-manager path resolver.                                                                                                                                                                                                                                                                                                                                                                  |
-| `src/agents/session-write-lock.test.ts`                                       | retries when a stale lock report is replaced by a fresh payload-less lock       | Stale-lock retry path in `session-write-lock.ts`; possibly timing, needs isolated repro.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+All in fork-owned code — `extensions/creative-engines` (60),
+`extensions/visual-memory` (17), `extensions/creative-claw-*.test.ts` (18),
+`extensions/gpu-broker` (4), `ui/src` (1). None in any file touched here. This is
+what `lint-suppressions.test.ts` reports (43 vs 42 allowlisted).
 
 ---
 
-## Recommended next steps
+## Follow-ups not taken here
 
-1. **Land the fixes in this change** (build-config + 5 branded tests) so Linux
-   install works and the stale-test noise is gone.
-2. **Run on the repo's real CI** (Linux, Node 24) to get a complete, non-aborted
-   failure list — the `gateway-server` lane cannot bind loopback here.
-3. **Resolve the 2b items**, starting with the `session-transcript-files.fs.ts`
-   legacy-vs-branded decision, then the workspace / bootstrap / tools-manager
-   home-seam regressions.
-4. Re-run `pnpm test` to green with every remaining failure classified as
-   bucket 1 or 3, per the runbook's definition of merge-ready.
+Deliberately out of scope; none are test-covered, all are user-visible:
+
+- `src/commands/doctor-state-integrity.ts:1037` builds the default state dir from
+  a literal, plus literal advice strings at 889/1060/1061/1487.
+- `src/agents/tool-display-exec.ts:325,328` and
+  `src/config/sessions/session-accessor.ts` path-shortening literals.
+- CLI help and wizard i18n strings still say `~/.openclaw/...`
+  (`dns-cli.ts`, `register.agent.ts`, `register.onboard.ts`, `register.setup.ts`,
+  `skills-cli.format.ts`, `program/help.ts`, `wizard/i18n/locales/*`).
+- launchd/schtasks service labels remain `ai.openclaw.*`. These are service
+  identifiers rather than paths and are overridable via `OPENCLAW_LAUNCHD_LABEL`,
+  so renaming them is a product decision with an upgrade story.
+- Env var names stay `OPENCLAW_*` by design; the rebrand renames directories, not
+  env prefixes.
+
+## Merge readiness
+
+Per the runbook's definition — `pnpm test` with every remaining failure
+explicitly classified as bucket 1 or 3 — **the rebrand is merge-ready.** The
+non-rebrand failures above (fork lint debt, provider catalog and plugin status
+failures) exist equally on `creative-claw-engines` and should be tracked
+separately. The former native `better-sqlite3` blocker is fixed and
+stress-verified in this branch.
+
+Note that `main` does **not** have the rebrand active: `897c4abaea` added the
+seam, but the `openclawConfig` block lives only on the rebrand branch, so
+`APP_STATE_DIRNAME` is still `.openclaw` there.

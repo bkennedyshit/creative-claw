@@ -277,6 +277,8 @@ describe("exec SecretRef id parity", () => {
 
   function planAcceptsExecRefForSample(params: {
     type: string;
+    // Schema discriminator, not a path: mirrors the prod literal union in
+    // configure-plan.ts / credential-matrix.ts, so it stays unbranded.
     configFile: "openclaw.json" | "auth-profiles.json";
     pathSegments: string[];
     id: string;

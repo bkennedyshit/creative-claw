@@ -4,6 +4,7 @@ import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { writeSkill } from "../test-support/e2e-test-helpers.js";
 import { buildWorkspaceSkillsPrompt, syncSkillsToWorkspace } from "./workspace.js";
 
@@ -52,7 +53,7 @@ describe("syncSkillsToWorkspace for plugin skills", () => {
       description: "Wiki maintenance skill for sandboxed agents",
     });
 
-    const pluginSkillsDir = path.join(sourceWorkspace, ".openclaw", "plugin-skills");
+    const pluginSkillsDir = path.join(sourceWorkspace, APP_STATE_DIRNAME, "plugin-skills");
     await fsPromises.mkdir(pluginSkillsDir, { recursive: true });
     const symlinkPath = path.join(pluginSkillsDir, "wiki-maintainer");
 
@@ -109,7 +110,7 @@ describe("syncSkillsToWorkspace for plugin skills", () => {
     });
 
     // Create plugin-skills directory with symlinks
-    const pluginSkillsDir = path.join(sourceWorkspace, ".openclaw", "plugin-skills");
+    const pluginSkillsDir = path.join(sourceWorkspace, APP_STATE_DIRNAME, "plugin-skills");
     await fsPromises.mkdir(pluginSkillsDir, { recursive: true });
 
     fs.symlinkSync(
@@ -156,7 +157,7 @@ describe("syncSkillsToWorkspace for plugin skills", () => {
     });
 
     // Create plugin-skills with symlink to escaped skill
-    const pluginSkillsDir = path.join(sourceWorkspace, ".openclaw", "plugin-skills");
+    const pluginSkillsDir = path.join(sourceWorkspace, APP_STATE_DIRNAME, "plugin-skills");
     await fsPromises.mkdir(pluginSkillsDir, { recursive: true });
     fs.symlinkSync(
       escapedSkillDir,

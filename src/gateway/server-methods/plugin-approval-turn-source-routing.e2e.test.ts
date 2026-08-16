@@ -14,6 +14,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clearConfigCache, clearRuntimeConfigSnapshot } from "../../config/config.js";
 import { clearSessionStoreCacheForTest } from "../../config/sessions/store.js";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { captureEnv, deleteTestEnvValue, setTestEnvValue } from "../../test-utils/env.js";
 import { APPROVALS_SCOPE } from "../method-scopes.js";
 import { startGatewayServer } from "../server.js";
@@ -49,7 +50,7 @@ describe("plugin.approval.request turn-source routing (real gateway)", () => {
     tempHome = await fs.mkdtemp(
       path.join(os.tmpdir(), "openclaw-plugin-approval-turn-source-e2e-"),
     );
-    const stateDir = path.join(tempHome, ".openclaw");
+    const stateDir = path.join(tempHome, APP_STATE_DIRNAME);
     await fs.mkdir(stateDir, { recursive: true });
     setTestEnvValue("HOME", tempHome);
     setTestEnvValue("OPENCLAW_STATE_DIR", stateDir);

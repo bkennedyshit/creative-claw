@@ -2,6 +2,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createConfigIO } from "../src/config/config.js";
+import { APP_CONFIG_FILENAME, APP_STATE_DIRNAME } from "../src/infra/app-branding.js";
 
 describe("shared test setup home isolation", () => {
   it("routes default config IO through the per-worker temp home", () => {
@@ -11,6 +12,8 @@ describe("shared test setup home isolation", () => {
     }
     expect(process.env.HOME).toBe(testHome);
     expect(process.env.USERPROFILE).toBe(testHome);
-    expect(createConfigIO().configPath).toBe(path.join(testHome, ".openclaw", "openclaw.json"));
+    expect(createConfigIO().configPath).toBe(
+      path.join(testHome, APP_STATE_DIRNAME, APP_CONFIG_FILENAME),
+    );
   });
 });

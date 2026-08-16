@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeOptionalString as normalizeTrimmedString } from "@openclaw/normalization-core/string-coerce";
+import { APP_STATE_DIRNAME } from "../infra/app-branding.js";
 import { parseJsonWithJson5Fallback } from "../utils/parse-json-compat.js";
 import { resolveBundledPluginsDir } from "./bundled-dir.js";
 import { readPersistedInstalledPluginIndexSync } from "./installed-plugin-index-store.js";
@@ -43,7 +44,7 @@ function resolveStateDir(env: NodeJS.ProcessEnv): string {
     return resolveUserPath(override, env);
   }
   const home = env.OPENCLAW_HOME ?? env.HOME ?? env.USERPROFILE ?? os.homedir();
-  return path.join(home, ".openclaw");
+  return path.join(home, APP_STATE_DIRNAME);
 }
 
 function listChildPluginDirs(
