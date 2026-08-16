@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { APP_STATE_DIRNAME } from "../../infra/app-branding.js";
 import { getWindowsCmdExePath } from "../../infra/windows-install-roots.js";
 import { prepareRestartScript, runRestartScript } from "./restart-helper.js";
 
@@ -268,7 +269,7 @@ exit 1
       await cleanupScript(scriptPath);
     });
 
-    it("captures macOS launchctl stderr to ~/.openclaw/logs/gateway-restart.log (#68486)", async () => {
+    it("captures macOS launchctl stderr to the state-dir restart log (#68486)", async () => {
       // Silent failure in macOS update restart helper: previously every
       // launchctl call redirected stderr to /dev/null and the final kickstart
       // was chained with `|| true`, so bootstrap/kickstart failures were
@@ -282,7 +283,9 @@ exit 1
         OPENCLAW_PROFILE: "default",
         HOME: "/Users/testuser",
       });
-      expect(content).toContain("exec >>'/Users/testuser/.openclaw/logs/gateway-restart.log' 2>&1");
+      expect(content).toContain(
+        `exec >>'/Users/testuser/${APP_STATE_DIRNAME}/logs/gateway-restart.log' 2>&1`,
+      );
       // Every launchctl call should allow output through now (no `2>/dev/null`)
       // and the final kickstart must not swallow its exit code.
       expect(content).not.toMatch(/launchctl[^\n]*2>\/dev\/null/);
@@ -436,7 +439,7 @@ exit 0
       expect(content).toContain("Get-ScheduledTask -TaskName $TaskName");
       expect(content).toContain("openclaw restart skipped schtasks end");
       expect(content).toContain(
-        '$launcherPath = Join-Path $env:USERPROFILE ".openclaw\\gateway.cmd"',
+        `$launcherPath = Join-Path $env:USERPROFILE "${APP_STATE_DIRNAME}\\gateway.cmd"`,
       );
       expect(content).toContain("openclaw restart launched startup fallback");
       expectWindowsRestartWaitOrdering(content);

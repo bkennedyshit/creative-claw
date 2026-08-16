@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { APP_CONFIG_FILENAME, APP_STATE_DIRNAME } from "../../src/infra/app-branding.js";
 import { createOpenClawTestInstance, testing } from "./openclaw-test-instance.js";
 
 async function expectPathMissing(targetPath: string): Promise<void> {
@@ -81,8 +82,8 @@ describe("openclaw test instance", () => {
     try {
       expect(process.env.HOME).toBe(previousHome);
       expect(inst.homeDir).toBe(path.join(inst.state.root, "home"));
-      expect(inst.stateDir).toBe(path.join(inst.homeDir, ".openclaw"));
-      expect(inst.configPath).toBe(path.join(inst.stateDir, "openclaw.json"));
+      expect(inst.stateDir).toBe(path.join(inst.homeDir, APP_STATE_DIRNAME));
+      expect(inst.configPath).toBe(path.join(inst.stateDir, APP_CONFIG_FILENAME));
       expect(inst.env.HOME).toBe(inst.homeDir);
       expect(inst.env.OPENCLAW_STATE_DIR).toBe(inst.stateDir);
       expect(inst.env.OPENCLAW_CONFIG_PATH).toBe(inst.configPath);

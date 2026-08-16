@@ -199,7 +199,7 @@ describe("resolvePostInstallDoctorEnv", () => {
       },
       serviceEnv: {
         OPENCLAW_STATE_DIR: "daemon-state",
-        OPENCLAW_CONFIG_PATH: "daemon-state/openclaw.json",
+        OPENCLAW_CONFIG_PATH: `daemon-state/${APP_CONFIG_FILENAME}`,
         OPENCLAW_PROFILE: "work",
       },
     });

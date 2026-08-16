@@ -67,7 +67,19 @@ describe("resolveDefaultAgentWorkspaceDir", () => {
 });
 
 const WORKSPACE_STATE_PATH_SEGMENTS = ["openclaw-workspace-state.json"] as const;
-const LEGACY_WORKSPACE_STATE_PATH_SEGMENTS = [APP_STATE_DIRNAME, "workspace-state.json"] as const;
+/**
+ * The metadata directory *inside a workspace* is a frozen on-disk artifact, not
+ * the branded home state dir: older versions wrote
+ * `<workspace>/.openclaw/workspace-state.json`, and `workspace.ts` reads that
+ * exact literal (`LEGACY_WORKSPACE_STATE_DIRNAME`) so a rebranded install can
+ * still migrate it. Branding this would make the test write somewhere nothing
+ * ever reads, so it stays literal on purpose. See VERIFY-ON-LINUX.md bucket 3.
+ */
+const LEGACY_WORKSPACE_METADATA_DIRNAME = ".openclaw";
+const LEGACY_WORKSPACE_STATE_PATH_SEGMENTS = [
+  LEGACY_WORKSPACE_METADATA_DIRNAME,
+  "workspace-state.json",
+] as const;
 
 function resolveCurrentWorkspaceAttestationPath(dir: string): string {
   const [attestationPath] = resolveWorkspaceAttestationPaths(dir);
@@ -227,7 +239,7 @@ describe("ensureAgentWorkspace", () => {
 
     await fs.rm(tempDir, { recursive: true, force: true });
     await fs.mkdir(path.join(tempDir, ".git"), { recursive: true });
-    await fs.mkdir(path.join(tempDir, APP_STATE_DIRNAME), { recursive: true });
+    await fs.mkdir(path.join(tempDir, LEGACY_WORKSPACE_METADATA_DIRNAME), { recursive: true });
 
     await expectWorkspaceVanished(
       ensureAgentWorkspace({ dir: tempDir, ensureBootstrapFiles: true }),
@@ -351,7 +363,7 @@ describe("ensureAgentWorkspace", () => {
     await ensureAgentWorkspace({ dir: tempDir, ensureBootstrapFiles: false });
 
     await fs.rm(tempDir, { recursive: true, force: true });
-    await fs.mkdir(path.join(tempDir, APP_STATE_DIRNAME), { recursive: true });
+    await fs.mkdir(path.join(tempDir, LEGACY_WORKSPACE_METADATA_DIRNAME), { recursive: true });
     await fs.mkdir(path.join(tempDir, "skills"), { recursive: true });
     await fs.writeFile(path.join(tempDir, ".DS_Store"), "");
 

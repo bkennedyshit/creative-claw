@@ -1,6 +1,5 @@
 // Command secret target import tests cover lazy import safety for secret target metadata.
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 
 describe("command secret targets module import", () => {
   let lazyImportProbe: {
@@ -81,7 +80,11 @@ describe("command secret targets module import", () => {
             {
               id: "channels.telegram.botToken",
               targetType: "channels.telegram.botToken",
-              configFile: APP_CONFIG_FILENAME,
+              // `configFile` in secret target registry entries is a schema discriminator,
+              // not a filesystem path: prod types it as the literal union
+              // `"openclaw.json" | "auth-profiles.json"` and target-registry-data.ts stores that
+              // literal, so these fixtures stay unbranded or the registry stops matching them.
+              configFile: "openclaw.json",
               pathPattern: "channels.telegram.botToken",
               secretShape: "secret_input",
               expectedResolvedValue: "string",
@@ -92,7 +95,7 @@ describe("command secret targets module import", () => {
             {
               id: "channels.telegram.gatewayToken",
               targetType: "gateway.auth.token",
-              configFile: APP_CONFIG_FILENAME,
+              configFile: "openclaw.json",
               pathPattern: "gateway.auth.token",
               secretShape: "secret_input",
               expectedResolvedValue: "string",
@@ -103,7 +106,7 @@ describe("command secret targets module import", () => {
             {
               id: "channels.telegram.gatewayTokenRef",
               targetType: "channels.telegram.gatewayTokenRef",
-              configFile: APP_CONFIG_FILENAME,
+              configFile: "openclaw.json",
               pathPattern: "channels.telegram.gatewayToken",
               refPathPattern: "gateway.auth.token",
               secretShape: "sibling_ref",
@@ -115,7 +118,7 @@ describe("command secret targets module import", () => {
             {
               id: "channels.discord.token",
               targetType: "channels.discord.token",
-              configFile: APP_CONFIG_FILENAME,
+              configFile: "openclaw.json",
               pathPattern: "channels.discord.token",
               secretShape: "secret_input",
               expectedResolvedValue: "string",
@@ -133,7 +136,7 @@ describe("command secret targets module import", () => {
             {
               id: "channels.external-chat.token",
               targetType: "channels.external-chat.token",
-              configFile: APP_CONFIG_FILENAME,
+              configFile: "openclaw.json",
               pathPattern: "channels.external-chat.token",
               secretShape: "secret_input",
               expectedResolvedValue: "string",

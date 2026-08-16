@@ -5,7 +5,6 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import type { AuthProfileStore } from "../agents/auth-profiles.js";
 import type { OpenClawConfig } from "../config/config.js";
-import { APP_CONFIG_FILENAME } from "../infra/app-branding.js";
 import type {
   PluginOrigin,
   PluginWebFetchProviderEntry,
@@ -191,9 +190,17 @@ vi.mock("../plugins/web-provider-public-artifacts.explicit.js", () => ({
   },
 }));
 
+/**
+ * `configFile` is a schema discriminator, not a filesystem path: prod types it as
+ * the literal union `"openclaw.json" | "auth-profiles.json"` and
+ * `target-registry-data.ts` stores that literal, so it must not follow the
+ * branding seam. Branding it here both broke the typecheck and made
+ * `collectOpenClawCoverageEntries` below filter to an empty set, silently
+ * voiding the coverage assertions.
+ */
 type SecretRegistryEntry = {
   id: string;
-  configFile: APP_CONFIG_FILENAME | "auth-profiles.json";
+  configFile: "openclaw.json" | "auth-profiles.json";
   pathPattern: string;
   refPathPattern?: string;
   secretShape: "secret_input" | "sibling_ref";
@@ -204,7 +211,7 @@ type SecretRegistryEntry = {
 type SecretRefCredentialMatrix = {
   entries: Array<{
     id: string;
-    configFile: APP_CONFIG_FILENAME | "auth-profiles.json";
+    configFile: "openclaw.json" | "auth-profiles.json";
     path: string;
     refPath?: string;
     secretShape: SecretRegistryEntry["secretShape"];
@@ -495,7 +502,7 @@ function collectOpenClawCoverageEntries(options: {
 }): SecretRegistryEntry[] {
   return COVERAGE_REGISTRY_ENTRIES.filter(
     (entry) =>
-      entry.configFile === APP_CONFIG_FILENAME &&
+      entry.configFile === "openclaw.json" &&
       entry.id.startsWith("plugins.entries.") === options.includePluginEntries &&
       !PLUGIN_OWNED_OPENCLAW_COVERAGE_EXCLUSIONS.has(entry.id),
   );
