@@ -2,6 +2,7 @@
 import { inferBasePathFromPathname, normalizeBasePath } from "./navigation.ts";
 
 export type ControlUiPublicAsset =
+  | "creative-claw.png"
   | "apple-touch-icon.png"
   | "favicon-32.png"
   | "favicon.ico"

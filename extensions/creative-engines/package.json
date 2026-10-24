@@ -5,6 +5,7 @@
   "description": "OpenClaw Creative Engines plugin — native in-process image, audio, video, and vector processing via compiled C++ engines loaded with koffi FFI",
   "type": "module",
   "dependencies": {
+    "@openclaw/creative-contracts": "workspace:*",
     "koffi": "^2.8.0",
     "sharp": "^0.33.0"
   },

@@ -519,6 +519,13 @@ const JS_STATIC_RELATIVE_DEPENDENCY_PATTERN =
 // source/dist alias here to keep source checkouts and packaged builds aligned.
 const WORKSPACE_PACKAGE_ALIAS_ENTRIES: WorkspacePackageAliasEntry[] = [
   {
+    packageName: "@openclaw/creative-contracts",
+    packageDir: "creative-contracts",
+    subpath: "",
+    srcFile: "index.ts",
+    distFile: "index.mjs",
+  },
+  {
     packageName: "@openclaw/gateway-client",
     packageDir: "gateway-client",
     subpath: "",

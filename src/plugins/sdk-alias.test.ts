@@ -1438,6 +1438,13 @@ describe("plugin sdk alias helpers", () => {
 
   it("aliases workspace packages to source when dist artifacts are missing", () => {
     const fixture = createPluginSdkAliasFixture();
+    const creativeContracts = writeWorkspacePackageEntry({
+      root: fixture.root,
+      packageDir: "creative-contracts",
+      srcFile: "index.ts",
+      distFile: "index.mjs",
+    });
+    fs.rmSync(creativeContracts.distFile);
     const gatewayClient = writeWorkspacePackageEntry({
       root: fixture.root,
       packageDir: "gateway-client",
@@ -1580,6 +1587,9 @@ describe("plugin sdk alias helpers", () => {
       buildPluginLoaderAliasMap(sourcePluginEntry, undefined, undefined, "dist"),
     );
 
+    expect(fs.realpathSync(aliases["@openclaw/creative-contracts"] ?? "")).toBe(
+      fs.realpathSync(creativeContracts.srcFile),
+    );
     expect(fs.realpathSync(aliases["@openclaw/gateway-client"] ?? "")).toBe(
       fs.realpathSync(gatewayClient.srcFile),
     );

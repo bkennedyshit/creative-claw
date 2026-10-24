@@ -1,5 +1,13 @@
 import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import {
+  getAllCreativeCapabilities,
+  getCreativeCapability,
+  getEngineCapabilities,
+  searchCreativeCapabilities,
+  validateOperationParameters,
+  validateCreativeGraph,
+} from "./src/capabilities.js";
 import { configureCudaProviderDependencies } from "./src/ffi/loader.js";
 import { registerEditSessionTools } from "./src/image/edit-session.js";
 import { registerProviders } from "./src/providers.js";
@@ -7,8 +15,10 @@ import { AudioEngineRuntime } from "./src/runtime/audio.js";
 import { ImageEngineRuntime } from "./src/runtime/image.js";
 import { VectorEngineRuntime } from "./src/runtime/vector.js";
 import { VideoEngineRuntime } from "./src/runtime/video.js";
+import { registerCreativeStudio } from "./src/studio.js";
 import { registerCreativeSurface } from "./src/surface.js";
 import { registerBatchTools } from "./src/tools/batch.js";
+import { registerDiscoveryTools } from "./src/tools/discovery.js";
 import { registerOpsTools } from "./src/tools/ops.js";
 import type { CreativeEnginesConfig } from "./src/types.js";
 
@@ -59,18 +69,30 @@ export default definePluginEntry({
     // separate registries, so the Studio needs explicit adapters over the same
     // in-process runtime objects used by the tools and CLI.
     for (const [name, engine] of Object.entries(engines)) {
-      api.registerGatewayMethod(`${name}.list_ops`, async () => {
+      api.registerGatewayMethod(`${name}.list_ops`, async ({ respond }) => {
         await engine.ensureStarted();
         const reason = engine.reason();
-        return {
-          ...engine.listOps(),
+        const opCatalog = engine.listOps();
+        const capabilities = getEngineCapabilities(name as "image" | "audio" | "video" | "vector");
+        const opsWithCapabilities = opCatalog.ops.map((op) => {
+          const cap = capabilities.find((c) => c.id === `${name}.${op.id}`);
+          return {
+            ...op,
+            label: cap?.label ?? op.name,
+            parametersSchema: cap?.parametersSchema,
+            capability: cap,
+          };
+        });
+        respond(true, {
+          ...opCatalog,
+          ops: opsWithCapabilities,
           available: engine.isAvailable(),
           ...(reason ? { reason } : {}),
           engine_path: engine.binaryPath ?? "bundled",
-        };
+        });
       });
 
-      api.registerGatewayMethod(`${name}.apply`, async ({ params }) => {
+      api.registerGatewayMethod(`${name}.apply`, async ({ params, respond }) => {
         const input = typeof params.input === "string" ? params.input.trim() : "";
         const op = typeof params.op === "string" ? params.op.trim() : "";
         const output = typeof params.output === "string" ? params.output.trim() : "";
@@ -81,19 +103,33 @@ export default definePluginEntry({
 
         if (!input || !op || !output) {
           const message = "input, op, and output are required";
-          return { ok: false, error: message, message };
+          return respond(true, { ok: false, error: message, message });
+        }
+
+        const capability = getCreativeCapability(`${name}.${op}`);
+        if (!capability) {
+          return respond(true, { ok: false, error: `Unknown operation '${name}.${op}'` });
+        }
+        let resolvedParams = operationParams;
+        if (capability) {
+          const validation = validateOperationParameters(capability, operationParams);
+          if (!validation.valid) {
+            const message = `Validation failed for op '${name}.${op}': ${validation.errors.join("; ")}`;
+            return respond(true, { ok: false, error: message, message, errors: validation.errors });
+          }
+          resolvedParams = validation.resolvedParams;
         }
 
         try {
-          const result = await engine.apply(input, op, output, operationParams);
-          return {
+          const result = await engine.apply(input, op, output, resolvedParams);
+          respond(true, {
             ...result,
             output: result.output_path,
             message: result.ok ? result.output_path : (result.reason ?? "Operation failed"),
-          };
+          });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          return { ok: false, error: message, message };
+          respond(true, { ok: false, error: message, message });
         }
       });
     }
@@ -156,5 +192,45 @@ export default definePluginEntry({
     // Operator surface: `openclaw creative ...` CLI + Control UI settings card.
     // Capability-guarded inside; no-ops honestly on hosts lacking the methods.
     registerCreativeSurface(api, engines);
+    registerCreativeStudio(api, engines, codec);
+
+    // Register compact discovery tools for agent and Codex tool-call loops.
+    registerDiscoveryTools(registerTool);
+
+    // Compact discovery Gateway RPCs for Control UI / Creative Studio.
+    api.registerGatewayMethod("creative.capabilities.search", async ({ params, respond }) => {
+      const p = params ?? {};
+      const query = typeof p.query === "string" ? p.query : "";
+      const family = typeof p.family === "string" ? p.family : undefined;
+      const limit = typeof p.limit === "number" ? p.limit : 10;
+      respond(true, { results: searchCreativeCapabilities(query, { family, limit }) });
+    });
+
+    api.registerGatewayMethod("creative.capabilities.get", async ({ params, respond }) => {
+      const p = params ?? {};
+      const id = typeof p.id === "string" ? p.id.trim() : "";
+      const capability = getCreativeCapability(id);
+      respond(
+        true,
+        capability
+          ? { found: true, capability }
+          : { found: false, error: `Capability '${id}' not found` },
+      );
+    });
+
+    api.registerGatewayMethod("creative.capabilities.list", async ({ params, respond }) => {
+      const p = params ?? {};
+      const family = typeof p.family === "string" ? p.family : undefined;
+      respond(true, {
+        capabilities: getAllCreativeCapabilities().filter(
+          (cap) => !family || cap.family === family,
+        ),
+      });
+    });
+
+    api.registerGatewayMethod("creative.graph.validate", async ({ params, respond }) => {
+      const p = params ?? {};
+      respond(true, validateCreativeGraph(p.graph));
+    });
   },
 });

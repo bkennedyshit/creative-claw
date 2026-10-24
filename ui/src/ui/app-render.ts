@@ -3682,6 +3682,11 @@ export function renderApp(state: AppViewState) {
                 onRunOp: () => void state.creativeStudio.runOp(),
                 running: state.creativeStudio.running,
                 lastResult: state.creativeStudio.lastResult,
+                library: state.creativeStudio.library,
+                libraryError: state.creativeStudio.libraryError,
+                onSearchMedia: (query) => void state.creativeStudio.searchMedia(query),
+                onPreview: (output) => void state.creativeStudio.showPreview(output),
+                preview: state.creativeStudio.preview,
               }),
             )
           : nothing}

@@ -9,6 +9,7 @@ import {
   type CreativeRecentOutput,
   type CreativeRunForm,
   type CreativeRunResult,
+  type CreativePreview,
 } from "../controllers/creative-studio.ts";
 
 export interface CreativeStudioViewProps {
@@ -22,6 +23,11 @@ export interface CreativeStudioViewProps {
   onRunOp: () => void;
   running: boolean;
   lastResult?: CreativeRunResult;
+  library: CreativeRecentOutput[];
+  libraryError?: string;
+  onSearchMedia: (query: string) => void;
+  onPreview: (output: CreativeRecentOutput) => void;
+  preview?: CreativePreview;
 }
 
 const MEDIA_LABELS: Record<CreativeMedia, string> = {
@@ -30,6 +36,138 @@ const MEDIA_LABELS: Record<CreativeMedia, string> = {
   video: "Video",
   vector: "Vector",
 };
+
+function toTitleCase(snake: string): string {
+  return snake
+    .split("_")
+    .filter((w) => w.length > 0)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function renderParameterFields(
+  op: CreativeOp | undefined,
+  params: Record<string, unknown>,
+  disabled: boolean,
+  onChange: (patch: Record<string, unknown>) => void,
+) {
+  const schema = op?.parametersSchema as
+    | {
+        properties?: Record<
+          string,
+          {
+            type?: string;
+            minimum?: number;
+            maximum?: number;
+            enum?: string[];
+            description?: string;
+            default?: unknown;
+          }
+        >;
+        required?: string[];
+      }
+    | undefined;
+
+  if (!schema?.properties || Object.keys(schema.properties).length === 0) {
+    return nothing;
+  }
+
+  const entries = Object.entries(schema.properties);
+  const required = new Set(schema.required ?? []);
+
+  return html`
+    <div class="creative-run__parameters">
+      <div class="card-sub">Operation parameters</div>
+      <div class="creative-run__parameters-grid">
+        ${entries.map(([name, prop]) => {
+          const isReq = required.has(name);
+          const val = params[name] !== undefined ? params[name] : prop.default;
+          const textValue =
+            typeof val === "string" || typeof val === "number" || typeof val === "boolean"
+              ? String(val)
+              : "";
+
+          if (prop.enum && prop.enum.length > 0) {
+            return html`
+              <label class="field">
+                <span>${toTitleCase(name)}${isReq ? " *" : ""}</span>
+                <select
+                  ?disabled=${disabled}
+                  @change=${(e: Event) =>
+                    onChange({ [name]: (e.target as HTMLSelectElement).value })}
+                >
+                  ${prop.enum.map(
+                    (opt) => html`<option value=${opt} ?selected=${val === opt}>${opt}</option>`,
+                  )}
+                </select>
+                ${prop.description
+                  ? html`<span class="field-help">${prop.description}</span>`
+                  : nothing}
+              </label>
+            `;
+          }
+
+          if (prop.type === "boolean") {
+            return html`
+              <label class="field field--checkbox">
+                <input
+                  type="checkbox"
+                  ?checked=${Boolean(val)}
+                  ?disabled=${disabled}
+                  @change=${(e: Event) =>
+                    onChange({ [name]: (e.target as HTMLInputElement).checked })}
+                />
+                <span>${toTitleCase(name)}${isReq ? " *" : ""}</span>
+                ${prop.description
+                  ? html`<span class="field-help">${prop.description}</span>`
+                  : nothing}
+              </label>
+            `;
+          }
+
+          if (prop.type === "integer" || prop.type === "number") {
+            const step = prop.type === "integer" ? "1" : "any";
+            return html`
+              <label class="field">
+                <span>${toTitleCase(name)}${isReq ? " *" : ""}</span>
+                <input
+                  type="number"
+                  step=${step}
+                  min=${prop.minimum !== undefined ? String(prop.minimum) : nothing}
+                  max=${prop.maximum !== undefined ? String(prop.maximum) : nothing}
+                  .value=${textValue}
+                  ?disabled=${disabled}
+                  @change=${(e: Event) => {
+                    const str = (e.target as HTMLInputElement).value;
+                    onChange({ [name]: str === "" ? undefined : Number(str) });
+                  }}
+                />
+                ${prop.description
+                  ? html`<span class="field-help">${prop.description}</span>`
+                  : nothing}
+              </label>
+            `;
+          }
+
+          return html`
+            <label class="field">
+              <span>${toTitleCase(name)}${isReq ? " *" : ""}</span>
+              <input
+                type="text"
+                .value=${textValue}
+                ?disabled=${disabled}
+                @input=${(e: Event) => onChange({ [name]: (e.target as HTMLInputElement).value })}
+              />
+              ${prop.description
+                ? html`<span class="field-help">${prop.description}</span>`
+                : nothing}
+            </label>
+          `;
+        })}
+      </div>
+    </div>
+  `;
+}
 
 function renderMediaTabs(props: CreativeStudioViewProps) {
   return html`
@@ -94,13 +232,14 @@ function renderOpCatalog(engine: CreativeEngineState) {
           <div class="creative-op">
             <div class="creative-op__label">${op.label}</div>
             <code class="creative-op__id">${op.id}</code>
-            ${op.params && op.params.length > 0
-              ? html`<div class="creative-op__params">
-                  ${op.params.map(
-                    (param) => html`<span class="chip">${param.name}: ${param.type}</span>`,
-                  )}
-                </div>`
-              : nothing}
+            <div class="creative-op__params">
+              ${Object.entries(
+                (op.parametersSchema?.properties ?? {}) as Record<string, { type?: string }>,
+              ).map(
+                ([name, parameter]) =>
+                  html`<span class="chip">${name}: ${parameter.type ?? "string"}</span>`,
+              )}
+            </div>
           </div>
         `,
       )}
@@ -110,6 +249,7 @@ function renderOpCatalog(engine: CreativeEngineState) {
 
 function renderRunForm(props: CreativeStudioViewProps, engine: CreativeEngineState) {
   const disabled = !engine.available || props.running;
+  const selectedOp = engine.ops.find((op) => op.id === props.runForm.op);
   return html`
     <section class="card creative-run">
       <div class="card-title">Run operation</div>
@@ -145,17 +285,20 @@ function renderRunForm(props: CreativeStudioViewProps, engine: CreativeEngineSta
           </select>
         </label>
         <label class="field">
-          <span>Output path</span>
+          <span>Export path (optional)</span>
           <input
             type="text"
             .value=${props.runForm.output}
             ?disabled=${disabled}
-            placeholder="path/to/output"
+            placeholder="Leave blank to save in the project"
             @input=${(event: Event) =>
               props.onRunFormChange({ output: (event.target as HTMLInputElement).value })}
           />
         </label>
       </div>
+      ${renderParameterFields(selectedOp, props.runForm.params, disabled, (patch) =>
+        props.onRunFormChange({ params: { ...props.runForm.params, ...patch } }),
+      )}
       <div class="creative-run__actions">
         <button
           class="btn primary"
@@ -192,16 +335,19 @@ function renderActivePanel(props: CreativeStudioViewProps) {
         : html`<div class="callout warn creative-panel__unavailable">
             Engine unavailable: ${engine.reason ?? "unknown reason"}
           </div>`}
-      <div class="creative-panel__catalog">
-        <div class="card-sub">Operations</div>
+      <details class="creative-panel__catalog">
+        <summary>Browse ${engine.ops.length} operations</summary>
         ${renderOpCatalog(engine)}
-      </div>
+      </details>
     </section>
     ${renderRunForm(props, engine)}
   `;
 }
 
-function renderRecentOutputs(outputs: CreativeRecentOutput[]) {
+function renderRecentOutputs(
+  outputs: CreativeRecentOutput[],
+  onPreview: CreativeStudioViewProps["onPreview"],
+) {
   return html`
     <section class="card creative-recent">
       <div class="card-title">Recent outputs</div>
@@ -213,6 +359,9 @@ function renderRecentOutputs(outputs: CreativeRecentOutput[]) {
                 <div class="creative-recent__item" title=${output.path}>
                   <div class="creative-recent__thumb">${output.type}</div>
                   <div class="creative-recent__path">${output.path}</div>
+                  ${output.previewUrl
+                    ? html`<button class="btn" @click=${() => onPreview(output)}>Preview</button>`
+                    : nothing}
                 </div>
               `,
             )}
@@ -254,11 +403,57 @@ export function renderCreativeStudio(props: CreativeStudioViewProps) {
         <div class="creative-hero__attribution">Built on the OpenClaw runtime</div>
       </section>
       ${renderMediaTabs(props)}
+      <section class="card">
+        <div class="card-title">Source media</div>
+        <label class="field"
+          ><span>Search indexed media</span>
+          <input
+            type="search"
+            placeholder="Search, or leave blank for recent media"
+            @change=${(event: Event) =>
+              props.onSearchMedia((event.target as HTMLInputElement).value)}
+          />
+        </label>
+        ${props.libraryError
+          ? html`<div class="callout warn">Media search unavailable: ${props.libraryError}</div>`
+          : nothing}
+        ${props.library.length === 0
+          ? html`<p class="muted">
+              No indexed media. Enter a source file path below, or index a folder with the
+              media_index tool.
+            </p>`
+          : props.library.map(
+              (asset) =>
+                html`<button
+                  class="btn"
+                  title=${asset.path}
+                  @click=${() => {
+                    if (CREATIVE_MEDIA_ORDER.includes(asset.type as CreativeMedia)) {
+                      props.onMediaChange(asset.type as CreativeMedia);
+                    }
+                    props.onRunFormChange({ input: asset.path });
+                  }}
+                >
+                  ${asset.path}
+                </button>`,
+            )}
+      </section>
       <div class="creative-studio__grid">
         <div class="creative-studio__main">${renderActivePanel(props)}</div>
         <div class="creative-studio__side">${renderGpuWidget(props.gpu)}</div>
       </div>
-      ${renderRecentOutputs(props.recentOutputs)}
+      ${props.preview
+        ? html`<section class="card creative-preview">
+            <div class="card-title">Output preview</div>
+            <p>${props.preview.path}</p>
+            ${props.preview.type === "video"
+              ? html`<video controls src=${props.preview.url}></video>`
+              : props.preview.type === "audio"
+                ? html`<audio controls src=${props.preview.url}></audio>`
+                : html`<img src=${props.preview.url} alt="Processed output" />`}
+          </section>`
+        : nothing}
+      ${renderRecentOutputs(props.recentOutputs, props.onPreview)}
     </section>
   `;
 }

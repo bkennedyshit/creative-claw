@@ -95,6 +95,21 @@ export class VectorStore {
     return row.cnt;
   }
 
+  /** List recent assets ordered by timestamp descending. */
+  listRecent(opts: { limit?: number; typeFilter?: string } = {}): Asset[] {
+    const { limit = 12, typeFilter } = opts;
+    let sql = "SELECT * FROM assets";
+    const params: unknown[] = [];
+    if (typeFilter) {
+      sql += " WHERE type = ?";
+      params.push(typeFilter);
+    }
+    sql += " ORDER BY timestamp DESC LIMIT ?";
+    params.push(limit);
+    const rows = this.db.prepare(sql).all(...params) as RawRow[];
+    return rows.map((r) => rowToAsset(r));
+  }
+
   /**
    * Search by cosine similarity (dot product of L2-normalized vectors).
    * Skips rows with mismatched dimensions.

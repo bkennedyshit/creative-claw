@@ -190,6 +190,60 @@ export default definePluginEntry({
       }),
     );
 
+    // --- Gateway RPC adapter for Control UI / Creative Studio ---
+    // Keep the browser wire contract separate from the agent tool name.
+    // Does not duplicate any search implementation: delegates directly to handleMediaSearch or store.listRecent.
+    const runMediaSearchRpc = async (rawParams: unknown) => {
+      const p = (
+        rawParams && typeof rawParams === "object" && !Array.isArray(rawParams)
+          ? (rawParams as Record<string, unknown>)
+          : {}
+      ) as Record<string, unknown>;
+      const query = typeof p.query === "string" ? p.query.trim() : "";
+      const requestedLimit = typeof p.limit === "number" ? p.limit : 12;
+      const limit = Number.isFinite(requestedLimit)
+        ? Math.max(1, Math.min(50, Math.trunc(requestedLimit)))
+        : 12;
+      const minScore = typeof p.minScore === "number" ? p.minScore : 0.0;
+      const type = typeof p.type === "string" ? p.type : undefined;
+
+      if (!query) {
+        const recent = store.listRecent({ limit, typeFilter: type });
+        return {
+          results: recent.map((a) => ({
+            id: a.id,
+            path: a.path,
+            type: a.type,
+            score: 1.0,
+            metadata: a.metadata,
+          })),
+          query: "",
+          backend: "sqlite",
+          count: recent.length,
+          embedder: embedderReport,
+        };
+      }
+
+      return handleMediaSearch({ query, topK: limit, minScore, type }, toolCtx);
+    };
+
+    if (typeof api.registerGatewayMethod === "function") {
+      api.registerGatewayMethod("visual-memory.search.v1", async ({ params, respond }) => {
+        respond(true, await runMediaSearchRpc(params));
+      });
+      api.registerGatewayMethod("visual-memory.index.v1", async ({ params, respond }) => {
+        if (typeof params.directory !== "string" || !params.directory.trim())
+          throw new Error("Directory is required");
+        respond(
+          true,
+          await handleMediaIndex(
+            { directory: params.directory, force: params.force === true },
+            toolCtx,
+          ),
+        );
+      });
+    }
+
     // --- Operator surface: `openclaw media ...` CLI + optional Control UI ---
     // Guarded internally so it no-ops honestly when the host lacks the seams.
     registerMediaSurface(api as unknown as MediaSurfaceApi, toolCtx);

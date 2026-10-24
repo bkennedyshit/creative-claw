@@ -5,6 +5,9 @@
   "contracts": {
     "mediaUnderstandingProviders": ["creative-engines"],
     "tools": [
+      "creative.capabilities.search",
+      "creative.capabilities.get",
+      "creative.graph.validate",
       "image.list_ops",
       "image.op_info",
       "image.apply",

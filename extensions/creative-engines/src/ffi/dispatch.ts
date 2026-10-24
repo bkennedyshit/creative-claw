@@ -798,8 +798,9 @@ export class NativeDispatch {
           "error",
           "-ss",
           String(num("start_sec", 0)),
-          "-to",
-          String(num("end_sec", 0)),
+          // The catalog's 0 sentinel means through EOF; FFmpeg's -to 0
+          // instead produces an empty interval, so omit that option.
+          ...(num("end_sec", 0) > 0 ? ["-to", String(num("end_sec", 0))] : []),
           "-i",
           input,
           ...codecArgs,

@@ -5,15 +5,13 @@ import type { GatewayBrowserClient } from "../gateway.ts";
 export type CreativeMedia = "image" | "audio" | "video" | "vector";
 
 /** Fixed media order drives the tab switcher; keep stable for deterministic UI. */
-export const CREATIVE_MEDIA_ORDER: readonly CreativeMedia[] = [
-  "image",
-  "audio",
-  "video",
-  "vector",
-];
+export const CREATIVE_MEDIA_ORDER: readonly CreativeMedia[] = ["image", "audio", "video", "vector"];
 
-export type CreativeOpParam = { name: string; type: string };
-export type CreativeOp = { id: string; label: string; params?: CreativeOpParam[] };
+export type CreativeOp = {
+  id: string;
+  label: string;
+  parametersSchema?: Record<string, unknown>;
+};
 export type CreativeEngineState = {
   available: boolean;
   reason?: string;
@@ -26,14 +24,21 @@ export type CreativeGpuState = {
   models: string[];
   dormant: boolean;
 };
-export type CreativeRecentOutput = { id: string; path: string; type: string };
-export type CreativeRunForm = { input: string; op: string; output: string };
+export type CreativeRecentOutput = { id: string; path: string; type: string; previewUrl?: string };
+export type CreativePreview = { url: string; type: string; path: string };
+export type CreativeRunForm = {
+  input: string;
+  op: string;
+  output: string;
+  params: Record<string, unknown>;
+};
 export type CreativeRunResult = { ok: boolean; message: string };
 
 /** Host contract: the app supplies the gateway client + connection flag. */
 type CreativeStudioHost = ReactiveControllerHost & {
   client: GatewayBrowserClient | null;
   connected: boolean;
+  settings?: { token?: string; gatewayUrl?: string };
 };
 
 function emptyEngine(reason: string): CreativeEngineState {
@@ -81,15 +86,13 @@ function normalizeOps(value: unknown): CreativeOp[] {
     if (!id) {
       continue;
     }
-    const label = asString(record.label) || id;
-    const params = Array.isArray(record.params)
-      ? record.params
-          .map((param) => asRecord(param))
-          .filter((param): param is Record<string, unknown> => Boolean(param))
-          .map((param) => ({ name: asString(param.name), type: asString(param.type) || "string" }))
-          .filter((param) => param.name.length > 0)
-      : undefined;
-    ops.push(params && params.length > 0 ? { id, label, params } : { id, label });
+    const label = asString(record.label) || asString(record.name) || id;
+    const parametersSchema = asRecord(record.parametersSchema) ?? undefined;
+    ops.push({
+      id,
+      label,
+      ...(parametersSchema ? { parametersSchema } : {}),
+    });
   }
   return ops;
 }
@@ -115,7 +118,13 @@ function normalizeRecentOutputs(value: unknown): CreativeRecentOutput[] {
     }
     const id = asString(row.id) || path;
     const type = asString(row.type) || asString(row.mediaType) || "unknown";
-    outputs.push({ id, path, type });
+    const previewUrl = asString(row.previewUrl);
+    outputs.push({
+      id,
+      path,
+      type,
+      ...(previewUrl.startsWith("/plugins/creative-engines/artifacts/") ? { previewUrl } : {}),
+    });
   }
   return outputs;
 }
@@ -132,9 +141,13 @@ export class CreativeStudioController implements ReactiveController {
   engines: Record<CreativeMedia, CreativeEngineState> = defaultEngines("Not loaded yet");
   gpu: CreativeGpuState = defaultGpu("unknown");
   recentOutputs: CreativeRecentOutput[] = [];
-  runForm: CreativeRunForm = { input: "", op: "", output: "" };
+  runForm: CreativeRunForm = { input: "", op: "", output: "", params: {} };
   running = false;
   lastResult?: CreativeRunResult;
+  library: CreativeRecentOutput[] = [];
+  libraryError?: string;
+  preview?: CreativePreview;
+  private restored = false;
 
   constructor(host: CreativeStudioHost) {
     this.host = host;
@@ -146,13 +159,31 @@ export class CreativeStudioController implements ReactiveController {
       return;
     }
     this.activeMedia = media;
-    // Reset the op selection so the run form matches the newly active engine.
-    this.runForm = { ...this.runForm, op: "" };
+    // Reset the op selection and params so the run form matches the newly active engine.
+    this.runForm = { ...this.runForm, op: "", params: {} };
     this.host.requestUpdate();
   }
 
   updateRunForm(patch: Partial<CreativeRunForm>) {
-    this.runForm = { ...this.runForm, ...patch };
+    let nextParams = patch.params !== undefined ? patch.params : this.runForm.params;
+    // When op selection changes and caller did not supply explicit params, populate default parameters from its parametersSchema
+    if (patch.op !== undefined && patch.op !== this.runForm.op && patch.params === undefined) {
+      nextParams = {};
+      const opObj = this.engines[this.activeMedia].ops.find((o) => o.id === patch.op);
+      const schema = opObj?.parametersSchema as
+        | {
+            properties?: Record<string, { default?: unknown }>;
+          }
+        | undefined;
+      if (schema?.properties) {
+        for (const [k, p] of Object.entries(schema.properties)) {
+          if (p.default !== undefined) {
+            nextParams[k] = p.default;
+          }
+        }
+      }
+    }
+    this.runForm = { ...this.runForm, ...patch, params: nextParams };
     this.host.requestUpdate();
   }
 
@@ -169,6 +200,7 @@ export class CreativeStudioController implements ReactiveController {
       ...CREATIVE_MEDIA_ORDER.map((media) => this.loadEngine(client, media)),
       this.loadGpu(client),
       this.loadRecentOutputs(client),
+      this.searchMedia(""),
     ]);
     this.host.requestUpdate();
   }
@@ -183,7 +215,7 @@ export class CreativeStudioController implements ReactiveController {
     if (this.running) {
       return;
     }
-    const { input, op, output } = this.runForm;
+    const { input, op, output, params } = this.runForm;
     if (!op) {
       this.lastResult = { ok: false, message: "Select an operation to run" };
       this.host.requestUpdate();
@@ -193,10 +225,12 @@ export class CreativeStudioController implements ReactiveController {
     this.lastResult = undefined;
     this.host.requestUpdate();
     try {
-      const res = await client.request<Record<string, unknown>>(`${this.activeMedia}.apply`, {
+      const res = await client.request<Record<string, unknown>>("creative.studio.run", {
+        engine: this.activeMedia,
         op,
         input,
         output,
+        params,
       });
       const record = asRecord(res) ?? {};
       const ok = record.ok !== false && record.error === undefined;
@@ -209,6 +243,11 @@ export class CreativeStudioController implements ReactiveController {
       // Refresh recent outputs so a successful run surfaces immediately.
       if (ok) {
         await this.loadRecentOutputs(client);
+        const artifact = asRecord(record.artifact);
+        const recent = this.recentOutputs.find((entry) => entry.id === artifact?.id);
+        if (recent) {
+          await this.showPreview(recent);
+        }
       }
     } catch (err) {
       this.lastResult = { ok: false, message: String(err) };
@@ -260,14 +299,83 @@ export class CreativeStudioController implements ReactiveController {
 
   private async loadRecentOutputs(client: GatewayBrowserClient): Promise<void> {
     try {
-      const res = await client.request<unknown>("media_search", { limit: 12 });
+      const res = await client.request("creative.studio.snapshot", {});
       this.recentOutputs = normalizeRecentOutputs(res);
+      if (!this.restored && !this.runForm.op && !this.runForm.input) {
+        const snapshot = asRecord(res);
+        const run = asRecord(Array.isArray(snapshot?.runs) ? snapshot.runs[0] : undefined);
+        const graph = asRecord(run?.graph);
+        const node = asRecord(Array.isArray(graph?.nodes) ? graph.nodes[0] : undefined);
+        const [engine, op] = asString(node?.capability).split(".");
+        if (CREATIVE_MEDIA_ORDER.includes(engine as CreativeMedia) && op) {
+          this.activeMedia = engine as CreativeMedia;
+          this.runForm = {
+            input: asString(run?.input),
+            op,
+            output: "",
+            params: asRecord(node?.parameters) ?? {},
+          };
+        }
+      }
+      this.restored = true;
     } catch {
       this.recentOutputs = [];
     }
   }
 
+  async searchMedia(query: string) {
+    if (!this.host.client || !this.host.connected) {
+      return;
+    }
+    try {
+      const result = await this.host.client.request("visual-memory.search.v1", {
+        query,
+        limit: 12,
+      });
+      this.library = normalizeRecentOutputs(result);
+      this.libraryError = undefined;
+    } catch (error) {
+      this.libraryError = String(error);
+      this.library = [];
+    }
+    this.host.requestUpdate();
+  }
+
+  async showPreview(output: CreativeRecentOutput) {
+    if (!output.previewUrl) {
+      return;
+    }
+    try {
+      const url = new URL(this.host.settings?.gatewayUrl || window.location.href);
+      url.protocol =
+        url.protocol === "wss:" ? "https:" : url.protocol === "ws:" ? "http:" : url.protocol;
+      url.pathname = output.previewUrl;
+      url.search = "";
+      url.hash = "";
+      const headers = new Headers();
+      const token = this.host.settings?.token?.trim();
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`Preview unavailable (${response.status})`);
+      }
+      const blob = await response.blob();
+      if (this.preview) {
+        URL.revokeObjectURL(this.preview.url);
+      }
+      this.preview = { url: URL.createObjectURL(blob), type: output.type, path: output.path };
+    } catch (error) {
+      this.lastResult = { ok: true, message: `Output saved. ${String(error)}` };
+    }
+    this.host.requestUpdate();
+  }
+
   hostDisconnected() {
-    // No subscriptions to tear down; refresh is tab-entry driven.
+    if (this.preview) {
+      URL.revokeObjectURL(this.preview.url);
+    }
+    this.preview = undefined;
   }
 }

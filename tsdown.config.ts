@@ -679,6 +679,12 @@ function buildUnifiedDistEntries(): Record<string, string> {
 }
 
 export default defineConfig([
+  nodeWorkspacePackageBuildConfig({
+    clean: true,
+    dts: RUN_NODE_SKIP_DTS_BUILD ? false : undefined,
+    entry: { index: "packages/creative-contracts/src/index.ts" },
+    outDir: tsdownPackageOutputRoot("creative-contracts"),
+  }),
   nodeBuildConfig({
     clean: true,
     dts: RUN_NODE_SKIP_DTS_BUILD ? false : undefined,

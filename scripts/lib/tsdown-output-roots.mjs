@@ -1,6 +1,7 @@
 // Lists package dist roots produced by tsdown builds.
 const TSDOWN_PACKAGE_NAMES = [
   "agent-core",
+  "creative-contracts",
   "gateway-client",
   "gateway-protocol",
   "llm-core",
