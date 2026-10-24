@@ -55,6 +55,49 @@ export default definePluginEntry({
       vector: vectorEngine,
     };
 
+    // Control UI gateway surface. Agent tools and gateway RPC methods live in
+    // separate registries, so the Studio needs explicit adapters over the same
+    // in-process runtime objects used by the tools and CLI.
+    for (const [name, engine] of Object.entries(engines)) {
+      api.registerGatewayMethod(`${name}.list_ops`, async () => {
+        await engine.ensureStarted();
+        const reason = engine.reason();
+        return {
+          ...engine.listOps(),
+          available: engine.isAvailable(),
+          ...(reason ? { reason } : {}),
+          engine_path: engine.binaryPath ?? "bundled",
+        };
+      });
+
+      api.registerGatewayMethod(`${name}.apply`, async ({ params }) => {
+        const input = typeof params.input === "string" ? params.input.trim() : "";
+        const op = typeof params.op === "string" ? params.op.trim() : "";
+        const output = typeof params.output === "string" ? params.output.trim() : "";
+        const operationParams =
+          params.params && typeof params.params === "object" && !Array.isArray(params.params)
+            ? (params.params as Record<string, unknown>)
+            : {};
+
+        if (!input || !op || !output) {
+          const message = "input, op, and output are required";
+          return { ok: false, error: message, message };
+        }
+
+        try {
+          const result = await engine.apply(input, op, output, operationParams);
+          return {
+            ...result,
+            output: result.output_path,
+            message: result.ok ? result.output_path : (result.reason ?? "Operation failed"),
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return { ok: false, error: message, message };
+        }
+      });
+    }
+
     // Startup: load the FFI libraries when the gateway boots. There is no child
     // process to spawn — the engines run in-process.
     api.registerService({

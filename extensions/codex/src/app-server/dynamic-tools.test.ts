@@ -178,6 +178,154 @@ afterEach(() => {
 });
 
 describe("createCodexDynamicToolBridge", () => {
+  it("maps dotted OpenClaw tool ids to Codex-safe names and dispatches them", async () => {
+    const execute = vi.fn(async () => textToolResult("watercolor complete"));
+    const onAgentToolResult = vi.fn();
+    const bridge = createCodexDynamicToolBridge({
+      tools: [createTool({ name: "image.apply", execute })],
+      signal: new AbortController().signal,
+      directToolNames: ["image.apply"],
+    });
+
+    expect(specNames(bridge.specs)).toEqual(["image_apply"]);
+    expect(flattenSpecsWithNamespace(bridge.specs)[0]?.description).toContain(
+      "OpenClaw tool id: image.apply",
+    );
+    expectNoNamespace(flattenSpecsWithNamespace(bridge.specs)[0]);
+
+    const result = await bridge.handleToolCall(
+      {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        callId: "call-image",
+        namespace: null,
+        tool: "image_apply",
+        arguments: { operation: "watercolor" },
+      },
+      { onAgentToolResult },
+    );
+
+    expect(result).toEqual(expectInputText("watercolor complete"));
+    expectExecuteCall(execute, {
+      callId: "call-image",
+      args: { operation: "watercolor" },
+    });
+    expect(onAgentToolResult).toHaveBeenCalledWith(
+      expect.objectContaining({ toolName: "image.apply", isError: false }),
+    );
+  });
+
+  it("projects reserved, non-ASCII, and long runtime ids onto valid Codex names", async () => {
+    const reservedMcp = vi.fn(async () => textToolResult("mcp complete"));
+    const reservedPrefix = vi.fn(async () => textToolResult("mcp prefix complete"));
+    const nonAscii = vi.fn(async () => textToolResult("unicode complete"));
+    const longRuntimeName = `image.${"x".repeat(140)}`;
+    const longName = vi.fn(async () => textToolResult("long complete"));
+    const bridge = createCodexDynamicToolBridge({
+      tools: [
+        createTool({ name: "mcp", execute: reservedMcp }),
+        createTool({ name: "mcp__internal", execute: reservedPrefix }),
+        createTool({ name: "画像.適用", execute: nonAscii }),
+        createTool({ name: longRuntimeName, execute: longName }),
+      ],
+      signal: new AbortController().signal,
+      loading: "direct",
+    });
+
+    const names = specNames(bridge.specs);
+    expect(names).toEqual([
+      "openclaw_mcp",
+      "openclaw_mcp__internal",
+      "_____",
+      `image_${"x".repeat(122)}`,
+    ]);
+    expect(names[3]).toHaveLength(128);
+
+    for (const [index, execute] of [reservedMcp, reservedPrefix, nonAscii, longName].entries()) {
+      const result = await bridge.handleToolCall({
+        threadId: "thread-1",
+        turnId: "turn-1",
+        callId: `call-${index}`,
+        namespace: null,
+        tool: names[index]!,
+        arguments: { index },
+      });
+      expect(result.success).toBe(true);
+      expect(execute).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("quarantines a runtime id when its Codex projection collides", async () => {
+    const dottedExecute = vi.fn(async () => textToolResult("dotted"));
+    const underscoredExecute = vi.fn(async () => textToolResult("underscored"));
+    const bridge = createCodexDynamicToolBridge({
+      tools: [
+        createTool({ name: "image.apply", execute: dottedExecute }),
+        createTool({ name: "image_apply", execute: underscoredExecute }),
+      ],
+      signal: new AbortController().signal,
+      loading: "direct",
+    });
+
+    expect(bridge.specs).toEqual([]);
+    expect(bridge.telemetry.quarantinedTools).toEqual([
+      {
+        tool: "image_apply",
+        violations: ["image_apply.name maps to duplicate Codex tool name image_apply"],
+      },
+    ]);
+
+    const result = await bridge.handleToolCall({
+      threadId: "thread-1",
+      turnId: "turn-1",
+      callId: "call-collision",
+      namespace: null,
+      tool: "image_apply",
+      arguments: {},
+    });
+    expect(result.success).toBe(false);
+    expect(result.contentItems).toEqual([
+      { type: "inputText", text: "Unknown OpenClaw tool: image_apply" },
+    ]);
+    expect(dottedExecute).not.toHaveBeenCalled();
+    expect(underscoredExecute).not.toHaveBeenCalled();
+  });
+
+  it("projects configured direct runtime ids consistently", () => {
+    const bridge = createCodexDynamicToolBridge({
+      tools: [createTool({ name: "image.apply" }), createTool({ name: "video.apply" })],
+      signal: new AbortController().signal,
+      directToolNames: ["image.apply"],
+    });
+
+    const specs = flattenSpecsWithNamespace(bridge.specs);
+    expectDynamicSpec(
+      specs.find((tool) => tool.name === "image_apply"),
+      { name: "image_apply" },
+    );
+    expectNoNamespace(specs.find((tool) => tool.name === "image_apply"));
+    expectDynamicSpec(
+      specs.find((tool) => tool.name === "video_apply"),
+      {
+        name: "video_apply",
+        namespace: CODEX_OPENCLAW_DYNAMIC_TOOL_NAMESPACE,
+        deferLoading: true,
+      },
+    );
+  });
+
+  it("quarantines an empty runtime id before projection", () => {
+    const bridge = createCodexDynamicToolBridge({
+      tools: [createTool({ name: "" })],
+      signal: new AbortController().signal,
+    });
+
+    expect(bridge.specs).toEqual([]);
+    expect(bridge.telemetry.quarantinedTools).toEqual([
+      { tool: "tool[0]", violations: ["tool[0].name must be a non-empty string"] },
+    ]);
+  });
+
   it("keeps turn-yield direct while deferring OpenClaw session spawn", () => {
     const bridge = createCodexDynamicToolBridge({
       tools: [

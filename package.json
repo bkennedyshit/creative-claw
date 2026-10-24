@@ -2021,6 +2021,7 @@
   },
   "devDependencies": {
     "@a2ui/lit": "0.10.0",
+    "@clawdbot/lobster": "2026.5.22",
     "@copilotkit/aimock": "1.27.3",
     "@grammyjs/types": "3.27.3",
     "@lit-labs/signals": "0.3.0",

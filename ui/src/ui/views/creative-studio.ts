@@ -49,7 +49,7 @@ function renderMediaTabs(props: CreativeStudioViewProps) {
               class="creative-tab__dot ${engine.available
                 ? "creative-tab__dot--ok"
                 : "creative-tab__dot--off"}"
-              title=${engine.available ? "Available" : engine.reason ?? "Unavailable"}
+              title=${engine.available ? "Available" : (engine.reason ?? "Unavailable")}
             ></span>
           </button>
         `;
@@ -113,7 +113,9 @@ function renderRunForm(props: CreativeStudioViewProps, engine: CreativeEngineSta
   return html`
     <section class="card creative-run">
       <div class="card-title">Run operation</div>
-      <div class="card-sub">Apply an ${MEDIA_LABELS[props.activeMedia].toLowerCase()} operation.</div>
+      <div class="card-sub">
+        Apply an ${MEDIA_LABELS[props.activeMedia].toLowerCase()} operation.
+      </div>
       <div class="creative-run__grid">
         <label class="field">
           <span>Input path</span>
@@ -155,7 +157,11 @@ function renderRunForm(props: CreativeStudioViewProps, engine: CreativeEngineSta
         </label>
       </div>
       <div class="creative-run__actions">
-        <button class="btn primary" ?disabled=${disabled || !props.runForm.op} @click=${props.onRunOp}>
+        <button
+          class="btn primary"
+          ?disabled=${disabled || !props.runForm.op}
+          @click=${props.onRunOp}
+        >
           ${props.running ? "Running..." : "Run"}
         </button>
         ${props.lastResult
@@ -218,6 +224,35 @@ function renderRecentOutputs(outputs: CreativeRecentOutput[]) {
 export function renderCreativeStudio(props: CreativeStudioViewProps) {
   return html`
     <section class="creative-studio">
+      <section class="creative-hero" aria-labelledby="creative-hero-title">
+        <div class="creative-hero__glow" aria-hidden="true"></div>
+        <div class="creative-hero__content">
+          <div class="creative-hero__eyebrow">Creative Claw · Local-native media runtime</div>
+          <h1 id="creative-hero-title">Frontier reasoning. Local perception. Native execution.</h1>
+          <p class="creative-hero__lede">
+            An agent that sees and hears your media locally, then performs real image, audio, video,
+            and vector operations through in-process native engines.
+          </p>
+          <div class="creative-hero__formats" aria-label="Supported media engines">
+            <span>IMAGE</span><span>AUDIO</span><span>VIDEO</span><span>VECTOR</span>
+          </div>
+        </div>
+        <div class="creative-hero__metrics" aria-label="Creative Claw capabilities">
+          <div class="creative-hero__metric">
+            <strong>4</strong>
+            <span>native engines</span>
+          </div>
+          <div class="creative-hero__metric">
+            <strong>280</strong>
+            <span>real operations</span>
+          </div>
+          <div class="creative-hero__metric">
+            <strong>LOCAL</strong>
+            <span>vision + speech</span>
+          </div>
+        </div>
+        <div class="creative-hero__attribution">Built on the OpenClaw runtime</div>
+      </section>
       ${renderMediaTabs(props)}
       <div class="creative-studio__grid">
         <div class="creative-studio__main">${renderActivePanel(props)}</div>

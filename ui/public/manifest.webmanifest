@@ -1,16 +1,16 @@
 {
-  "name": "OpenClaw Control",
-  "short_name": "OpenClaw",
-  "description": "Multi-channel AI gateway control panel",
-  "start_url": "./",
+  "name": "Creative Claw Studio",
+  "short_name": "Creative Claw",
+  "description": "Frontier orchestration, local perception, and native creative engines for image, audio, video, and vector media.",
+  "start_url": "./creative",
   "display": "standalone",
-  "theme_color": "#0a0a0a",
-  "background_color": "#0a0a0a",
+  "theme_color": "#11101f",
+  "background_color": "#0a0a0f",
   "icons": [
     {
-      "src": "./favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "./creative-claw.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     },
     {

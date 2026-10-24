@@ -79,6 +79,7 @@ type CodexToolResultHookContext = Omit<CodexDynamicToolHookContext, "config">;
 type ProjectedCodexDynamicTool = {
   tool: AnyAgentTool;
   name: string;
+  runtimeName: string;
   description: string;
   inputSchema: JsonValue;
 };
@@ -393,7 +394,14 @@ export function createCodexDynamicToolBridge(params: {
   const registeredSpecTools = (
     params.registeredTools ? registeredProjection.tools : availableTools
   ).filter((entry) => !quarantinedAvailableToolNames.has(entry.name));
-  const toolMap = new Map(availableTools.map((entry) => [entry.name, entry]));
+  // A projected-name collision must be quarantined at execution as well as
+  // schema exposure. Otherwise Codex cannot discover the name, but a replayed
+  // or injected call can still hit the first colliding runtime tool silently.
+  const toolMap = new Map(
+    availableTools
+      .filter((entry) => !quarantinedAvailableToolNames.has(entry.name))
+      .map((entry) => [entry.name, entry]),
+  );
   const registeredToolNames = new Set(registeredSpecTools.map((entry) => entry.name));
   const quarantinedTools = dedupeQuarantinedDynamicTools([
     ...availableProjection.quarantinedTools,
@@ -426,10 +434,11 @@ export function createCodexDynamicToolBridge(params: {
   };
   const legacyExtensionRunner =
     createCodexAppServerToolResultExtensionRunner(toolResultHookContext);
-  const directToolNames = new Set([
-    ...ALWAYS_DIRECT_DYNAMIC_TOOL_NAMES,
-    ...(params.directToolNames ?? []),
-  ]);
+  const directToolNames = new Set(
+    [...ALWAYS_DIRECT_DYNAMIC_TOOL_NAMES, ...(params.directToolNames ?? [])].map(
+      toCodexDynamicToolName,
+    ),
+  );
   return {
     availableSpecs: createCodexDynamicToolSpecs({
       entries: availableTools,
@@ -479,7 +488,7 @@ export function createCodexDynamicToolBridge(params: {
           success: false,
         };
       }
-      const { tool, name: toolName } = toolEntry;
+      const { tool, runtimeName: toolName } = toolEntry;
       const args = jsonObjectToRecord(call.arguments);
       const startedAt = Date.now();
       const signal = composeAbortSignals(params.signal, options?.signal);
@@ -805,12 +814,31 @@ function createCodexDynamicToolFunctionSpec(params: {
   };
 }
 
+const CODEX_DYNAMIC_TOOL_NAME_MAX_LENGTH = 128;
+
+/** Maps OpenClaw tool ids onto the Responses API identifier contract used by Codex. */
+function toCodexDynamicToolName(name: string): string {
+  let sanitized = "";
+  for (const character of name) {
+    const code = character.charCodeAt(0);
+    const isAsciiLetter = (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+    const isDigit = code >= 48 && code <= 57;
+    sanitized +=
+      isAsciiLetter || isDigit || character === "_" || character === "-" ? character : "_";
+  }
+  const nonEmpty = sanitized || "_";
+  const unreserved =
+    nonEmpty === "mcp" || nonEmpty.startsWith("mcp__") ? `openclaw_${nonEmpty}` : nonEmpty;
+  return unreserved.slice(0, CODEX_DYNAMIC_TOOL_NAME_MAX_LENGTH);
+}
+
 function projectCodexDynamicTools(tools: readonly AnyAgentTool[]): {
   tools: ProjectedCodexDynamicTool[];
   quarantinedTools: CodexDynamicToolSchemaQuarantine[];
 } {
   const projectedTools: ProjectedCodexDynamicTool[] = [];
   const quarantinedTools: CodexDynamicToolSchemaQuarantine[] = [];
+  const projectedNames = new Set<string>();
   let length: number;
   try {
     length = tools.length;
@@ -844,10 +872,23 @@ function projectCodexDynamicTools(tools: readonly AnyAgentTool[]): {
       quarantinedTools.push({ tool: descriptor.name, violations: projection.violations });
       continue;
     }
+    const name = toCodexDynamicToolName(descriptor.name);
+    if (projectedNames.has(name)) {
+      quarantinedTools.push({
+        tool: descriptor.name,
+        violations: [`${descriptor.name}.name maps to duplicate Codex tool name ${name}`],
+      });
+      continue;
+    }
+    projectedNames.add(name);
     projectedTools.push({
       tool,
-      name: descriptor.name,
-      description: descriptor.description,
+      name,
+      runtimeName: descriptor.name,
+      description:
+        name === descriptor.name
+          ? descriptor.description
+          : `${descriptor.description}\nOpenClaw tool id: ${descriptor.name}`,
       inputSchema: projection.schema as JsonValue,
     });
   }

@@ -108,6 +108,32 @@ export default definePluginEntry({
       },
     });
 
+    // Browser-facing status for Creative Studio. Gateway RPC methods are a
+    // separate registry from agent tools, so return the UI's structured shape
+    // directly from the same live in-process broker.
+    api.registerGatewayMethod("gpu.status", async () => {
+      const liveBroker = broker;
+      if (!liveBroker) {
+        return {
+          state: "unavailable",
+          usedMb: 0,
+          totalMb: 0,
+          models: [],
+          dormant: false,
+        };
+      }
+
+      const state = liveBroker.getState();
+      const snapshot = liveBroker.getSnapshot();
+      return {
+        state,
+        usedMb: snapshot?.usedMb ?? 0,
+        totalMb: snapshot?.totalMb ?? 0,
+        models: await liveBroker.getResidentModels(),
+        dormant: state === "dormant",
+      };
+    });
+
     // --- Tool: gpu.status ---
     api.registerTool(
       gpuTool({

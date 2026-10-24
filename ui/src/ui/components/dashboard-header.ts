@@ -12,7 +12,7 @@ export class DashboardHeader extends LitElement {
   @property() basePath = "";
   @property() agentLabel = "";
 
-  private readonly handleOverviewClick = (event: MouseEvent) => {
+  private readonly handleStudioClick = (event: MouseEvent) => {
     if (
       event.defaultPrevented ||
       event.button !== 0 ||
@@ -25,7 +25,7 @@ export class DashboardHeader extends LitElement {
     }
     event.preventDefault();
     this.dispatchEvent(
-      new CustomEvent("navigate", { detail: "overview", bubbles: true, composed: true }),
+      new CustomEvent("navigate", { detail: "creativeStudio", bubbles: true, composed: true }),
     );
   };
 
@@ -38,10 +38,10 @@ export class DashboardHeader extends LitElement {
         <div class="dashboard-header__breadcrumb">
           <a
             class="dashboard-header__breadcrumb-link"
-            href=${pathForTab("overview", this.basePath)}
-            @click=${this.handleOverviewClick}
+            href=${pathForTab("creativeStudio", this.basePath)}
+            @click=${this.handleStudioClick}
           >
-            OpenClaw
+            Creative Claw
           </a>
           ${agentLabel
             ? html`

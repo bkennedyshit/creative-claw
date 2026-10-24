@@ -111,7 +111,8 @@ describe("subtitleForTab", () => {
       nodes: "Paired devices and commands.",
       dreams: "Memory dreaming, consolidation, and reflection.",
       config: "Edit openclaw.json.",
-      creativeStudio: "Generate and manage image, audio, video, and vector media.",
+      creativeStudio:
+        "Understand and edit image, audio, video, and vector media with native engines.",
       communications: "Channels, messages, and audio settings.",
       appearance: "Theme, UI, and setup wizard settings.",
       automation: "Commands, hooks, cron, and plugins.",
@@ -184,8 +185,8 @@ describe("tabFromPath", () => {
     expect(tabFromPath("/dreams")).toBe("dreams");
   });
 
-  it("returns chat for root path", () => {
-    expect(tabFromPath("/")).toBe("chat");
+  it("returns Creative Studio for root path", () => {
+    expect(tabFromPath("/")).toBe("creativeStudio");
   });
 
   it("handles base paths", () => {
@@ -228,7 +229,13 @@ describe("inferBasePathFromPathname", () => {
 
 describe("TAB_GROUPS", () => {
   it("contains all expected groups", () => {
-    expect(TAB_GROUPS.map((g) => g.label)).toEqual(["chat", "creative", "control", "agent", "settings"]);
+    expect(TAB_GROUPS.map((g) => g.label)).toEqual([
+      "chat",
+      "creative",
+      "control",
+      "agent",
+      "settings",
+    ]);
   });
 
   it("all tabs are unique", () => {

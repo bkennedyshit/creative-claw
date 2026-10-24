@@ -107,13 +107,13 @@ describe("sortLocaleStrings", () => {
 });
 
 describe("agentLogoUrl", () => {
-  it("keeps base-mounted control UI logo paths absolute to the mount", () => {
-    expect(agentLogoUrl("/ui")).toBe("/ui/favicon.svg");
-    expect(agentLogoUrl("/apps/openclaw/")).toBe("/apps/openclaw/favicon.svg");
+  it("keeps base-mounted Creative Claw logo paths absolute to the mount", () => {
+    expect(agentLogoUrl("/ui")).toBe("/ui/creative-claw.png");
+    expect(agentLogoUrl("/apps/openclaw/")).toBe("/apps/openclaw/creative-claw.png");
   });
 
-  it("uses a root-relative fallback when no basePath is configured", () => {
-    expect(agentLogoUrl("")).toBe("/favicon.svg");
+  it("uses the Creative Claw logo at the root when no basePath is configured", () => {
+    expect(agentLogoUrl("")).toBe("/creative-claw.png");
   });
 });
 

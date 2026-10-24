@@ -135,6 +135,7 @@ function launcherEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   delete env.OPENCLAW_DISABLE_BUNDLED_PLUGINS;
   delete env.OPENCLAW_HOME;
   delete env.OPENCLAW_STATE_DIR;
+  delete env.OPENCLAW_TEST_FAST;
   delete env.OPENCLAW_TEST_TRUST_BUNDLED_PLUGINS_DIR;
   delete env.NODE_COMPILE_CACHE;
   delete env.NODE_DISABLE_COMPILE_CACHE;
@@ -702,6 +703,65 @@ describe("openclaw launcher", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toBe("RUNTIME ENTRY\n");
     expect(result.stdout).not.toContain("PRECOMPUTED");
+  });
+
+  it("uses branded config candidates and ignores the upstream product path", async () => {
+    const fixtureRoot = await makeLauncherFixture(fixtureRoots);
+    const creativeHome = path.join(fixtureRoot, "home");
+    const upstreamConfigDir = path.join(creativeHome, ".openclaw");
+    const brandedConfigDir = path.join(creativeHome, ".creativeclaw");
+    await fs.mkdir(upstreamConfigDir, { recursive: true });
+    await fs.mkdir(brandedConfigDir, { recursive: true });
+    await fs.writeFile(
+      path.join(fixtureRoot, "package.json"),
+      JSON.stringify({ openclawConfig: { name: "creativeclaw", configDir: ".creativeclaw" } }),
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(fixtureRoot, "dist", "cli-startup-metadata.json"),
+      JSON.stringify({ rootHelpText: "PRECOMPUTED creative help\n" }),
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(fixtureRoot, "dist", "entry.js"),
+      "process.stdout.write('RUNTIME ENTRY\\n');\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(upstreamConfigDir, "openclaw.json"),
+      JSON.stringify({ plugins: { slots: { memory: "upstream-only" } } }),
+      "utf8",
+    );
+
+    const upstreamOnly = spawnSync(
+      process.execPath,
+      [path.join(fixtureRoot, "openclaw.mjs"), "--help"],
+      {
+        cwd: fixtureRoot,
+        env: launcherEnv({ OPENCLAW_HOME: creativeHome }),
+        encoding: "utf8",
+      },
+    );
+    expect(upstreamOnly.status).toBe(0);
+    expect(upstreamOnly.stdout).toBe("PRECOMPUTED creative help\n");
+
+    await fs.writeFile(
+      path.join(brandedConfigDir, "creativeclaw.json"),
+      JSON.stringify({ plugins: { slots: { memory: "visual-memory" } } }),
+      "utf8",
+    );
+    const branded = spawnSync(
+      process.execPath,
+      [path.join(fixtureRoot, "openclaw.mjs"), "--help"],
+      {
+        cwd: fixtureRoot,
+        env: launcherEnv({ OPENCLAW_HOME: creativeHome }),
+        encoding: "utf8",
+      },
+    );
+    expect(branded.status).toBe(0);
+    expect(branded.stdout).toBe("RUNTIME ENTRY\n");
+    expect(branded.stdout).not.toContain("PRECOMPUTED");
   });
 
   it("checks legacy config candidates before using precomputed root help", async () => {

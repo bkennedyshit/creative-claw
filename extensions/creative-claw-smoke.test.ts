@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,10 +15,12 @@ import { join } from "node:path";
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 // ---------- REAL modules under test ----------
-import { decodeImageRGBA } from "./creative-engines/src/ffi/codec.js";
+import { decodeImageRGBA, probeDurationSec } from "./creative-engines/src/ffi/codec.js";
 import { resolveBinaryPath } from "./creative-engines/src/ffi/loader.js";
 // cross-plugin GPU coop global slot — cleaned between tests (isolate: false lane)
 import { GPU_BROKER_HANDLE_KEY } from "./creative-engines/src/gpu-broker-handle.js";
+import { PipelineExecutor } from "./creative-engines/src/graph/executor.js";
+import type { Graph } from "./creative-engines/src/graph/types.js";
 import { AudioEngineRuntime } from "./creative-engines/src/runtime/audio.js";
 // creative-engines: native in-process engine runtimes + the real path resolver
 import { ImageEngineRuntime } from "./creative-engines/src/runtime/image.js";
@@ -438,11 +440,42 @@ describe("Creative Claw Smoke — Real Modules (no external deps)", () => {
 describe("Creative Claw Smoke — GPU + Engines Integration", () => {
   let tempDir: string;
   let inputPng: string;
+  let inputVideo: string;
 
   beforeAll(() => {
     tempDir = mkdtempSync(join(tmpdir(), "cc-smoke-engines-"));
     inputPng = join(tempDir, "input-4x4.png");
     writeFileSync(inputPng, Buffer.from(PNG_4X4_RGBA_BASE64, "base64"));
+    inputVideo = join(tempDir, "input-2s.mp4");
+    if (FFMPEG_AVAILABLE) {
+      execFileSync(
+        "ffmpeg",
+        [
+          "-y",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=size=160x90:rate=24",
+          "-f",
+          "lavfi",
+          "-i",
+          "sine=frequency=440:sample_rate=48000",
+          "-t",
+          "2",
+          "-c:v",
+          "libx264",
+          "-pix_fmt",
+          "yuv420p",
+          "-c:a",
+          "aac",
+          "-shortest",
+          inputVideo,
+        ],
+        { stdio: "pipe" },
+      );
+    }
   });
 
   afterAll(() => {
@@ -518,6 +551,68 @@ describe("Creative Claw Smoke — GPU + Engines Integration", () => {
         }
       } finally {
         await Promise.all(runtimes.map((r) => r.shutdown()));
+      }
+    },
+  );
+
+  it.skipIf(!ENGINES_AVAILABLE || !FFMPEG_AVAILABLE)(
+    "video creator graph: a real cut feeds a real thumbnail node",
+    async () => {
+      const runtime = new VideoEngineRuntime();
+      await runtime.start();
+      try {
+        expect(runtime.isAvailable(), `video engine unavailable: ${runtime.reason()}`).toBe(true);
+
+        const cutVideo = join(tempDir, "creator-cut.mp4");
+        const thumbnail = join(tempDir, "creator-thumbnail.png");
+        const graph: Graph = {
+          id: "creator-cut-and-thumbnail",
+          nodes: [
+            {
+              id: "select",
+              engine: "video",
+              op: "cut_clip",
+              input: inputVideo,
+              output: cutVideo,
+              params: { start_sec: 0.25, end_sec: 1.25, stream_copy: false },
+            },
+            {
+              id: "thumbnail",
+              engine: "video",
+              op: "thumbnail",
+              output: thumbnail,
+              params: { time_sec: 0.5 },
+            },
+          ],
+          connections: [
+            {
+              from_node: "select",
+              from_output: "video",
+              to_node: "thumbnail",
+              to_input: "video",
+            },
+          ],
+        };
+
+        const result = await new PipelineExecutor({ video: runtime }).execute(graph);
+        expect(result.ok, JSON.stringify(result.nodes)).toBe(true);
+        expect(result.nodes.map((node) => [node.node_id, node.status])).toStrictEqual([
+          ["select", "ok"],
+          ["thumbnail", "ok"],
+        ]);
+        expect(existsSync(cutVideo)).toBe(true);
+        expect(existsSync(thumbnail)).toBe(true);
+
+        const duration = await probeDurationSec(cutVideo, undefined);
+        expect(duration).toBeGreaterThan(0.8);
+        expect(duration).toBeLessThan(1.2);
+
+        const decodedThumbnail = await decodeImageRGBA(thumbnail);
+        expect(decodedThumbnail.width).toBe(160);
+        expect(decodedThumbnail.height).toBe(90);
+        expect(decodedThumbnail.data.some((byte) => byte !== 0)).toBe(true);
+      } finally {
+        await runtime.shutdown();
       }
     },
   );

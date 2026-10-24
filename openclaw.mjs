@@ -424,8 +424,7 @@ const hasLauncherContainerTarget = (argv) => {
     return true;
   }
   const args = argv.slice(2);
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
+  for (const arg of args) {
     if (!arg || arg === "--") {
       return false;
     }
@@ -517,23 +516,68 @@ const resolveLauncherUserPath = (input) => {
   return path.resolve(input);
 };
 
+const resolveLauncherBranding = () => {
+  let configured;
+  try {
+    const packageDir = process.env.OPENCLAW_PACKAGE_DIR?.trim();
+    const packageJsonPath = packageDir
+      ? path.join(
+          packageDir === "~"
+            ? os.homedir()
+            : packageDir.startsWith("~/")
+              ? os.homedir() + packageDir.slice(1)
+              : packageDir,
+          "package.json",
+        )
+      : fileURLToPath(new URL("./package.json", import.meta.url));
+    configured = JSON.parse(readFileSync(packageJsonPath, "utf8"))?.openclawConfig;
+  } catch {
+    configured = undefined;
+  }
+  const override = (value) => {
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    return trimmed || undefined;
+  };
+  const appName = override(configured?.name) ?? "openclaw";
+  return {
+    stateDirname: override(configured?.configDir) ?? ".openclaw",
+    configFilename:
+      override(configured?.configFileName) ??
+      (appName === "openclaw" ? "openclaw.json" : `${appName}.json`),
+  };
+};
+
 const resolveLauncherConfigPaths = () => {
   const explicit = process.env.OPENCLAW_CONFIG_PATH?.trim();
   if (explicit) {
     return [resolveLauncherUserPath(explicit)];
   }
+
+  // This standalone launcher cannot import the TypeScript branding/path stack
+  // without defeating its startup fast path. Keep this candidate construction
+  // synchronized with src/infra/app-branding.ts and
+  // src/config/paths.ts#resolveDefaultConfigCandidates.
+  const { stateDirname, configFilename } = resolveLauncherBranding();
   const stateOverride = process.env.OPENCLAW_STATE_DIR?.trim();
-  if (stateOverride) {
-    const stateDir = resolveLauncherUserPath(stateOverride);
-    return [path.join(stateDir, "openclaw.json"), path.join(stateDir, "clawdbot.json")];
-  }
   const homeDir = resolveLauncherHomeDir();
-  return [
-    path.join(homeDir, ".openclaw", "openclaw.json"),
-    path.join(homeDir, ".openclaw", "clawdbot.json"),
-    path.join(homeDir, ".clawdbot", "openclaw.json"),
-    path.join(homeDir, ".clawdbot", "clawdbot.json"),
-  ];
+  const canonicalStateDir = stateOverride
+    ? resolveLauncherUserPath(stateOverride)
+    : path.join(homeDir, stateDirname);
+  if (process.env.OPENCLAW_TEST_FAST === "1") {
+    return [path.join(canonicalStateDir, configFilename)];
+  }
+
+  const configPaths = [];
+  if (stateOverride) {
+    configPaths.push(
+      path.join(canonicalStateDir, configFilename),
+      path.join(canonicalStateDir, "clawdbot.json"),
+    );
+  }
+  for (const stateDir of [path.join(homeDir, stateDirname), path.join(homeDir, ".clawdbot")]) {
+    configPaths.push(path.join(stateDir, configFilename), path.join(stateDir, "clawdbot.json"));
+  }
+  return configPaths;
 };
 
 const shouldDeferRootHelpToRuntimeEntry = () => {

@@ -246,7 +246,7 @@ export function resolveChatAvatarRenderUrl(
 }
 
 export function agentLogoUrl(basePath: string): string {
-  return controlUiPublicAssetPath("favicon.svg", basePath);
+  return controlUiPublicAssetPath("creative-claw.png", basePath);
 }
 
 export function assistantAvatarFallbackUrl(basePath: string): string {

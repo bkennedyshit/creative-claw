@@ -285,9 +285,9 @@ export function renderLoginGate(state: AppViewState) {
     <div class="login-gate">
       <div class="login-gate__card">
         <div class="login-gate__header">
-          <img class="login-gate__logo" src=${faviconSrc} alt="OpenClaw" />
-          <div class="login-gate__title">OpenClaw</div>
-          <div class="login-gate__sub">${t("login.subtitle")}</div>
+          <img class="login-gate__logo" src=${faviconSrc} alt="Creative Claw" />
+          <div class="login-gate__title">Creative Claw</div>
+          <div class="login-gate__sub">Frontier reasoning. Local perception. Native execution.</div>
         </div>
         <div class="login-gate__form">
           <label class="field">

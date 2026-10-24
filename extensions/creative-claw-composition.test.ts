@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 /**
  * Creative Claw Composition Test
  *
@@ -11,9 +14,6 @@
  * track the actual registered tool surface.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 // The only mock: the SDK boundary. definePluginEntry just returns the entry so
 // we can call `.register(api)` directly. Everything else runs for real.
@@ -21,9 +21,9 @@ vi.mock("openclaw/plugin-sdk/plugin-entry", () => ({
   definePluginEntry: (entry: unknown) => entry,
 }));
 
+import creativeEnginesPlugin from "./creative-engines/index.js";
 import gpuBrokerPlugin from "./gpu-broker/index.js";
 import visualMemoryPlugin from "./visual-memory/index.js";
-import creativeEnginesPlugin from "./creative-engines/index.js";
 
 interface RegisteredTool {
   name: string;
@@ -46,6 +46,10 @@ interface RegisteredTrustedToolPolicy {
   description: string;
   evaluate: (event: { toolName: string; params: Record<string, unknown> }) => unknown;
 }
+interface RegisteredGatewayMethod {
+  method: string;
+  handler: (ctx: { params: Record<string, unknown> }) => unknown;
+}
 
 function createMockApi(storePath: string) {
   const tools: RegisteredTool[] = [];
@@ -54,6 +58,7 @@ function createMockApi(storePath: string) {
   const providers: { type: string; provider: unknown }[] = [];
   const lifecycles: unknown[] = [];
   const trustedToolPolicies: RegisteredTrustedToolPolicy[] = [];
+  const gatewayMethods: RegisteredGatewayMethod[] = [];
 
   const runContext = {
     gpuBroker: { release: async () => {}, reclaim: async () => {} },
@@ -66,6 +71,7 @@ function createMockApi(storePath: string) {
     providers,
     lifecycles,
     trustedToolPolicies,
+    gatewayMethods,
     api: {
       registerTool(tool: RegisteredTool) {
         tools.push(tool);
@@ -106,6 +112,12 @@ function createMockApi(storePath: string) {
       },
       registerTrustedToolPolicy(policy: RegisteredTrustedToolPolicy) {
         trustedToolPolicies.push(policy);
+      },
+      registerGatewayMethod(
+        method: string,
+        handler: (ctx: { params: Record<string, unknown> }) => unknown,
+      ) {
+        gatewayMethods.push({ method, handler });
       },
       getPluginConfig: () => ({ embedder: "hash", protectContent: true, storePath }),
       getRunContext: () => runContext,
@@ -163,6 +175,7 @@ describe("Creative Claw Composition", () => {
 
       expect(mockApi.services).toHaveLength(1);
       expect(mockApi.services[0]!.id).toBe("gpu-broker");
+      expect(mockApi.gatewayMethods.map((entry) => entry.method)).toContain("gpu.status");
 
       // Both hooks ride the real "agent:bootstrap" event and are uniquely named.
       const gateHooks = mockApi.hooks.filter(
@@ -235,6 +248,18 @@ describe("Creative Claw Composition", () => {
 
       // Runtime lifecycle registered (in-process FFI load/unload, no co-process).
       expect(mockApi.lifecycles).toHaveLength(1);
+      expect(mockApi.gatewayMethods.map((entry) => entry.method).toSorted()).toStrictEqual(
+        [
+          "audio.apply",
+          "audio.list_ops",
+          "image.apply",
+          "image.list_ops",
+          "vector.apply",
+          "vector.list_ops",
+          "video.apply",
+          "video.list_ops",
+        ].toSorted(),
+      );
     });
 
     /**

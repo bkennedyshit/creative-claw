@@ -155,7 +155,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
     normalized = "/";
   }
   if (normalized === "/") {
-    return "chat";
+    return "creativeStudio";
   }
   return PATH_TO_TAB.get(normalized) ?? null;
 }

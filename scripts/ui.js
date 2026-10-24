@@ -300,6 +300,20 @@ function resolveScriptAction(action) {
   return null;
 }
 
+function resolveUiPackageBin(packageName, relativeBin) {
+  const uiRequire = createRequire(path.join(uiDir, "package.json"));
+  const packageJson = uiRequire.resolve(`${packageName}/package.json`);
+  return path.join(path.dirname(packageJson), relativeBin);
+}
+
+function runUiBuild(args) {
+  run(process.execPath, [
+    resolveUiPackageBin("vite", path.join("bin", "vite.js")),
+    "build",
+    ...args,
+  ]);
+}
+
 export function main(argv = process.argv.slice(2)) {
   const [action, ...rest] = argv;
   if (!action) {
@@ -314,7 +328,9 @@ export function main(argv = process.argv.slice(2)) {
   }
 
   if (process.env.OPENCLAW_BUILD_ALL_NO_PNPM === "1" && action === "build") {
-    run(process.execPath, [path.join(repoRoot, "node_modules/vite/bin/vite.js"), "build", ...rest]);
+    // Resolve Vite from the UI workspace. pnpm does not guarantee a root-level
+    // node_modules/vite link, so hardcoding repoRoot fails on valid installs.
+    runUiBuild(rest);
     return;
   }
 
@@ -327,6 +343,14 @@ export function main(argv = process.argv.slice(2)) {
     const installEnv = process.env;
     const installArgs = ["install"];
     runPnpmSync(installArgs, installEnv);
+  }
+
+  if (action === "build") {
+    // Bypass workspace .bin shims: a previous install can leave a Windows
+    // junction targeting a pruned virtual-store peer context even though the
+    // hoisted package is valid and Node-resolvable.
+    runUiBuild(rest);
+    return;
   }
 
   runPnpm(["run", script, ...rest]);
