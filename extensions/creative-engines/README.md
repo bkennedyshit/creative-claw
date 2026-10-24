@@ -40,6 +40,28 @@ The current hash embedder provides lexical/byte similarity, not semantic vision.
 
 ## Edit and run a workflow
 
+The **Workflow launchpad** offers 28 editable starting points: cinematic warm
+film, monochrome, golden-hour and cool grades, dreamy motion, retro chromatic
+film, ACES/Reinhard tone mapping, flips, speed changes, sharpening, five social
+exports, three thumbnail workflows, soundtrack extraction/cleanup, and four
+image workflows. Search by name or operation, or filter by category. Unavailable
+engines disable the relevant starter rather than pretending it can run.
+
+Choose **Use …** to create an independent saved graph. Every parameter and
+connection remains editable; the recipes are starting points, not limits.
+Save an edited draft before loading another starter. **Duplicate workflow**
+copies the current graph, including unsaved edits, without overwriting the
+original. **Export workflow JSON** downloads a portable canonical graph;
+**Import workflow JSON** validates it on the Gateway and saves it under a new
+ID. Imported paths and parameters are retained; inspect them before running.
+Import is capped at 64 KB, matching the workflow store's record size.
+
+Social presets fit/pad rather than stretch or automatically crop/reframe.
+Slow motion changes playback speed; it does not synthesize new frames. Audio
+cleanup exports mono WAV, not a cleaned soundtrack remuxed into the video.
+Video speed changes support clips with or without audio and match audio tempo
+to the selected speed multiplier.
+
 1. In **Editable workflows**, choose **New workflow**, name it, and enter the
    absolute source path. Select the source's media type.
 2. Use **Add operation** to insert nodes. Compatible operations connect to the
@@ -113,6 +135,11 @@ source parentage, capability version, and resolved parameters.
 - `creative.studio.graph.run`: accepts `id`, the expected `revision`, `input`, and
   optional `output`. Validates and executes the stored graph, returning per-node results.
 - `vfx.list_ops`: reports bridge availability and the four native VFX descriptors.
+- `creative.studio.recipes`: lists the editable starter workflows.
+- `creative.studio.recipe.create`: accepts recipe `id` and optional source `input`,
+  creating an independent saved graph.
+- `creative.studio.graph.copy`: accepts canonical `graph` JSON and saves a new
+  independent graph, remapping graph-boundary connections to the new ID.
 - `/plugins/creative-engines/artifacts/<artifact-id>`: authenticated media preview
   for recorded artifacts only. Studio fetches the preview with Gateway credentials.
 

@@ -19,6 +19,7 @@ import { resolveFfprobe, runCapture, type CodecConfig } from "./ffi/codec.js";
 import { PipelineExecutor, type ExecutionEngine } from "./graph/executor.js";
 import type { Graph } from "./graph/types.js";
 import { isStudioFileType, prepareStudioGraph } from "./studio-graph.js";
+import { buildStudioRecipe, STUDIO_RECIPES } from "./studio-recipes.js";
 
 type Source = { asset: CreativeAsset; originalPath: string };
 type Run = { graph: CreativeGraph; artifact: CreativeArtifact; input: string; output: string };
@@ -249,6 +250,28 @@ export class CreativeStudio {
       tags: [],
       activeGraphId: graph.id,
     });
+  }
+
+  async copyGraph(value: unknown) {
+    if (!Check(CreativeGraphSchema, value)) {
+      throw new Error("Expected a canonical workflow JSON document");
+    }
+    const graph = structuredClone(value);
+    const originalId = graph.id;
+    graph.id = `workflow-${randomUUID()}`;
+    graph.projectId = PROJECT_ID;
+    graph.name = `${graph.name} (copy)`;
+    graph.revision = 0;
+    graph.createdAt = graph.updatedAt = new Date().toISOString();
+    for (const edge of graph.edges) {
+      if (edge.sourceNodeId === originalId) {
+        edge.sourceNodeId = graph.id;
+      }
+      if (edge.targetNodeId === originalId) {
+        edge.targetNodeId = graph.id;
+      }
+    }
+    return this.saveGraph(graph);
   }
 
   async run(params: Record<string, unknown>) {
@@ -507,6 +530,17 @@ export function registerCreativeStudio(
     });
   };
   register("creative.studio.graph.save", (params) => studio.saveGraph(params.graph));
+  register("creative.studio.recipes", async () => ({
+    recipes: STUDIO_RECIPES.map(({ steps, ...recipe }) =>
+      Object.assign(recipe, { operations: steps.map(([capability]) => capability) }),
+    ),
+  }));
+  register("creative.studio.recipe.create", async (params) => {
+    const graph = buildStudioRecipe(typeof params.id === "string" ? params.id : "");
+    graph.metadata.sourcePath = typeof params.input === "string" ? params.input : "";
+    return studio.saveGraph(graph);
+  });
+  register("creative.studio.graph.copy", (params) => studio.copyGraph(params.graph));
   register("creative.studio.graph.get", async (params) => ({
     graph: await studio.getGraph(typeof params.id === "string" ? params.id : ""),
   }));

@@ -39,6 +39,7 @@ import {
   encodeMaskPNG,
   encodeVideoRGBA,
   resolveFfmpeg,
+  resolveFfprobe,
   runCapture,
 } from "./codec.js";
 import { DIMENSION_SWAP, MASK_FILTERS, RESIZING_FILTERS } from "./image-bindings.js";
@@ -65,7 +66,10 @@ function paramValue(p: FfiParam, params: Record<string, unknown>): number | stri
     return v ? 1 : 0;
   }
   if (p.type === "string") {
-    return String(v);
+    if (typeof v !== "string") {
+      throw new Error(`Parameter ${p.name} must be a string`);
+    }
+    return v;
   }
   return Number(v);
 }
@@ -201,8 +205,8 @@ function resolveOutputDims(
     resolved[param] = requirePositiveDim(op.name, param, raw, value);
     dims.push(value);
   }
-  const width = dims[0]!;
-  const height = dims[1]!;
+  const width = dims[0];
+  const height = dims[1];
 
   if (contract.origin) {
     const rawX = params[contract.origin.x];
@@ -629,7 +633,7 @@ export class NativeDispatch {
     let height = 0;
     // decodeImageRGBA yields Buffer<ArrayBufferLike>; widen the accumulator so
     // the decoded buffer assigns without narrowing to Buffer<ArrayBuffer>.
-    let data: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+    let data: Buffer = Buffer.alloc(0);
     if (op.kind !== "generator") {
       const img = await decodeImageRGBA(input);
       data = img.data;
@@ -786,7 +790,13 @@ export class NativeDispatch {
   ): Promise<void> {
     const ffmpeg = resolveFfmpeg(this.codec);
     const num = (k: string, d: number) => Number(params[k] ?? d);
-    const str = (k: string, d: string) => String(params[k] ?? d);
+    const str = (k: string, d: string) => {
+      const value = params[k] ?? d;
+      if (typeof value !== "string") {
+        throw new Error(`Parameter ${k} must be a string`);
+      }
+      return value;
+    };
     let args: string[];
     switch (op.name) {
       case "cut_clip": {
@@ -826,19 +836,48 @@ export class NativeDispatch {
       }
       case "speed_ramp": {
         const f = num("factor", 2);
-        const atempo = Math.min(2, Math.max(0.5, 1 / f));
+        if (!Number.isFinite(f) || f <= 0) {
+          throw new Error("Speed factor must be positive");
+        }
+        const audio = await runCapture(resolveFfprobe(this.codec), [
+          "-v",
+          "error",
+          "-select_streams",
+          "a:0",
+          "-show_entries",
+          "stream=index",
+          "-of",
+          "csv=p=0",
+          input,
+        ]);
+        // atempo uses the same speed multiplier as video; chain bounded stages
+        // instead of clamping, which silently desynchronizes extreme speeds.
+        let remaining = f;
+        const tempo: number[] = [];
+        while (remaining > 2) {
+          tempo.push(2);
+          remaining /= 2;
+        }
+        while (remaining < 0.5) {
+          tempo.push(0.5);
+          remaining /= 0.5;
+        }
+        tempo.push(remaining);
         args = [
           "-y",
           "-v",
           "error",
           "-i",
           input,
-          "-filter_complex",
-          `[0:v]setpts=${1 / f}*PTS[v];[0:a]atempo=${atempo}[a]`,
+          "-vf",
+          `setpts=${1 / f}*(PTS-STARTPTS)`,
           "-map",
-          "[v]",
+          "0:v:0",
           "-map",
-          "[a]",
+          "0:a:0?",
+          ...(audio.toString("utf8").trim()
+            ? ["-af", tempo.map((value) => `atempo=${value}`).join(",")]
+            : []),
           "-c:v",
           "libx264",
           "-c:a",
@@ -1059,7 +1098,7 @@ export class NativeDispatch {
     try {
       let current = input;
       for (let i = 0; i < steps.length; i++) {
-        const step = steps[i]!;
+        const step = steps[i];
         const isLast = i === steps.length - 1;
         const target = isLast ? output : join(dir, `step_${i}${extForOutput(output)}`);
         const res = await this.applyOp(current, step.op, target, step.params ?? {});
@@ -1102,7 +1141,9 @@ export class NativeDispatch {
       const out = await runCapture(ffmpeg, args, undefined, {
         includeStderr: true,
         allowNonZeroExit: true,
-      }).catch((e: Error) => Buffer.from(e.message));
+      }).catch((e: unknown) =>
+        Buffer.from(e instanceof Error ? e.message : "Video analysis failed"),
+      );
       return out.toString("utf8");
     };
     if (opName === "detect_scenes") {
@@ -1151,7 +1192,7 @@ export class NativeDispatch {
 function parseSvgPoints(svg: string): number[] {
   const nums: number[] = [];
   for (const m of svg.matchAll(/points\s*=\s*"([^"]+)"/g)) {
-    for (const n of m[1]!
+    for (const n of m[1]
       .split(/[\s,]+/)
       .map(Number)
       .filter((v) => Number.isFinite(v))) {

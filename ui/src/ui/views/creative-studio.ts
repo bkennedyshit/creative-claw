@@ -280,7 +280,7 @@ export function renderCreativeStudio(props: CreativeStudioViewProps) {
         </div>
         <div class="creative-hero__attribution">Built on the OpenClaw runtime</div>
       </section>
-      ${renderMediaTabs(props)}
+      ${renderMediaTabs(props)} ${props.studio ? renderCreativeWorkflow(props.studio) : nothing}
       <section class="card">
         <div class="card-title">Source media</div>
         <label class="field"
@@ -316,7 +316,6 @@ export function renderCreativeStudio(props: CreativeStudioViewProps) {
                 </button>`,
             )}
       </section>
-      ${props.studio ? renderCreativeWorkflow(props.studio) : nothing}
       <div class="creative-studio__grid">
         <div class="creative-studio__main">${renderActivePanel(props)}</div>
         <div class="creative-studio__side">${renderGpuWidget(props.gpu)}</div>

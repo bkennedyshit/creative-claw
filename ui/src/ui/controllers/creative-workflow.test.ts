@@ -68,6 +68,86 @@ function setup() {
 }
 
 describe("Creative workflow editor", () => {
+  it("filters workflow starters and identifies unavailable native dependencies", () => {
+    const { editor } = setup();
+    editor.recipes = [
+      {
+        id: "cut",
+        name: "Clean cut",
+        category: "Editing",
+        description: "Trim footage",
+        sourceType: "video",
+        operations: ["video.cut_clip"],
+      },
+      {
+        id: "warm",
+        name: "Warm film",
+        category: "Looks",
+        description: "Color grading",
+        sourceType: "video",
+        operations: ["vfx.video_color_grade"],
+      },
+    ];
+    editor.filterRecipes("warm");
+    expect(editor.filteredRecipes.map((recipe) => recipe.id)).toEqual(["warm"]);
+    expect(editor.recipeUnavailable(editor.recipes[1])).toContain("vfx");
+    editor.filterRecipes("", "Editing");
+    expect(editor.filteredRecipes.map((recipe) => recipe.id)).toEqual(["cut"]);
+    expect(editor.recipeUnavailable(editor.recipes[0])).toBe("");
+  });
+
+  it("loads a recipe as an independent saved workflow and clears the old export target", async () => {
+    const { editor, studio, request } = setup();
+    const fixture = setup();
+    fixture.editor.add("image.invert");
+    const graph = {
+      ...fixture.editor.graph!,
+      name: "Starter",
+      revision: 1,
+      metadata: { sourcePath: "chosen.png" },
+    };
+    studio.updateRunForm({ input: "chosen.png", output: "previous-export.png" });
+    request.mockResolvedValue({ graph });
+    await editor.useRecipe("image-invert");
+    expect(request).toHaveBeenCalledWith("creative.studio.recipe.create", {
+      id: "image-invert",
+      input: "chosen.png",
+    });
+    expect(editor.graph!.name).toBe("Starter");
+    expect(editor.dirty).toBe(false);
+    expect(studio.runForm.output).toBe("");
+  });
+
+  it("protects unsaved work on recipe/import switches and duplicates current draft edits", async () => {
+    const { editor, request } = setup();
+    editor.add("image.invert");
+    editor.parameters(editor.graph!.nodes[0].id, { amount: 2.5 });
+    await editor.useRecipe("another");
+    await editor.importGraph("{}");
+    expect(request).not.toHaveBeenCalled();
+    const graph = structuredClone(editor.graph!);
+    request.mockResolvedValue({ graph: { ...graph, id: "new-copy", name: "Copy", revision: 1 } });
+    await editor.duplicate();
+    expect(request).toHaveBeenCalledWith("creative.studio.graph.copy", {
+      graph: { ...graph, metadata: { ...graph.metadata, sourcePath: "" } },
+    });
+    expect(editor.graph!.nodes[0].parameters.amount).toBe(2.5);
+    expect(editor.graph!.id).toBe("new-copy");
+  });
+
+  it("rejects malformed/oversized imports and sends valid JSON to authoritative graph validation", async () => {
+    const { editor, request } = setup();
+    await editor.importGraph("not JSON");
+    expect(editor.message).toContain("SyntaxError");
+    await editor.importGraph(" ".repeat(65537));
+    expect(editor.message).toContain("64 KB");
+    expect(request).not.toHaveBeenCalled();
+    request.mockResolvedValue({ error: "Expected a canonical workflow JSON document" });
+    await editor.importGraph('{"nodes":[]}');
+    expect(request).toHaveBeenCalledWith("creative.studio.graph.copy", { graph: { nodes: [] } });
+    expect(editor.message).toContain("canonical workflow");
+  });
+
   it("adds typed nodes, connects a chain, edits parameters/layout, and removes incident edges", () => {
     const { editor } = setup();
     editor.add("image.invert");

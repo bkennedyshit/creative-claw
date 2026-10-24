@@ -2,6 +2,7 @@ import { html, nothing, svg } from "lit";
 import type { CreativeStudioController } from "../controllers/creative-studio.ts";
 import type { CreativeWorkflowController } from "../controllers/creative-workflow.ts";
 import { renderParameterFields } from "./creative-parameters.ts";
+import { renderCreativeRecipes } from "./creative-recipes.ts";
 
 function connectionSelect(
   editor: CreativeWorkflowController,
@@ -49,6 +50,7 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
       Chain local operations. Select a node to edit parameters and connections. Drag nodes or move
       them with arrow keys.
     </p>
+    ${renderCreativeRecipes(studio)}
     <div class="creative-workflow__toolbar">
       <label class="field"
         ><span>Saved workflow</span>
@@ -81,6 +83,33 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
       <button class="btn" ?disabled=${disabled || !graph} @click=${() => void editor.save()}>
         Save & validate
       </button>
+      <button class="btn" ?disabled=${disabled || !graph} @click=${() => void editor.duplicate()}>
+        Duplicate workflow
+      </button>
+      <button class="btn" ?disabled=${disabled || !graph} @click=${() => editor.exportGraph()}>
+        Export workflow JSON
+      </button>
+      <label class="field"
+        ><span>Import workflow JSON</span
+        ><input
+          aria-label="Import workflow JSON"
+          type="file"
+          accept=".json,application/json"
+          ?disabled=${disabled || editor.dirty}
+          @change=${async (event: Event) => {
+            const input = event.target as HTMLInputElement;
+            const file = input.files?.[0];
+            if (file) {
+              if (file.size > 65536) {
+                editor.message = "Workflow JSON exceeds 64 KB";
+                studio.updateRunForm({});
+              } else {
+                await editor.importGraph(await file.text());
+              }
+            }
+            input.value = "";
+          }}
+      /></label>
       <button
         class="btn primary"
         ?disabled=${disabled || !graph?.nodes.length || !studio.runForm.input.trim()}
@@ -162,6 +191,16 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
             /></label>
           </div>
           <label class="field"
+            ><span>Find an operation</span
+            ><input
+              type="search"
+              aria-label="Find an operation"
+              .value=${editor.paletteQuery}
+              placeholder="Search names and descriptions"
+              @input=${(event: Event) =>
+                editor.filterPalette((event.target as HTMLInputElement).value)}
+          /></label>
+          <label class="field"
             ><span>Add operation</span>
             <select
               aria-label="Add operation"
@@ -173,15 +212,21 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
               }}
             >
               <option value="">Choose an operation to add…</option>
-              ${editor.capabilities.map(
-                (descriptor) =>
-                  html`<option value=${descriptor.id}>
-                    ${descriptor.id} ·
-                    ${descriptor.label}${descriptor.requirements.models?.length
-                      ? " · model required"
-                      : ""}
-                  </option>`,
-              )}
+              ${editor.capabilities
+                .filter((descriptor) =>
+                  `${descriptor.id} ${descriptor.label} ${descriptor.description}`
+                    .toLowerCase()
+                    .includes(editor.paletteQuery.toLowerCase().trim()),
+                )
+                .map(
+                  (descriptor) =>
+                    html`<option value=${descriptor.id}>
+                      ${descriptor.id} ·
+                      ${descriptor.label}${descriptor.requirements.models?.length
+                        ? " · model required"
+                        : ""}
+                    </option>`,
+                )}
             </select>
           </label>
           <div class="creative-workflow__scroll">

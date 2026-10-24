@@ -8,6 +8,15 @@ import type { CreativeStudioController, CreativeStudioHost } from "./creative-st
 type FileType = "image" | "audio" | "video" | "vector";
 const FILE_TYPES = new Set(["image", "audio", "video", "vector"]);
 type Connection = { node: string; port: string; label: string };
+export type CreativeRecipe = {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  sourceType: FileType;
+  operations: string[];
+  note?: string;
+};
 
 /** Canonical graph editing state; the gateway remains authoritative for validation. */
 export class CreativeWorkflowController {
@@ -19,6 +28,10 @@ export class CreativeWorkflowController {
   issues: string[] = [];
   private validationPassed = false;
   selectedNodeId = "";
+  recipes: CreativeRecipe[] = [];
+  recipeQuery = "";
+  recipeCategory = "All";
+  paletteQuery = "";
   private drag?: { id: string; x: number; y: number; origin: { x: number; y: number } };
 
   constructor(
@@ -43,6 +56,135 @@ export class CreativeWorkflowController {
 
   capability(id: string) {
     return this.capabilities.find((cap) => cap.id === id);
+  }
+
+  async loadRecipes() {
+    if (!this.host.client || !this.host.connected) {
+      return;
+    }
+    try {
+      const result = await this.host.client.request<{ recipes?: CreativeRecipe[] }>(
+        "creative.studio.recipes",
+        {},
+      );
+      this.recipes = result.recipes ?? [];
+    } catch {
+      this.recipes = [];
+    }
+    this.host.requestUpdate();
+  }
+
+  filterRecipes(query: string, category = this.recipeCategory) {
+    this.recipeQuery = query;
+    this.recipeCategory = category;
+    this.host.requestUpdate();
+  }
+
+  filterPalette(query: string) {
+    this.paletteQuery = query;
+    this.host.requestUpdate();
+  }
+
+  get filteredRecipes() {
+    const query = this.recipeQuery.toLowerCase().trim();
+    return this.recipes.filter(
+      (recipe) =>
+        (this.recipeCategory === "All" || recipe.category === this.recipeCategory) &&
+        `${recipe.name} ${recipe.description} ${recipe.operations.join(" ")}`
+          .toLowerCase()
+          .includes(query),
+    );
+  }
+
+  recipeUnavailable(recipe: CreativeRecipe) {
+    const missing = [
+      ...new Set(recipe.operations.map((operation) => operation.split(".")[0])),
+    ].filter(
+      (engine) => !this.studio.engines[engine as keyof typeof this.studio.engines]?.available,
+    );
+    return missing.length ? `Requires available engine: ${missing.join(", ")}` : "";
+  }
+
+  async useRecipe(id: string) {
+    if (this.dirty || this.busy || this.studio.running) {
+      return;
+    }
+    await this.adoptGraph("creative.studio.recipe.create", {
+      id,
+      input: this.studio.runForm.input,
+    });
+  }
+
+  async duplicate() {
+    if (!this.graph || this.busy || this.studio.running) {
+      return;
+    }
+    await this.adoptGraph("creative.studio.graph.copy", {
+      graph: {
+        ...this.graph,
+        metadata: { ...this.graph.metadata, sourcePath: this.studio.runForm.input },
+      },
+    });
+  }
+
+  async importGraph(text: string) {
+    if (this.dirty || this.busy || this.studio.running) {
+      return;
+    }
+    try {
+      if (text.length > 65536) {
+        throw new Error("Workflow JSON exceeds 64 KB");
+      }
+      await this.adoptGraph("creative.studio.graph.copy", { graph: JSON.parse(text) as unknown });
+    } catch (error) {
+      this.message = String(error);
+      this.host.requestUpdate();
+    }
+  }
+
+  private async adoptGraph(method: string, params: Record<string, unknown>) {
+    if (!this.host.client || !this.host.connected) {
+      return;
+    }
+    this.busy = true;
+    this.host.requestUpdate();
+    try {
+      const result = await this.host.client.request<{ graph?: CreativeGraph; error?: string }>(
+        method,
+        params,
+      );
+      if (!result.graph || result.error) {
+        throw new Error(result.error || "Workflow could not be loaded");
+      }
+      this.saved = [result.graph, ...this.saved.filter((entry) => entry.id !== result.graph!.id)];
+      this.busy = false;
+      this.dirty = false;
+      this.select(result.graph.id);
+      this.studio.updateRunForm({ output: "" });
+      this.message = "Workflow loaded. Set your source, adjust any node, then run.";
+    } catch (error) {
+      this.message = String(error);
+    } finally {
+      this.busy = false;
+      this.host.requestUpdate();
+    }
+  }
+
+  exportGraph() {
+    if (!this.graph) {
+      return;
+    }
+    const graph = {
+      ...this.graph,
+      metadata: { ...this.graph.metadata, sourcePath: this.studio.runForm.input },
+    };
+    const blob = new Blob([JSON.stringify(graph, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${this.graph.name.replace(/[^a-z0-9-]+/gi, "-") || "workflow"}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   restore(graphs: CreativeGraph[], activeId?: string) {

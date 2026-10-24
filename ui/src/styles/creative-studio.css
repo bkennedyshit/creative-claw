@@ -79,6 +79,36 @@
   gap: 16px;
 }
 
+.creative-recipes {
+  margin: 18px 0;
+}
+.creative-recipes > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.creative-recipes__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  max-height: 470px;
+  overflow: auto;
+  margin: 12px 0;
+}
+.creative-recipes__item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.creative-recipes__item p {
+  margin: 0;
+}
+.creative-recipes__item .btn {
+  margin-top: auto;
+}
+
 .creative-hero {
   position: relative;
   isolation: isolate;

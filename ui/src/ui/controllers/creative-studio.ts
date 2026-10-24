@@ -217,6 +217,7 @@ export class CreativeStudioController implements ReactiveController {
       ...CREATIVE_MEDIA_ORDER.map((media) => this.loadEngine(client, media)),
       this.loadGpu(client),
       this.loadRecentOutputs(client),
+      this.workflow.loadRecipes(),
       this.searchMedia(""),
     ]);
     this.host.requestUpdate();

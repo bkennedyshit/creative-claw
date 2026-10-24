@@ -19,9 +19,11 @@ import sharp from "sharp";
 import { Check } from "typebox/value";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { probeDurationSec, resolveFfmpeg, resolveFfprobe, runCapture } from "./ffi/codec.js";
+import { AudioEngineRuntime } from "./runtime/audio.js";
 import { ImageEngineRuntime } from "./runtime/image.js";
 import { VfxEngineRuntime } from "./runtime/vfx.js";
 import { VideoEngineRuntime } from "./runtime/video.js";
+import { buildStudioRecipe, STUDIO_RECIPES } from "./studio-recipes.js";
 import { CreativeStudio } from "./studio.js";
 
 const vfxBinary =
@@ -38,11 +40,13 @@ describe("Creative Studio native slice", () => {
   let studio: CreativeStudio;
   let reopen: () => CreativeStudio;
   let image: ImageEngineRuntime;
+  let audio: AudioEngineRuntime;
   let video: VideoEngineRuntime;
   let vfx: VfxEngineRuntime;
 
   beforeEach(async () => {
     image = new ImageEngineRuntime();
+    audio = new AudioEngineRuntime();
     video = new VideoEngineRuntime();
     vfx = new VfxEngineRuntime(vfxBinary);
     directory = await mkdtemp(join(tmpdir(), "creative-studio-"));
@@ -60,7 +64,7 @@ describe("Creative Studio native slice", () => {
           maxEntries: 10000,
           env,
         }),
-        { image, video, vfx },
+        { image, audio, video, vfx },
         undefined,
         createPluginStateKeyedStoreForTests<CreativeProject>("creative-engines", {
           namespace: "studio-projects",
@@ -77,6 +81,7 @@ describe("Creative Studio native slice", () => {
   });
   afterEach(async () => {
     await image.shutdown();
+    await audio.shutdown();
     await video.shutdown();
     await vfx.shutdown();
     resetPluginStateStoreForTests();
@@ -192,6 +197,122 @@ describe("Creative Studio native slice", () => {
       await expect(reopen().runGraph(draft.graph, "missing-file.png")).rejects.toThrow(/cycle/i);
     },
   );
+
+  it.skipIf(!existsSync(vfxBinary))(
+    "executes every demo recipe against real media and preserves independent copies",
+    async () => {
+      const input = join(directory, "demo.mp4");
+      const png = join(directory, "demo.png");
+      await sharp({
+        create: {
+          width: 64,
+          height: 48,
+          channels: 4,
+          background: { r: 40, g: 100, b: 180, alpha: 1 },
+        },
+      })
+        .png()
+        .toFile(png);
+      await runCapture(resolveFfmpeg(undefined), [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=64x48:rate=12",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=44100",
+        "-t",
+        "1",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        input,
+      ]);
+      for (const recipe of STUDIO_RECIPES) {
+        try {
+          const graph = buildStudioRecipe(recipe.id);
+          const result = await studio.runGraph(graph, recipe.sourceType === "image" ? png : input);
+          expect(result.ok).toBe(true);
+          expect((await readFile(result.output)).byteLength).toBeGreaterThan(0);
+          expect(result.nodes.every((node) => node.status === "ok")).toBe(true);
+          if (result.artifact.kind === "image") {
+            expect((await sharp(result.output).metadata()).width).toBeGreaterThan(0);
+          } else {
+            expect(await probeDurationSec(result.output, undefined)).toBeGreaterThan(0.2);
+          }
+        } catch (error) {
+          throw new Error(`Recipe failed: ${recipe.id}`, { cause: error });
+        }
+      }
+      const saved = await studio.saveGraph(buildStudioRecipe("cinematic"));
+      const copied = await studio.copyGraph(saved.graph);
+      expect(copied.graph.id).not.toBe(saved.graph.id);
+      expect(copied.graph.revision).toBe(1);
+      expect(copied.validation.valid).toBe(true);
+      expect((await studio.getGraph(saved.graph.id)).name).toBe("Cinematic warm film");
+      await expect(studio.copyGraph({ nodes: [] })).rejects.toThrow("canonical workflow JSON");
+    },
+    120000,
+  );
+
+  it("changes video speed with matching audio tempo and supports silent clips", async () => {
+    for (const sound of [true, false]) {
+      const input = join(directory, `speed-${sound}.mp4`);
+      await runCapture(resolveFfmpeg(undefined), [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=64x48:rate=24",
+        ...(sound ? ["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100"] : []),
+        "-t",
+        "2",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        ...(sound ? ["-c:a", "aac"] : []),
+        input,
+      ]);
+      for (const factor of [0.5, 2, 4]) {
+        const result = await studio.run({
+          engine: "video",
+          input,
+          op: "speed_ramp",
+          params: { factor },
+        });
+        const metadata = JSON.parse(
+          (
+            await runCapture(resolveFfprobe(undefined), [
+              "-v",
+              "error",
+              "-show_entries",
+              "stream=codec_type,duration:format=duration",
+              "-of",
+              "json",
+              result.output,
+            ])
+          ).toString("utf8"),
+        ) as { streams: { codec_type: string; duration: string }[]; format: { duration: string } };
+        const videoStream = metadata.streams.find((stream) => stream.codec_type === "video")!;
+        expect(Number(videoStream.duration)).toBeCloseTo(2 / factor, 0);
+        const audioStream = metadata.streams.find((stream) => stream.codec_type === "audio");
+        expect(Boolean(audioStream)).toBe(sound);
+        if (audioStream) {
+          expect(
+            Math.abs(Number(audioStream.duration) - Number(videoStream.duration)),
+          ).toBeLessThan(0.2);
+        }
+      }
+    }
+  }, 30000);
 
   it("calls native invert, preserves source pixels, records lineage, and recovers after reopening SQLite", async () => {
     const input = join(directory, "source.png");
