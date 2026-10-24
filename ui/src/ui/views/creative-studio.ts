@@ -39,7 +39,8 @@ const MEDIA_LABELS: Record<CreativeMedia, string> = {
   audio: "Audio",
   video: "Video",
   vector: "Vector",
-  vfx: "AI / VFX",
+  vfx: "VFX",
+  ai: "Native AI",
 };
 
 function renderMediaTabs(props: CreativeStudioViewProps) {

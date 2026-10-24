@@ -1,6 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EngineRuntime } from "../runtime/engine-runtime.js";
+import type { ExecutionContext } from "../runtime/execution.js";
 import type { Graph, GraphNode, GraphResult, NodeResult } from "./types.js";
 export type ExecutionEngine = Pick<
   EngineRuntime,
@@ -19,7 +20,7 @@ export class PipelineExecutor {
     this.engines = engines;
   }
 
-  async execute(graph: Graph): Promise<GraphResult> {
+  async execute(graph: Graph, context: ExecutionContext = {}): Promise<GraphResult> {
     const sorted = this.topologicalSort(graph);
     const startTime = Date.now();
     const results: NodeResult[] = [];
@@ -27,6 +28,11 @@ export class PipelineExecutor {
     const failedNodes = new Set<string>();
 
     for (const node of sorted) {
+      if (context.signal?.aborted) {
+        failedNodes.add(node.id);
+        results.push({ node_id: node.id, status: "skipped", error: "Workflow cancelled" });
+        continue;
+      }
       // Check if any dependency failed → skip
       const deps = this.getDependencies(graph, node.id);
       const shouldSkip = deps.some((depId) => failedNodes.has(depId));
@@ -37,7 +43,18 @@ export class PipelineExecutor {
         continue;
       }
 
-      const result = await this.executeNode(node, graph, outputMap);
+      const nodeContext: ExecutionContext = {
+        ...context,
+        onProgress: (progress) =>
+          context.onProgress?.({
+            ...progress,
+            nodeId: node.id,
+            nodeIndex: results.length,
+            totalNodes: sorted.length,
+          }),
+      };
+      nodeContext.onProgress?.({ stage: "starting" });
+      const result = await this.executeNode(node, graph, outputMap, nodeContext);
       results.push(result);
 
       if (result.status === "failed") {
@@ -62,6 +79,7 @@ export class PipelineExecutor {
     node: GraphNode,
     graph: Graph,
     outputMap: Map<string, string>,
+    context: ExecutionContext,
   ): Promise<NodeResult> {
     const engine = this.engines[node.engine];
     if (!engine) {
@@ -91,7 +109,7 @@ export class PipelineExecutor {
 
     const start = Date.now();
     try {
-      const result = await engine.apply(inputPath, node.op, outputPath, node.params);
+      const result = await engine.apply(inputPath, node.op, outputPath, node.params, context);
       const duration = Date.now() - start;
 
       if (!result.ok) {
@@ -101,8 +119,10 @@ export class PipelineExecutor {
       return {
         node_id: node.id,
         status: "ok",
+        capability: `${node.engine}.${node.op}`,
         output_path: result.output_path,
         engine_path: result.engine_path,
+        ...(result.metadata ? { metadata: result.metadata } : {}),
         duration_ms: duration,
       };
     } catch (err) {

@@ -1,5 +1,6 @@
 import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { AI_CAPABILITIES } from "./src/ai-capabilities.js";
 import {
   getAllCreativeCapabilities,
   getCreativeCapability,
@@ -11,6 +12,7 @@ import {
 import { configureCudaProviderDependencies } from "./src/ffi/loader.js";
 import { registerEditSessionTools } from "./src/image/edit-session.js";
 import { registerProviders } from "./src/providers.js";
+import { AiEngineRuntime } from "./src/runtime/ai.js";
 import { AudioEngineRuntime } from "./src/runtime/audio.js";
 import { ImageEngineRuntime } from "./src/runtime/image.js";
 import { VectorEngineRuntime } from "./src/runtime/vector.js";
@@ -56,6 +58,20 @@ export default definePluginEntry({
     const videoEngine = new VideoEngineRuntime(config.video, codec);
     const vectorEngine = new VectorEngineRuntime(config.vector, codec);
     const vfxEngine = new VfxEngineRuntime(config.vfx?.binaryPath, codec);
+    const aiEngine = new AiEngineRuntime(imageEngine, codec);
+    api.registerGatewayMethod("ai.list_ops", async ({ respond }) => {
+      await aiEngine.ensureStarted();
+      respond(true, {
+        available: aiEngine.isAvailable(),
+        reason: aiEngine.reason(),
+        ops: AI_CAPABILITIES.map((capability) => ({
+          id: capability.id.slice(3),
+          label: capability.label,
+          parametersSchema: capability.parametersSchema,
+          capability,
+        })),
+      });
+    });
     api.registerGatewayMethod("vfx.list_ops", async ({ respond }) => {
       await vfxEngine.ensureStarted();
       respond(true, {
@@ -209,7 +225,7 @@ export default definePluginEntry({
     // Operator surface: `openclaw creative ...` CLI + Control UI settings card.
     // Capability-guarded inside; no-ops honestly on hosts lacking the methods.
     registerCreativeSurface(api, engines);
-    registerCreativeStudio(api, { ...engines, vfx: vfxEngine }, codec);
+    registerCreativeStudio(api, { ...engines, vfx: vfxEngine, ai: aiEngine }, codec);
 
     // Register compact discovery tools for agent and Codex tool-call loops.
     registerDiscoveryTools(registerTool);

@@ -30,6 +30,7 @@ export interface Step {
 
 /** Result of applying a single operation or chain. */
 export interface ApplyResult {
+  metadata?: Record<string, unknown>;
   ok: boolean;
   output_path: string;
   engine_path: string;

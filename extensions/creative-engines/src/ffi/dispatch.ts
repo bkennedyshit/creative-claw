@@ -20,6 +20,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { withGpuClaim, withoutGpuClaim } from "../gpu-coop.js";
+import type { ExecutionContext } from "../runtime/execution.js";
 import type { ApplyResult, OpCatalog, OpInfo, OpParamDef, Step } from "../types.js";
 import {
   bridgeStatusIsUsable,
@@ -33,20 +34,19 @@ import {
   type CodecConfig,
   decodeAudioF32,
   decodeImageRGBA,
-  decodeVideoRGBA,
   encodeAudioF32,
   encodeImageRGBA,
   encodeMaskPNG,
-  encodeVideoRGBA,
   resolveFfmpeg,
   resolveFfprobe,
   runCapture,
 } from "./codec.js";
 import { DIMENSION_SWAP, MASK_FILTERS, RESIZING_FILTERS } from "./image-bindings.js";
-import { onnxUnavailableReason, type KoffiLib } from "./loader.js";
+import { onnxUnavailableReason, type KoffiLib, type KoffiFunction } from "./loader.js";
 import { AFFINE_OPS, RASTER_ONLY } from "./vector-bindings.js";
+import { transformVideoFrames } from "./video-stream.js";
 
-type BoundFn = (...args: unknown[]) => unknown;
+type BoundFn = KoffiFunction;
 
 function ffiTypeToParamType(t: FfiParam["type"]): OpParamDef["type"] {
   if (t === "bool") {
@@ -249,6 +249,63 @@ export class NativeDispatch {
     return Boolean(this.lib);
   }
 
+  segmentationReason(): string | undefined {
+    const gated = this.gateReason("segment_foreground");
+    if (gated) {
+      return gated;
+    }
+    try {
+      const op = this.find("segment_foreground");
+      if (!op || !this.fn(op).async) {
+        return "Native segmentation requires the guarded asynchronous bridge";
+      }
+      this.lib?.func("int bridge_segment_provider_code()");
+    } catch {
+      return "Native image bridge lacks guarded segmentation exports; rebuild using native/guarded-segment.cmake";
+    }
+    return undefined;
+  }
+
+  /** Called under ImageEngineRuntime's one-lease-per-operation segmentation scope. */
+  async segmentRgba(data: Buffer, width: number, height: number) {
+    if (
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width < 1 ||
+      height < 1 ||
+      width > 16384 ||
+      height > 16384 ||
+      data.length !== width * height * 4
+    ) {
+      throw new Error("Invalid segmentation RGBA frame");
+    }
+    const op = this.find("segment_foreground");
+    if (!op) {
+      throw new Error("Segmentation binding unavailable");
+    }
+    const fn = this.fn(op);
+    if (!fn.async) {
+      throw new Error("Asynchronous native segmentation unavailable");
+    }
+    const mask = Buffer.alloc(width * height);
+    const status = await new Promise<unknown>((resolve, reject) => {
+      fn.async!(data, width, height, 4, mask, (error: Error | null, result: unknown) =>
+        error ? reject(error) : resolve(result),
+      );
+    });
+    // Segment status 2 fills a uniform sentinel, never a valid fallback matte.
+    if (status !== 0) {
+      throw new Error(`Native segmentation failed: ${describeBridgeStatus(Number(status))}`);
+    }
+    const provider = Number(this.lib?.func("int bridge_segment_provider_code()")());
+    return {
+      mask,
+      provider: provider === 2 ? "cuda" : provider === 1 ? "cpu" : "unknown",
+      enginePath: this.enginePath,
+      modelPath: this.resolveModelPath(this.onnxSpec("segment_foreground")!),
+    };
+  }
+
   get enginePath(): string {
     return this.libPath ?? "unavailable";
   }
@@ -262,7 +319,7 @@ export class NativeDispatch {
     if (!this.lib) {
       throw new Error(`engine '${this.mod.engine}' library not loaded`);
     }
-    const bound = this.lib.func(op.signature) as BoundFn;
+    const bound = this.lib.func(op.signature);
     this.funcs.set(op.name, bound);
     return bound;
   }
@@ -404,7 +461,9 @@ export class NativeDispatch {
     opName: string,
     output: string,
     params: Record<string, unknown>,
+    context: ExecutionContext = {},
   ): Promise<ApplyResult> {
+    context.signal?.throwIfAborted();
     const start = Date.now();
     const base: ApplyResult = {
       ok: false,
@@ -437,7 +496,7 @@ export class NativeDispatch {
             await this.applyAudio(op, input, output, params);
             break;
           case "video":
-            await this.applyVideo(op, input, output, params);
+            await this.applyVideo(op, input, output, params, context);
             break;
           case "vector":
             await this.applyVector(op, input, output, params);
@@ -744,9 +803,10 @@ export class NativeDispatch {
     input: string,
     output: string,
     params: Record<string, unknown>,
+    context: ExecutionContext = {},
   ): Promise<void> {
     if (op.kind === "ffmpeg") {
-      await this.runFfmpegVideoOp(op, input, output, params);
+      await this.runFfmpegVideoOp(op, input, output, params, context);
       return;
     }
     if (op.kind === "analysis") {
@@ -760,25 +820,29 @@ export class NativeDispatch {
       );
     }
     // Per-frame C++ op: decode → apply in-process to each frame → re-encode.
-    const { frames, info } = await decodeVideoRGBA(input, this.codec);
-    if (frames.length === 0) {
-      throw new Error("no frames decoded");
-    }
     const fn = this.fn(op);
     // Same contract as the image path: frame-resizing ops resolve their output
     // dimensions once, and that resolution feeds both the per-frame allocation
     // and the scalar args handed to C++.
-    const dims: ResolvedDims =
-      op.kind === "resizing"
-        ? resolveOutputDims(op, VIDEO_DIM_CONTRACTS[op.name], params, info.width, info.height)
-        : { params, width: info.width, height: info.height };
-    const outFrames: Buffer[] = [];
-    for (const frame of frames) {
-      const out = Buffer.alloc(dims.width * dims.height * 4);
-      fn(frame, info.width, info.height, 4, ...scalarArgs(op, dims.params), out);
-      outFrames.push(out);
-    }
-    await encodeVideoRGBA(outFrames, dims.width, dims.height, info.fps, output, this.codec, input);
+    let dims: ResolvedDims;
+    await transformVideoFrames(
+      input,
+      output,
+      async (frame, width, height) => {
+        const out = Buffer.alloc(dims.width * dims.height * 4);
+        fn(frame, width, height, 4, ...scalarArgs(op, dims.params), out);
+        return out;
+      },
+      this.codec,
+      context,
+      (width, height) => {
+        dims =
+          op.kind === "resizing"
+            ? resolveOutputDims(op, VIDEO_DIM_CONTRACTS[op.name], params, width, height)
+            : { params, width, height };
+        return dims;
+      },
+    );
   }
 
   /** File-level ffmpeg pipeline ops (codec/container, not the effect itself). */
@@ -787,6 +851,7 @@ export class NativeDispatch {
     input: string,
     output: string,
     params: Record<string, unknown>,
+    context: ExecutionContext = {},
   ): Promise<void> {
     const ffmpeg = resolveFfmpeg(this.codec);
     const num = (k: string, d: number) => Number(params[k] ?? d);
@@ -992,7 +1057,7 @@ export class NativeDispatch {
       default:
         throw new Error(`ffmpeg op '${op.name}' not implemented`);
     }
-    await runCapture(ffmpeg, args);
+    await runCapture(ffmpeg, args, undefined, { signal: context.signal });
   }
 
   // ── VECTOR (SVG) ─────────────────────────────────────────────────────────

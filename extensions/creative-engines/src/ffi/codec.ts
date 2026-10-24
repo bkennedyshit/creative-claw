@@ -60,6 +60,7 @@ export function resolveFfprobe(config: CodecConfig | undefined): string {
 }
 
 export interface RunCaptureOptions {
+  signal?: AbortSignal;
   /**
    * Include stderr in the resolved buffer.
    *
@@ -88,14 +89,28 @@ export function runCapture(
   stdin?: Buffer,
   options?: RunCaptureOptions,
 ): Promise<Buffer> {
+  options?.signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { stdio: ["pipe", "pipe", "pipe"] });
+    const abort = () => {
+      child.kill();
+    };
+    options?.signal?.addEventListener("abort", abort, { once: true });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     child.stdout.on("data", (d: Buffer) => out.push(d));
     child.stderr.on("data", (d: Buffer) => err.push(d));
     child.on("error", (e) => reject(new Error(`${bin} failed to start: ${e.message}`)));
     child.on("close", (code) => {
+      options?.signal?.removeEventListener("abort", abort);
+      if (options?.signal?.aborted) {
+        reject(
+          options.signal.reason instanceof Error
+            ? options.signal.reason
+            : new Error("Media processing cancelled"),
+        );
+        return;
+      }
       const captured = options?.includeStderr
         ? Buffer.concat([...out, ...err])
         : Buffer.concat(out);

@@ -1,13 +1,9 @@
 import type { CreativeCapabilityDescriptor } from "@openclaw/creative-contracts";
-import {
-  decodeImageRGBA,
-  encodeImageRGBA,
-  decodeVideoRGBA,
-  encodeVideoRGBA,
-  type CodecConfig,
-} from "../ffi/codec.js";
+import { decodeImageRGBA, encodeImageRGBA, type CodecConfig } from "../ffi/codec.js";
 import { loadEngine, unloadEngine, type KoffiLib } from "../ffi/loader.js";
+import { transformVideoFrames } from "../ffi/video-stream.js";
 import type { ApplyResult } from "../types.js";
+import type { ExecutionContext } from "./execution.js";
 
 const gradeProperties = {
   exposure: {
@@ -160,6 +156,7 @@ export class VfxEngineRuntime {
     operation: string,
     output: string,
     params: Record<string, unknown>,
+    context: ExecutionContext = {},
   ): Promise<ApplyResult> {
     await this.ensureStarted();
     if (!this.isAvailable()) {
@@ -170,14 +167,16 @@ export class VfxEngineRuntime {
     }
     const startedAt = Date.now();
     if (operation.startsWith("video_")) {
-      const { frames, info } = await decodeVideoRGBA(input, this.codec);
-      if (frames.length === 0) {
-        throw new Error("Video contains no decodable frames");
-      }
-      for (const frame of frames) {
-        this.processRgba(frame, operation, params);
-      }
-      await encodeVideoRGBA(frames, info.width, info.height, info.fps, output, this.codec, input);
+      await transformVideoFrames(
+        input,
+        output,
+        async (frame) => {
+          this.processRgba(frame, operation, params);
+          return frame;
+        },
+        this.codec,
+        context,
+      );
     } else {
       const image = await decodeImageRGBA(input);
       this.processRgba(image.data, operation, params);

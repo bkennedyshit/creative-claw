@@ -2,9 +2,10 @@ import type { CreativeCapabilityDescriptor, CreativeGraph } from "@openclaw/crea
 // Control UI controller manages creative studio gateway state.
 import type { ReactiveController, ReactiveControllerHost } from "lit";
 import type { GatewayBrowserClient } from "../gateway.ts";
+import { CreativeJobsController } from "./creative-jobs.ts";
 import { CreativeWorkflowController } from "./creative-workflow.ts";
 
-export type CreativeMedia = "image" | "audio" | "video" | "vector" | "vfx";
+export type CreativeMedia = "image" | "audio" | "video" | "vector" | "vfx" | "ai";
 
 /** Fixed media order drives the tab switcher; keep stable for deterministic UI. */
 export const CREATIVE_MEDIA_ORDER: readonly CreativeMedia[] = [
@@ -13,6 +14,7 @@ export const CREATIVE_MEDIA_ORDER: readonly CreativeMedia[] = [
   "video",
   "vector",
   "vfx",
+  "ai",
 ];
 
 export type CreativeOp = {
@@ -42,7 +44,15 @@ export type CreativeRunForm = {
   params: Record<string, unknown>;
 };
 export type CreativeRunResult = { ok: boolean; message: string };
-type CreativeNodeResult = { id: string; status: string; durationMs: number; enginePath: string };
+type CreativeNodeResult = {
+  id: string;
+  status: string;
+  durationMs: number;
+  enginePath: string;
+  capability: string;
+  model: string;
+  provider: string;
+};
 
 /** Host contract: the app supplies the gateway client + connection flag. */
 export type CreativeStudioHost = ReactiveControllerHost & {
@@ -62,6 +72,7 @@ function defaultEngines(reason: string): Record<CreativeMedia, CreativeEngineSta
     video: emptyEngine(reason),
     vector: emptyEngine(reason),
     vfx: emptyEngine(reason),
+    ai: emptyEngine(reason),
   };
 }
 
@@ -164,10 +175,12 @@ export class CreativeStudioController implements ReactiveController {
   preview?: CreativePreview;
   private restored = false;
   readonly workflow: CreativeWorkflowController;
+  readonly jobs: CreativeJobsController;
 
   constructor(host: CreativeStudioHost) {
     this.host = host;
     this.workflow = new CreativeWorkflowController(host, this);
+    this.jobs = new CreativeJobsController(host, this);
     this.host.addController(this);
   }
 
@@ -218,6 +231,7 @@ export class CreativeStudioController implements ReactiveController {
       this.loadGpu(client),
       this.loadRecentOutputs(client),
       this.workflow.loadRecipes(),
+      this.jobs.load(),
       this.searchMedia(""),
     ]);
     this.host.requestUpdate();
@@ -249,12 +263,7 @@ export class CreativeStudioController implements ReactiveController {
   }
 
   async runWorkflow(graph: CreativeGraph) {
-    await this.runRequest("creative.studio.graph.run", {
-      id: graph.id,
-      revision: graph.revision,
-      input: this.runForm.input,
-      output: this.runForm.output,
-    });
+    await this.jobs.start(graph);
   }
 
   private async runRequest(method: string, params: Record<string, unknown>) {
@@ -268,44 +277,59 @@ export class CreativeStudioController implements ReactiveController {
     this.host.requestUpdate();
     try {
       const res = await client.request<Record<string, unknown>>(method, params);
-      const record = asRecord(res) ?? {};
-      this.lastNodes = Array.isArray(record.nodes)
-        ? record.nodes.flatMap((value) => {
-            const node = asRecord(value);
-            return node
-              ? [
-                  {
-                    id: asString(node.node_id),
-                    status: asString(node.status),
-                    durationMs: asNumber(node.duration_ms),
-                    enginePath: asString(node.engine_path),
-                  },
-                ]
-              : [];
-          })
-        : [];
-      const ok = record.ok !== false && record.error === undefined;
-      const message =
-        asString(record.message) ||
-        asString(record.output) ||
-        asString(record.error) ||
-        (ok ? "Operation completed" : "Operation failed");
-      this.lastResult = { ok, message };
-      // Refresh recent outputs so a successful run surfaces immediately.
-      if (ok) {
-        await this.loadRecentOutputs(client);
-        const artifact = asRecord(record.artifact);
-        const recent = this.recentOutputs.find((entry) => entry.id === artifact?.id);
-        if (recent) {
-          await this.showPreview(recent);
-        }
-      }
+      await this.acceptRunResult(res);
     } catch (err) {
       this.lastResult = { ok: false, message: String(err) };
     } finally {
       this.running = false;
       this.host.requestUpdate();
     }
+  }
+
+  async acceptRunResult(value: unknown) {
+    const client = this.host.client;
+    if (!client) {
+      return;
+    }
+    const record = asRecord(value) ?? {};
+    const nodes = Array.isArray(record.nodes)
+      ? record.nodes.flatMap((entry) => {
+          const node = asRecord(entry);
+          return node
+            ? [
+                {
+                  id: asString(node.node_id),
+                  status: asString(node.status),
+                  durationMs: asNumber(node.duration_ms),
+                  enginePath: asString(node.engine_path),
+                  capability: asString(node.capability),
+                  model: asString(asRecord(node.metadata)?.modelId),
+                  provider: asString(asRecord(node.metadata)?.executionProvider),
+                },
+              ]
+            : [];
+        })
+      : [];
+    const ok = record.ok !== false && record.error === undefined;
+    const message =
+      asString(record.message) ||
+      asString(record.output) ||
+      asString(record.error) ||
+      (ok ? "Operation completed" : "Operation failed");
+    // Refresh recent outputs so a successful run surfaces immediately.
+    if (ok) {
+      await this.loadRecentOutputs(client);
+      const artifact = asRecord(record.artifact);
+      const recent = this.recentOutputs.find((entry) => entry.id === artifact?.id);
+      if (recent) {
+        await this.showPreview(recent);
+      }
+    }
+    // Restoring a graph after a page reload clears the previous selection's
+    // trace. Publish this execution only after that restoration has finished.
+    this.lastNodes = nodes;
+    this.lastResult = { ok, message };
+    this.host.requestUpdate();
   }
 
   private async loadEngine(client: GatewayBrowserClient, media: CreativeMedia): Promise<void> {
@@ -429,6 +453,7 @@ export class CreativeStudioController implements ReactiveController {
   }
 
   hostDisconnected() {
+    this.jobs.stopPolling();
     if (this.preview) {
       URL.revokeObjectURL(this.preview.url);
     }

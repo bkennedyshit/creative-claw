@@ -18,9 +18,12 @@ import koffi from "koffi";
 
 /** A loaded koffi library handle. `func(prototype)` binds a C export. */
 export interface KoffiLib {
-  func(prototype: string): (...args: unknown[]) => unknown;
+  func(prototype: string): KoffiFunction;
   unload?: () => void;
 }
+export type KoffiFunction = ((...args: unknown[]) => unknown) & {
+  async?: (...args: unknown[]) => void;
+};
 
 /** Result of attempting to load an engine's native library. */
 export type LoadResult =
@@ -322,9 +325,7 @@ function ollamaRoots(): string[] {
   push(process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "Ollama") : undefined);
   push(process.env.ProgramFiles ? join(process.env.ProgramFiles, "Ollama") : undefined);
   push(
-    process.env["ProgramFiles(x86)"]
-      ? join(process.env["ProgramFiles(x86)"]!, "Ollama")
-      : undefined,
+    process.env["ProgramFiles(x86)"] ? join(process.env["ProgramFiles(x86)"], "Ollama") : undefined,
   );
   for (const entry of splitPathList(process.env.PATH)) {
     if (existsSync(join(entry, "ollama.exe"))) {
@@ -598,16 +599,13 @@ export function cudaProviderDependenciesResolved(): boolean {
 /** Human-readable one-liner for diagnostics, in every state. */
 export function describeCudaProviderDependencies(): string {
   const status = cudaProviderDependencyStatus();
-  switch (status.state) {
-    case "not-attempted":
-      return "CUDA provider dependency discovery has not run yet (no engine started in this process).";
-    case "disabled":
-      return status.reason;
-    case "unsupported-platform":
-      return status.reason;
-    case "searched":
-      return status.summary;
+  if (status.state === "searched") {
+    return status.summary;
   }
+  if (status.state === "not-attempted") {
+    return "CUDA provider dependency discovery has not run yet (no engine started in this process).";
+  }
+  return status.reason;
 }
 
 /**
@@ -797,6 +795,15 @@ export function loadEngine(stem: string, configuredPath?: string): LoadResult {
   preloadOnnxRuntime(configuredPath);
   try {
     const lib = koffi.load(path) as unknown as KoffiLib;
+    if (cudaConfig?.enabled === false && stem === "omni_image_bridge") {
+      // A disabled provider must stay disabled even when another app put CUDA
+      // DLLs on PATH. Older bridges retain their discovery-only behavior.
+      try {
+        lib.func("void bridge_segment_cpu_only(int enabled)")(1);
+      } catch {
+        /* Optional on pre-guarded native builds. */
+      }
+    }
     return { available: true, lib, path };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

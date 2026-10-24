@@ -40,7 +40,8 @@ The current hash embedder provides lexical/byte similarity, not semantic vision.
 
 ## Edit and run a workflow
 
-The **Workflow launchpad** offers 28 editable starting points: cinematic warm
+The **Workflow launchpad** offers 35 editable starting points: seven real-model
+AI foreground workflows plus cinematic warm
 film, monochrome, golden-hour and cool grades, dreamy motion, retro chromatic
 film, ACES/Reinhard tone mapping, flips, speed changes, sharpening, five social
 exports, three thumbnail workflows, soundtrack extraction/cleanup, and four
@@ -90,7 +91,7 @@ Disabled nodes do not bypass processing: reconnect any inputs that reference the
 
 ## Configure the Video AI/VFX bridge
 
-The **AI / VFX** tab adds native image/video color grading and tone mapping from
+The **VFX** tab adds native image/video color grading and tone mapping from
 the `video-agent-ai` C++ bridge. Set
 `plugins.entries.creative-engines.config.vfx.binaryPath` to the absolute bridge
 library file. On Windows, the sibling repository builds
@@ -106,13 +107,79 @@ Restart the Gateway after changing the configured library.
 
 Color grading exposes exposure, saturation, contrast, temperature, and tint.
 Tone mapping exposes Reinhard (`mode=0`) and ACES (`mode=1`) plus white point.
-Video frame effects currently decode the clip into memory: test with short,
-low-resolution clips before larger jobs.
+Native frame effects and VFX stream frames through bounded, backpressured codec
+pipes instead of buffering the whole clip. Processing supports up to 16 megapixels
+per frame and 240 fps; odd dimensions are padded to even dimensions for H.264.
+Rotation metadata is normalized into the output geometry. Variable-frame-rate
+sources are normalized to their average frame rate, so timing can differ by a frame.
 
 These four VFX operations do not use AI models. Existing model-backed native
 operations remain available when their required models are installed; the
 inspector labels model requirements. Python-only AI nodes from the sibling
 project are not integrated into this native runtime.
+
+## Native AI foreground effects
+
+The **Native AI** tab and **AI foreground** starters run real local U2Net
+segmentation through the image engine's guarded C++/ONNX Runtime boundary.
+Image operations provide transparent PNG cutout, background blur, solid-color
+background replacement, and grayscale matte. Video operations provide background
+blur, solid-color replacement, and matte inspection in MP4 while preserving audio.
+They do not use a hosted AI service or upload source media.
+
+Video inference is per-frame with optional exponential mask smoothing. It is
+not recurrent RVM matting: fast motion may show mask trails, and reducing
+`temporal_smoothing` to zero disables that blending. Video outputs are opaque
+H.264; transparent video export is not implemented. Inspect the matte before
+using an output in a public demo.
+
+The model must exist at `binaries/models/u2net.onnx` or the existing
+`OMNI_SEG_MODEL` override. A matching ONNX Runtime sidecar and the guarded native
+bridge are required. The Native AI engine reports unavailable with a reason if
+those dependencies or exports are missing. Completed artifacts record the model
+path, SHA-256, and actual CPU/CUDA provider, not merely GPU availability.
+
+`native/guarded-segment.cpp` adds the missing status-returning segmentation ABI.
+It catches native exceptions, rejects invalid buffers/dimensions, and never treats
+an exception sentinel as a valid matte. The CMake injection builds an additional
+translation unit and a generated model-host copy without modifying the source
+engine checkout. Disabling CUDA discovery also enforces CPU session creation
+in the guarded host, even when CUDA DLLs were inherited on PATH. Re-enabling CUDA
+requires a process restart. A CUDA runtime can still fail outside C++ exception
+handling; validate it independently before enabling it on a production gateway.
+
+From a Visual Studio x64 developer PowerShell with CMake/Ninja available:
+
+```powershell
+./extensions/creative-engines/native/build-guarded-image.ps1 -EngineSource '<engine-source>/omni_image_processing' -BuildDirectory '<build-directory>' -OnnxRuntimeRoot '<matching-onnxruntime-sdk>'
+```
+
+The engine source must include the GAP-2 ONNX host and segmentation adapter.
+Stop the Gateway, preserve the old library, and install the built image bridge
+into the existing `binaries/` directory alongside its matching runtime and models.
+Do not commit binary/model files. See `binaries/README.md` for load-order and
+dependency requirements. CPU mode uses the existing plugin setting
+`plugins.entries.creative-engines.config.cuda.enabled=false`. Validate CUDA separately
+before enabling it; a native GPU-driver failure can terminate the gateway process.
+
+## Progress, cancellation, and restart recovery
+
+**Run workflow** now starts a durable Gateway job and returns immediately.
+Studio displays the active node, processed frame count, estimated total frames,
+and a cancel control. Native segmentation runs asynchronously, so Gateway status
+requests remain responsive during inference. One workflow executes at a time;
+up to eight additional jobs can wait without competing for GPU/model memory.
+
+Reloading the page reattaches to the active job. Queued graphs are immutable
+snapshots of their saved revision, so edits cannot change work already submitted.
+Cancellation stops codecs and prevents later nodes from dispatching; a current
+native inference must return before it can be cancelled. Temporary encoded output
+is cleaned up, original sources and existing export targets are preserved, and
+completed upstream artifacts remain available.
+
+Job states and throttled progress are stored in SQLite. If the Gateway stops
+mid-job, the next startup marks pending/running work **interrupted**, with a clear
+instruction to rerun; it does not fabricate completion or silently repeat exports.
 
 ## Durable records and discovery
 
@@ -140,6 +207,11 @@ source parentage, capability version, and resolved parameters.
   creating an independent saved graph.
 - `creative.studio.graph.copy`: accepts canonical `graph` JSON and saves a new
   independent graph, remapping graph-boundary connections to the new ID.
+- `ai.list_ops`: reports guarded bridge/model readiness and seven AI descriptors.
+- `creative.studio.job.start`: accepts saved graph `id`, expected `revision`,
+  source `input`, and optional export `output`; returns an immediately trackable `job`.
+- `creative.studio.job.get`, `.cancel`: accept job `id`; return its current `job`.
+- `creative.studio.job.list`: returns recent durable `jobs`.
 - `/plugins/creative-engines/artifacts/<artifact-id>`: authenticated media preview
   for recorded artifacts only. Studio fetches the preview with Gateway credentials.
 
@@ -159,6 +231,16 @@ still require their native libraries and FFmpeg.
 
 The UI controller tests cover graph authoring, typed connections, parameter and
 layout edits, save conflicts, restore, and running the saved revision.
+
+The additional `runtime/ai.test.ts`, `ffi/video-stream.test.ts`,
+`ffi/native-guard.test.ts`, and `studio-jobs.test.ts` suites cover real segmentation,
+transparent cutouts, audio preservation, rotation, encoder failure, cancellation,
+corrupt-model isolation, queue bounds, and SQLite restart recovery. Native AI
+tests use CPU by default; `CREATIVE_ENGINES_EXPECT_CUDA=1` explicitly opts into
+GPU validation. `studio.test.ts` executes every installed starter recipe against
+real fixture media. Run these native suites with `--fileParallelism=false` to
+avoid competing model sessions. The UI job tests also cover reconnecting to a
+running job and retaining its execution trace when the saved graph is restored.
 
 For Gateway authentication and access, see the
 [Control UI guide](https://docs.openclaw.ai/web/control-ui).

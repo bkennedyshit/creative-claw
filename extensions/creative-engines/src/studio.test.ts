@@ -19,6 +19,8 @@ import sharp from "sharp";
 import { Check } from "typebox/value";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { probeDurationSec, resolveFfmpeg, resolveFfprobe, runCapture } from "./ffi/codec.js";
+import { configureCudaProviderDependencies } from "./ffi/loader.js";
+import { AiEngineRuntime } from "./runtime/ai.js";
 import { AudioEngineRuntime } from "./runtime/audio.js";
 import { ImageEngineRuntime } from "./runtime/image.js";
 import { VfxEngineRuntime } from "./runtime/vfx.js";
@@ -45,6 +47,9 @@ describe("Creative Studio native slice", () => {
   let vfx: VfxEngineRuntime;
 
   beforeEach(async () => {
+    configureCudaProviderDependencies({
+      enabled: process.env.CREATIVE_ENGINES_EXPECT_CUDA === "1",
+    });
     image = new ImageEngineRuntime();
     audio = new AudioEngineRuntime();
     video = new VideoEngineRuntime();
@@ -64,7 +69,7 @@ describe("Creative Studio native slice", () => {
           maxEntries: 10000,
           env,
         }),
-        { image, audio, video, vfx },
+        { image, audio, video, vfx, ai: new AiEngineRuntime(image) },
         undefined,
         createPluginStateKeyedStoreForTests<CreativeProject>("creative-engines", {
           namespace: "studio-projects",

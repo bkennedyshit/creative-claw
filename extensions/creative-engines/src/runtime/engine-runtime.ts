@@ -13,6 +13,7 @@ import type {
   RunManifest,
   Step,
 } from "../types.js";
+import type { ExecutionContext } from "./execution.js";
 
 export interface EngineRuntimeOptions {
   engineName: string;
@@ -178,7 +179,7 @@ export abstract class EngineRuntime {
     return this.available ? undefined : this.unavailableReason;
   }
 
-  private ensureDispatch(): NativeDispatch {
+  protected ensureDispatch(): NativeDispatch {
     if (!this.dispatch) {
       throw new Error(`engine '${this.engineName}' not started`);
     }
@@ -202,9 +203,10 @@ export abstract class EngineRuntime {
     op: string,
     output: string,
     params: Record<string, unknown>,
+    context?: ExecutionContext,
   ): Promise<ApplyResult> {
     await this.ensureStarted();
-    return this.ensureDispatch().applyOp(input, op, output, params);
+    return this.ensureDispatch().applyOp(input, op, output, params, context);
   }
 
   async applyChain(input: string, steps: Step[], output: string): Promise<ApplyResult> {

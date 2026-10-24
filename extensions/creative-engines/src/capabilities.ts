@@ -8,6 +8,7 @@ import type {
 } from "@openclaw/creative-contracts";
 import { CreativeGraphSchema, validateGraph } from "@openclaw/creative-contracts";
 import { Check } from "typebox/value";
+import { AI_CAPABILITIES } from "./ai-capabilities.js";
 import { audioBindings } from "./ffi/audio-bindings.js";
 import type { EngineBindingModule, FfiParam, OnnxOpSpec, OpBinding } from "./ffi/binding-types.js";
 import { imageBindings } from "./ffi/image-bindings.js";
@@ -389,7 +390,7 @@ function getDescriptorMap(): Map<string, CreativeCapabilityDescriptor> {
   }
 
   cachedDescriptors = map;
-  for (const descriptor of VFX_CAPABILITIES) {
+  for (const descriptor of [...VFX_CAPABILITIES, ...AI_CAPABILITIES]) {
     map.set(descriptor.id, descriptor);
   }
   return map;

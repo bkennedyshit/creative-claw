@@ -18,6 +18,19 @@ function setup() {
       if (method === "creative.studio.snapshot") {
         return { graphs: [], results: [] };
       }
+      if (method === "creative.studio.job.start") {
+        return {
+          job: {
+            id: "job-1",
+            graphId: params.id,
+            name: "Test",
+            status: "succeeded",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            result: { ok: true, message: "done" },
+          },
+        };
+      }
       return { ok: true, message: "done" };
     },
   );
@@ -176,7 +189,7 @@ describe("Creative workflow editor", () => {
     editor.add("image.invert");
     editor.rename("My workflow");
     await editor.run();
-    expect(request).toHaveBeenCalledWith("creative.studio.graph.run", {
+    expect(request).toHaveBeenCalledWith("creative.studio.job.start", {
       id: editor.graph!.id,
       revision: 1,
       input: "source.png",
@@ -201,7 +214,7 @@ describe("Creative workflow editor", () => {
     );
     await editor.run();
     expect(editor.issues).toEqual(["Cycle detected"]);
-    expect(request.mock.calls.some(([method]) => method === "creative.studio.graph.run")).toBe(
+    expect(request.mock.calls.some(([method]) => method === "creative.studio.job.start")).toBe(
       false,
     );
     editor.rename("Unsaved rename");
@@ -231,7 +244,7 @@ describe("Creative workflow editor", () => {
   });
 
   it("does not treat validation warnings as execution-blocking errors", async () => {
-    const { editor, request } = setup();
+    const { editor, request, studio } = setup();
     editor.add("image.invert");
     request.mockImplementation(async (method, params) =>
       method === "creative.studio.graph.save"
@@ -240,21 +253,32 @@ describe("Creative workflow editor", () => {
             validation: { valid: true, issues: [{ message: "A draft node is disabled" }] },
           }
         : {
-            ok: true,
-            nodes: [
-              {
-                node_id: editor.graph!.nodes[0].id,
-                status: "ok",
-                duration_ms: 4,
-                engine_path: "native-image.dll",
+            job: {
+              id: "warning-job",
+              graphId: editor.graph!.id,
+              name: "Warning job",
+              status: "succeeded",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              result: {
+                ok: true,
+                nodes: [
+                  {
+                    node_id: editor.graph!.nodes[0].id,
+                    status: "ok",
+                    duration_ms: 4,
+                    engine_path: "native-image.dll",
+                  },
+                ],
               },
-            ],
+            },
           },
     );
     await editor.run();
-    expect(request.mock.calls.some(([method]) => method === "creative.studio.graph.run")).toBe(
+    expect(request.mock.calls.some(([method]) => method === "creative.studio.job.start")).toBe(
       true,
     );
+    expect(studio.lastResult?.ok).toBe(true);
   });
 
   it("restores the latest inline operation instead of selecting an unrelated saved workflow", async () => {

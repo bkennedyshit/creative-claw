@@ -18,7 +18,9 @@ import { getCreativeCapability, validateCreativeGraph } from "./capabilities.js"
 import { resolveFfprobe, runCapture, type CodecConfig } from "./ffi/codec.js";
 import { PipelineExecutor, type ExecutionEngine } from "./graph/executor.js";
 import type { Graph } from "./graph/types.js";
+import type { ExecutionContext } from "./runtime/execution.js";
 import { isStudioFileType, prepareStudioGraph } from "./studio-graph.js";
+import { registerStudioJobs } from "./studio-jobs.js";
 import { buildStudioRecipe, STUDIO_RECIPES } from "./studio-recipes.js";
 
 type Source = { asset: CreativeAsset; originalPath: string };
@@ -334,7 +336,8 @@ export class CreativeStudio {
     return this.runGraph(graph, input, output);
   }
 
-  async runGraph(value: unknown, input: string, output = "") {
+  async runGraph(value: unknown, input: string, output = "", context: ExecutionContext = {}) {
+    context.signal?.throwIfAborted();
     const { graph, capabilities } = prepareStudioGraph(value);
     if (!input.trim()) {
       throw new Error("Workflow source path is required");
@@ -404,7 +407,7 @@ export class CreativeStudio {
           to_input: edge.targetPort,
         })),
     };
-    const execution = await new PipelineExecutor(this.engines).execute(plan);
+    const execution = await new PipelineExecutor(this.engines).execute(plan, context);
     const resultEdge = graph.edges.find(
       (edge) => edge.targetNodeId === graph.id && edge.targetPort === graph.outputs[0].name,
     )!;
@@ -448,6 +451,7 @@ export class CreativeStudio {
           parameters: graph.nodes.find((node) => node.id === result.node_id)!.parameters,
         },
         metadata: {
+          ...result.metadata,
           durationMs: result.duration_ms ?? 0,
           ...(result.engine_path ? { enginePath: result.engine_path } : {}),
         },
@@ -469,6 +473,7 @@ export class CreativeStudio {
     }
     await this.activateGraph(graph);
     if (!execution.ok || !finalRun) {
+      context.signal?.throwIfAborted();
       const failure = execution.nodes.find((node) => node.status === "failed");
       throw new Error(
         failure
@@ -529,6 +534,7 @@ export function registerCreativeStudio(
       }
     });
   };
+  registerStudioJobs(api, studio);
   register("creative.studio.graph.save", (params) => studio.saveGraph(params.graph));
   register("creative.studio.recipes", async () => ({
     recipes: STUDIO_RECIPES.map(({ steps, ...recipe }) =>

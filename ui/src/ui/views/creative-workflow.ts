@@ -1,6 +1,7 @@
 import { html, nothing, svg } from "lit";
 import type { CreativeStudioController } from "../controllers/creative-studio.ts";
 import type { CreativeWorkflowController } from "../controllers/creative-workflow.ts";
+import { renderCreativeJobs } from "./creative-jobs.ts";
 import { renderParameterFields } from "./creative-parameters.ts";
 import { renderCreativeRecipes } from "./creative-recipes.ts";
 
@@ -76,7 +77,12 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
       <button
         class="btn"
         ?disabled=${disabled || editor.dirty}
-        @click=${() => editor.create(studio.activeMedia === "vfx" ? "image" : studio.activeMedia)}
+        @click=${() =>
+          editor.create(
+            studio.activeMedia === "vfx" || studio.activeMedia === "ai"
+              ? "image"
+              : studio.activeMedia,
+          )}
       >
         New workflow
       </button>
@@ -121,6 +127,7 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
         ? html`<span class="muted">Unsaved edits · save before switching</span>`
         : nothing}
     </div>
+    ${renderCreativeJobs(studio)}
     ${editor.message ? html`<p role="status">${editor.message}</p>` : nothing}
     ${studio.lastResult
       ? html`<p
@@ -351,8 +358,10 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
           workflow uses one source file and one final result.
         </p>`}
     <p class="muted">
-      VFX color grading and tone mapping use the sibling C++ bridge. Model-backed AI effects require
-      their models; Python-only AI nodes are not connected to this runtime.
+      Native AI runs the local U2Net model through the guarded C++ image bridge. Video uses
+      per-frame segmentation with optional mask smoothing, not recurrent matting. Cutouts export
+      transparent PNG; video background effects export opaque MP4. Python-only AI nodes remain
+      separate.
     </p>
     ${studio.lastNodes.length
       ? html`<details open>
@@ -365,6 +374,7 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
                   <th>Status</th>
                   <th>Time</th>
                   <th>Runtime library</th>
+                  <th>Model / provider</th>
                 </tr>
               </thead>
               <tbody>
@@ -372,11 +382,14 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
                   (node) =>
                     html`<tr>
                       <td>
-                        ${graph?.nodes.find((entry) => entry.id === node.id)?.capability ?? node.id}
+                        ${node.capability ||
+                        graph?.nodes.find((entry) => entry.id === node.id)?.capability ||
+                        node.id}
                       </td>
                       <td>${node.status}</td>
                       <td>${node.durationMs} ms</td>
                       <td><code>${node.enginePath || "Not reported"}</code></td>
+                      <td>${node.model ? `${node.model} / ${node.provider}` : "—"}</td>
                     </tr>`,
                 )}
               </tbody>
