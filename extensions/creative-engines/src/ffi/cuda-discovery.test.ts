@@ -39,6 +39,10 @@ import {
 
 const WINDOWS = process.platform === "win32";
 
+it("reserves sufficient async native stack before CUDA libraries are loaded", () => {
+  expect(koffi.config().async_stack_size).toBeGreaterThanOrEqual(2 * 1024 * 1024);
+});
+
 let tempRoot: string;
 let originalPath: string | undefined;
 
@@ -331,7 +335,6 @@ describe.skipIf(!WINDOWS)("per-library resolution on Windows", () => {
     const cudart = status.libraries.find((entry) => entry.library === "cudart64_12.dll");
     if (!cudart?.directory) {
       // No CUDA 12 on this machine: nothing to prove, and nothing to fail.
-      // eslint-disable-next-line no-console
       console.log(
         "[cuda-discovery] cudart64_12.dll not present on this machine; bare-name load not exercised",
       );

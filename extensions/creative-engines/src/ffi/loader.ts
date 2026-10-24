@@ -16,6 +16,13 @@ import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import koffi from "koffi";
 
+// CUDA session creation exceeds Koffi's 128 KiB async stack on Windows;
+// the same call succeeds synchronously (1 MiB stack). Configure before any
+// library load, retaining a larger allowance if another owner already set one.
+if ((koffi.config().async_stack_size ?? 0) < 2 * 1024 * 1024) {
+  koffi.config({ async_stack_size: 2 * 1024 * 1024 });
+}
+
 /** A loaded koffi library handle. `func(prototype)` binds a C export. */
 export interface KoffiLib {
   func(prototype: string): KoffiFunction;
