@@ -48,7 +48,9 @@ export class CreativeWorkflowController {
   restore(graphs: CreativeGraph[], activeId?: string) {
     this.saved = graphs;
     if (!this.graph && !this.dirty) {
-      const active = graphs.find((graph) => graph.id === activeId) ?? graphs[0];
+      // An inline operation can be active without being an editable saved workflow.
+      // Do not replace its restored source/parameters with an unrelated saved graph.
+      const active = activeId ? graphs.find((graph) => graph.id === activeId) : graphs[0];
       if (active) {
         this.select(active.id);
       }

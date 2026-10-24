@@ -177,6 +177,35 @@ describe("Creative workflow editor", () => {
     );
   });
 
+  it("restores the latest inline operation instead of selecting an unrelated saved workflow", async () => {
+    const first = setup();
+    first.editor.add("image.invert");
+    const { studio, request } = setup();
+    request.mockImplementation(async (method) =>
+      method === "creative.studio.snapshot"
+        ? {
+            project: { activeGraphId: "inline-operation" },
+            graphs: [first.editor.graph],
+            runs: [
+              {
+                input: "latest.mp4",
+                graph: {
+                  nodes: [{ capability: "video.cut_clip", parameters: { start_sec: 1.5 } }],
+                },
+              },
+            ],
+          }
+        : { available: true, ops: [] },
+    );
+    await studio.refresh();
+    expect(studio.workflow.graph).toBeUndefined();
+    expect(studio.runForm).toMatchObject({
+      input: "latest.mp4",
+      op: "cut_clip",
+      params: { start_sec: 1.5 },
+    });
+  });
+
   it("renders keyboard-editable nodes, typed connections and descriptor parameters", () => {
     const { studio, editor } = setup();
     editor.add("image.invert");
