@@ -9,16 +9,16 @@ import type {
   CreativeGraph,
   CreativeProject,
 } from "@openclaw/creative-contracts";
+import { CreativeGraphSchema } from "@openclaw/creative-contracts";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type { PluginStateKeyedStore } from "openclaw/plugin-sdk/plugin-state-runtime";
 import sharp from "sharp";
-import {
-  getCreativeCapability,
-  validateCreativeGraph,
-  validateOperationParameters,
-} from "./capabilities.js";
+import { Check } from "typebox/value";
+import { getCreativeCapability, validateCreativeGraph } from "./capabilities.js";
 import { resolveFfprobe, runCapture, type CodecConfig } from "./ffi/codec.js";
-import type { EngineRuntime } from "./runtime/engine-runtime.js";
+import { PipelineExecutor, type ExecutionEngine } from "./graph/executor.js";
+import type { Graph } from "./graph/types.js";
+import { isStudioFileType, prepareStudioGraph } from "./studio-graph.js";
 
 type Source = { asset: CreativeAsset; originalPath: string };
 type Run = { graph: CreativeGraph; artifact: CreativeArtifact; input: string; output: string };
@@ -61,9 +61,10 @@ export class CreativeStudio {
     private root: string,
     private sources: PluginStateKeyedStore<Source>,
     private runs: PluginStateKeyedStore<Run>,
-    private engines: Record<string, EngineRuntime>,
+    private engines: Record<string, ExecutionEngine>,
     private codec?: CodecConfig,
     private projects?: PluginStateKeyedStore<CreativeProject>,
+    private graphs?: PluginStateKeyedStore<CreativeGraph>,
   ) {}
 
   async snapshot() {
@@ -72,21 +73,30 @@ export class CreativeStudio {
       .toSorted((a, b) => b.artifact.createdAt.localeCompare(a.artifact.createdAt));
     const assets = (await this.sources.entries()).map((entry) => entry.value);
     const now = new Date().toISOString();
+    const persistedProject = await this.projects?.lookup(PROJECT_ID);
+    const graphs = ((await this.graphs?.entries()) ?? []).map((entry) => entry.value);
     const project: CreativeProject = {
       schemaVersion: 1,
       id: PROJECT_ID,
       name: "Creative Studio",
       rootDirectory: ".",
-      createdAt: (await this.projects?.lookup(PROJECT_ID))?.createdAt ?? now,
+      createdAt: persistedProject?.createdAt ?? now,
       updatedAt: runs[0]?.artifact.createdAt ?? now,
       assetIds: assets.map((source) => source.asset.id),
       artifactIds: runs.map((run) => run.artifact.id),
-      graphIds: runs.map((run) => run.graph.id),
+      graphIds: [
+        ...new Set([...graphs.map((graph) => graph.id), ...runs.map((run) => run.graph.id)]),
+      ],
       tags: [],
-      ...(runs[0] ? { activeGraphId: runs[0].graph.id } : {}),
+      ...(persistedProject?.activeGraphId
+        ? { activeGraphId: persistedProject.activeGraphId }
+        : runs[0]
+          ? { activeGraphId: runs[0].graph.id }
+          : {}),
     };
     return {
       project,
+      graphs,
       projectId: PROJECT_ID,
       assets: assets.slice(-50),
       runs: runs.slice(0, 12),
@@ -163,95 +173,163 @@ export class CreativeStudio {
     return source;
   }
 
+  async saveGraph(value: unknown) {
+    if (!this.graphs || !Check(CreativeGraphSchema, value) || value.projectId !== PROJECT_ID) {
+      throw new Error("Expected a canonical Studio graph");
+    }
+    if (
+      value.inputs.length !== 1 ||
+      value.outputs.length !== 1 ||
+      !isStudioFileType(value.inputs[0].dataType) ||
+      !isStudioFileType(value.outputs[0].dataType)
+    ) {
+      throw new Error("Studio workflows need one source file input and one result output");
+    }
+    const existing = await this.graphs.lookup(value.id);
+    const graph: CreativeGraph = {
+      ...structuredClone(value),
+      revision: value.revision + 1,
+      createdAt: existing?.createdAt ?? value.createdAt,
+      updatedAt: new Date().toISOString(),
+    };
+    if (existing) {
+      if (!this.graphs.update) {
+        throw new Error("Graph store does not support atomic updates");
+      }
+      const accepted = await this.graphs.update(value.id, (current) =>
+        current?.revision === value.revision ? graph : undefined,
+      );
+      if (!accepted) {
+        throw new Error("Workflow changed elsewhere; reload before saving");
+      }
+    } else if (!(await this.graphs.registerIfAbsent(graph.id, graph))) {
+      throw new Error("Workflow changed elsewhere; reload before saving");
+    }
+    await this.activateGraph(graph);
+    let validation = validateCreativeGraph(graph);
+    if (validation.valid) {
+      try {
+        prepareStudioGraph(graph);
+      } catch (error) {
+        validation = {
+          valid: false,
+          issues: [
+            {
+              code: "invalid-graph",
+              severity: "error",
+              message: error instanceof Error ? error.message : String(error),
+            },
+          ],
+        };
+      }
+    }
+    return { graph, validation };
+  }
+
+  async getGraph(id: string) {
+    const graph = await this.graphs?.lookup(id);
+    if (!graph) {
+      throw new Error("Workflow not found");
+    }
+    return graph;
+  }
+
+  private async activateGraph(graph: CreativeGraph) {
+    const existing = await this.projects?.lookup(PROJECT_ID);
+    await this.projects?.register(PROJECT_ID, {
+      schemaVersion: 1,
+      id: PROJECT_ID,
+      name: "Creative Studio",
+      rootDirectory: ".",
+      createdAt: existing?.createdAt ?? graph.createdAt,
+      updatedAt: graph.updatedAt,
+      assetIds: [],
+      graphIds: [],
+      artifactIds: [],
+      tags: [],
+      activeGraphId: graph.id,
+    });
+  }
+
   async run(params: Record<string, unknown>) {
-    const engineName = typeof params.engine === "string" ? params.engine : "";
-    const op = typeof params.op === "string" ? params.op : "";
     const input = typeof params.input === "string" ? params.input.trim() : "";
     const output = typeof params.output === "string" ? params.output.trim() : "";
-    const capability = getCreativeCapability(`${engineName}.${op}`);
-    const engine = this.engines[engineName];
-    if (!capability || !engine || !input) {
+    const capability = getCreativeCapability(
+      `${typeof params.engine === "string" ? params.engine : ""}.${typeof params.op === "string" ? params.op : ""}`,
+    );
+    if (!capability || !input) {
       throw new Error("Select an operation and input file");
     }
     const raw = params.params;
     if (raw !== undefined && (!raw || typeof raw !== "object" || Array.isArray(raw))) {
       throw new Error("Operation params must be an object");
     }
-    const validation = validateOperationParameters(
-      capability,
-      (raw ?? {}) as Record<string, unknown>,
-    );
-    if (!validation.valid) {
-      throw new Error(validation.errors.join("; "));
-    }
-    await engine.ensureStarted();
-    if (!engine.isAvailable()) {
-      throw new Error(engine.reason() ?? "Engine unavailable");
-    }
+    const sourcePort = Object.entries(capability.inputs)[0];
     const outputPort = Object.entries(capability.outputs)[0];
-    if (!outputPort || !["image", "video", "audio", "vector"].includes(outputPort[1].dataType)) {
-      throw new Error(
-        "This operation needs a specialized editor; choose a file-producing operation",
-      );
+    if (!sourcePort || !outputPort) {
+      throw new Error("This operation needs a specialized editor");
     }
-    const kind = outputPort[1].dataType;
-    const source = await this.importSource(input, engineName);
-    const parent = (await this.runs.entries())
-      .map((entry) => entry.value.artifact)
-      .find((artifact) => artifact.contentHash === source.asset.contentHash);
+    const id = `graph-${randomUUID()}`;
     const now = new Date().toISOString();
-    const id = randomUUID();
     const graph: CreativeGraph = {
       schemaVersion: 1,
-      id: `graph-${id}`,
+      id,
       projectId: PROJECT_ID,
       name: capability.label,
       revision: 1,
       createdAt: now,
       updatedAt: now,
-      metadata: {},
+      metadata: { sourcePath: input },
       nodes: [
         {
           id: "operation",
           capability: capability.id,
           capabilityVersion: capability.version,
-          parameters: validation.resolvedParams,
+          parameters: (raw ?? {}) as Record<string, unknown>,
+          position: { x: 250, y: 80 },
         },
       ],
-      inputs: [
-        {
-          name: "source",
-          dataType: engineName as "image" | "audio" | "video" | "vector",
-          required: true,
-        },
-      ],
+      inputs: [{ name: "source", dataType: sourcePort[1].dataType, required: true }],
       outputs: [{ name: "result", dataType: outputPort[1].dataType, required: true }],
       edges: [
         {
           id: "input",
-          sourceNodeId: `graph-${id}`,
+          sourceNodeId: id,
           sourcePort: "source",
           targetNodeId: "operation",
-          targetPort: "source",
+          targetPort: sourcePort[0],
         },
         {
           id: "output",
           sourceNodeId: "operation",
           sourcePort: outputPort[0],
-          targetNodeId: `graph-${id}`,
+          targetNodeId: id,
           targetPort: "result",
         },
       ],
     };
-    const preflight = validateCreativeGraph(graph);
-    if (!preflight.valid) {
-      throw new Error(preflight.issues.map((issue) => issue.message).join("; "));
+    return this.runGraph(graph, input, output);
+  }
+
+  async runGraph(value: unknown, input: string, output = "") {
+    const { graph, capabilities } = prepareStudioGraph(value);
+    if (!input.trim()) {
+      throw new Error("Workflow source path is required");
     }
-    const extension =
-      kind === "image" ? ".png" : kind === "audio" ? ".wav" : kind === "video" ? ".mp4" : ".svg";
-    const uri = `artifacts/${id}${extension}`;
-    const artifactPath = join(this.root, uri);
-    await mkdir(join(this.root, "artifacts"), { recursive: true });
+    const sourceType = graph.inputs[0].dataType;
+    if (!isStudioFileType(sourceType)) {
+      throw new Error("Unsupported source media type");
+    }
+    for (const cap of capabilities.values()) {
+      const engine = this.engines[cap.id.split(".")[0]];
+      if (!engine) {
+        throw new Error(`Engine unavailable for ${cap.id}`);
+      }
+      await engine.ensureStarted();
+      if (!engine.isAvailable()) {
+        throw new Error(engine.reason() ?? "Engine unavailable");
+      }
+    }
     if (output) {
       try {
         await stat(resolve(output));
@@ -262,62 +340,129 @@ export class CreativeStudio {
         }
       }
     }
-    const result = await engine.apply(
-      join(this.root, source.asset.uri),
-      op,
-      artifactPath,
-      validation.resolvedParams,
-    );
-    if (!result.ok) {
-      throw new Error(result.reason ?? "Operation failed");
-    }
-    const artifact: CreativeArtifact = {
-      schemaVersion: 1,
-      id,
-      projectId: PROJECT_ID,
-      kind,
-      role: "final",
-      uri,
-      mediaType: mediaType(artifactPath),
-      ...(await fileIdentity(artifactPath)),
-      createdAt: new Date().toISOString(),
-      createdBy: "engine",
-      graphId: graph.id,
-      nodeId: "operation",
-      sourceAssetIds: parent?.sourceAssetIds ?? [source.asset.id],
-      parentArtifactIds: parent ? [parent.id] : [],
-      operation: {
-        capability: capability.id,
-        version: capability.version,
-        parameters: validation.resolvedParams,
-      },
-      metadata: { durationMs: result.duration_ms, enginePath: result.engine_path },
+    const source = await this.importSource(input, sourceType);
+    const previousArtifact = (await this.runs.entries())
+      .map((entry) => entry.value.artifact)
+      .find((artifact) => artifact.contentHash === source.asset.contentHash);
+    const graphRunId = randomUUID();
+    const ids = new Map([...capabilities.keys()].map((nodeId) => [nodeId, randomUUID()]));
+    const extensions = { image: ".png", video: ".mp4", audio: ".wav", vector: ".svg" };
+    await mkdir(join(this.root, "artifacts"), { recursive: true });
+    const plan: Graph = {
+      id: graph.id,
+      nodes: graph.nodes
+        .filter((node) => capabilities.has(node.id))
+        .map((node) => {
+          const cap = capabilities.get(node.id)!;
+          const type = Object.values(cap.outputs)[0].dataType;
+          if (!isStudioFileType(type)) {
+            throw new Error("Unsupported result media type");
+          }
+          const incoming = graph.edges.find((edge) => edge.targetNodeId === node.id);
+          return Object.assign(
+            {
+              id: node.id,
+              engine: cap.id.split(".")[0] as Graph["nodes"][number]["engine"],
+              op: cap.id.split(".").slice(1).join("."),
+              params: node.parameters,
+            },
+            incoming?.sourceNodeId === graph.id ? { input: join(this.root, source.asset.uri) } : {},
+            { output: join(this.root, "artifacts", `${ids.get(node.id)}${extensions[type]}`) },
+          );
+        }),
+      connections: graph.edges
+        .filter(
+          (edge) => capabilities.has(edge.sourceNodeId) && capabilities.has(edge.targetNodeId),
+        )
+        .map((edge) => ({
+          from_node: edge.sourceNodeId,
+          from_output: edge.sourcePort,
+          to_node: edge.targetNodeId,
+          to_input: edge.targetPort,
+        })),
     };
-    if (output) {
-      await copyFile(artifactPath, resolve(output), constants.COPYFILE_EXCL);
+    const execution = await new PipelineExecutor(this.engines).execute(plan);
+    const resultEdge = graph.edges.find(
+      (edge) => edge.targetNodeId === graph.id && edge.targetPort === graph.outputs[0].name,
+    )!;
+    const artifacts = new Map<string, CreativeArtifact>();
+    let finalRun: Run | undefined;
+    for (const result of execution.nodes) {
+      if (result.status !== "ok" || !result.output_path) {
+        continue;
+      }
+      const cap = capabilities.get(result.node_id)!;
+      const type = Object.values(cap.outputs)[0].dataType;
+      if (!isStudioFileType(type)) {
+        throw new Error("Unsupported result media type");
+      }
+      const edge = graph.edges.find((item) => item.targetNodeId === result.node_id);
+      const parent =
+        edge?.sourceNodeId === graph.id
+          ? previousArtifact
+          : artifacts.get(edge?.sourceNodeId ?? "");
+      const id = ids.get(result.node_id)!;
+      const final = result.node_id === resultEdge.sourceNodeId;
+      const artifact: CreativeArtifact = {
+        schemaVersion: 1,
+        id,
+        projectId: PROJECT_ID,
+        kind: type,
+        role: final ? "final" : "intermediate",
+        uri: `artifacts/${id}${extensions[type]}`,
+        mediaType: mediaType(result.output_path),
+        ...(await fileIdentity(result.output_path)),
+        createdAt: new Date().toISOString(),
+        createdBy: "engine",
+        graphId: graph.id,
+        graphRunId,
+        nodeId: result.node_id,
+        sourceAssetIds: parent?.sourceAssetIds ?? [source.asset.id],
+        parentArtifactIds: parent ? [parent.id] : [],
+        operation: {
+          capability: cap.id,
+          version: cap.version,
+          parameters: graph.nodes.find((node) => node.id === result.node_id)!.parameters,
+        },
+        metadata: {
+          durationMs: result.duration_ms ?? 0,
+          ...(result.engine_path ? { enginePath: result.engine_path } : {}),
+        },
+      };
+      const record: Run = {
+        graph,
+        artifact,
+        input: source.originalPath,
+        output: final && output ? resolve(output) : result.output_path,
+      };
+      if (final && output) {
+        await copyFile(result.output_path, resolve(output), constants.COPYFILE_EXCL);
+      }
+      await this.runs.register(id, record);
+      artifacts.set(result.node_id, artifact);
+      if (final) {
+        finalRun = record;
+      }
     }
-    const record: Run = {
+    await this.activateGraph(graph);
+    if (!execution.ok || !finalRun) {
+      const failure = execution.nodes.find((node) => node.status === "failed");
+      throw new Error(
+        failure
+          ? `Node ${failure.node_id}: ${failure.error}`
+          : "Workflow did not produce its result",
+      );
+    }
+    return {
+      ok: true,
+      output: finalRun.output,
+      output_path: finalRun.output,
+      message: finalRun.output,
+      artifact: finalRun.artifact,
       graph,
-      artifact,
-      input: source.originalPath,
-      output: output ? resolve(output) : artifactPath,
+      nodes: execution.nodes,
+      duration_ms: execution.total_duration_ms,
     };
-    await this.runs.register(id, record);
-    // The project record stays small; asset/graph/artifact relationships are
-    // materialized from their durable rows when Studio reloads.
-    await this.projects?.registerIfAbsent(PROJECT_ID, {
-      schemaVersion: 1,
-      id: PROJECT_ID,
-      name: "Creative Studio",
-      rootDirectory: ".",
-      createdAt: now,
-      updatedAt: now,
-      assetIds: [],
-      graphIds: [],
-      artifactIds: [],
-      tags: [],
-    });
-    return { ...result, output: record.output, message: record.output, artifact, graph };
   }
 
   async artifactFile(id: string) {
@@ -331,7 +476,7 @@ export class CreativeStudio {
 
 export function registerCreativeStudio(
   api: OpenClawPluginApi,
-  engines: Record<string, EngineRuntime>,
+  engines: Record<string, ExecutionEngine>,
   codec?: CodecConfig,
 ) {
   const studio = new CreativeStudio(
@@ -344,7 +489,38 @@ export function registerCreativeStudio(
       namespace: "studio-projects",
       maxEntries: 100,
     }),
+    api.runtime.state.openKeyedStore<CreativeGraph>({
+      namespace: "studio-graphs",
+      maxEntries: 1000,
+    }),
   );
+  const register = (
+    name: string,
+    handler: (params: Record<string, unknown>) => Promise<unknown>,
+  ) => {
+    api.registerGatewayMethod(name, async ({ params, respond }) => {
+      try {
+        respond(true, await handler(params));
+      } catch (error) {
+        respond(true, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    });
+  };
+  register("creative.studio.graph.save", (params) => studio.saveGraph(params.graph));
+  register("creative.studio.graph.get", async (params) => ({
+    graph: await studio.getGraph(typeof params.id === "string" ? params.id : ""),
+  }));
+  register("creative.studio.graph.run", async (params) => {
+    const graph = await studio.getGraph(typeof params.id === "string" ? params.id : "");
+    if (graph.revision !== params.revision) {
+      throw new Error("Workflow changed elsewhere; reload before running");
+    }
+    return studio.runGraph(
+      graph,
+      typeof params.input === "string" ? params.input : "",
+      typeof params.output === "string" ? params.output : "",
+    );
+  });
   api.registerGatewayMethod("creative.studio.snapshot", async ({ respond }) => {
     respond(true, await studio.snapshot());
   });

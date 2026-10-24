@@ -14,6 +14,7 @@ import { registerProviders } from "./src/providers.js";
 import { AudioEngineRuntime } from "./src/runtime/audio.js";
 import { ImageEngineRuntime } from "./src/runtime/image.js";
 import { VectorEngineRuntime } from "./src/runtime/vector.js";
+import { VfxEngineRuntime, VFX_CAPABILITIES } from "./src/runtime/vfx.js";
 import { VideoEngineRuntime } from "./src/runtime/video.js";
 import { registerCreativeStudio } from "./src/studio.js";
 import { registerCreativeSurface } from "./src/surface.js";
@@ -54,6 +55,20 @@ export default definePluginEntry({
     const audioEngine = new AudioEngineRuntime(config.audio, codec);
     const videoEngine = new VideoEngineRuntime(config.video, codec);
     const vectorEngine = new VectorEngineRuntime(config.vector, codec);
+    const vfxEngine = new VfxEngineRuntime(config.vfx?.binaryPath, codec);
+    api.registerGatewayMethod("vfx.list_ops", async ({ respond }) => {
+      await vfxEngine.ensureStarted();
+      respond(true, {
+        available: vfxEngine.isAvailable(),
+        reason: vfxEngine.reason(),
+        ops: VFX_CAPABILITIES.map((cap) => ({
+          id: cap.id.slice("vfx.".length),
+          label: cap.label,
+          parametersSchema: cap.parametersSchema,
+          capability: cap,
+        })),
+      });
+    });
 
     const engines: Record<
       string,
@@ -144,6 +159,7 @@ export default definePluginEntry({
           audioEngine.start(),
           videoEngine.start(),
           vectorEngine.start(),
+          vfxEngine.ensureStarted(),
         ]);
       },
     });
@@ -157,6 +173,7 @@ export default definePluginEntry({
           audioEngine.shutdown(),
           videoEngine.shutdown(),
           vectorEngine.shutdown(),
+          vfxEngine.shutdown(),
         ]);
       },
     });
@@ -192,7 +209,7 @@ export default definePluginEntry({
     // Operator surface: `openclaw creative ...` CLI + Control UI settings card.
     // Capability-guarded inside; no-ops honestly on hosts lacking the methods.
     registerCreativeSurface(api, engines);
-    registerCreativeStudio(api, engines, codec);
+    registerCreativeStudio(api, { ...engines, vfx: vfxEngine }, codec);
 
     // Register compact discovery tools for agent and Codex tool-call loops.
     registerDiscoveryTools(registerTool);

@@ -3672,6 +3672,7 @@ export function renderApp(state: AppViewState) {
         ${state.tab === "creativeStudio"
           ? renderLazyView(lazyCreativeStudio, (m) =>
               m.renderCreativeStudio({
+                studio: state.creativeStudio,
                 activeMedia: state.creativeStudio.activeMedia,
                 onMediaChange: (media) => state.creativeStudio.setActiveMedia(media),
                 engines: state.creativeStudio.engines,

@@ -1970,6 +1970,9 @@ importers:
       '@noble/ed25519':
         specifier: 3.1.0
         version: 3.1.0
+      '@openclaw/creative-contracts':
+        specifier: workspace:*
+        version: link:../packages/creative-contracts
       '@openclaw/media-core':
         specifier: workspace:*
         version: link:../packages/media-core

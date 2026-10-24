@@ -43,6 +43,10 @@
   "configSchema": {
     "type": "object",
     "properties": {
+      "vfx": {
+        "type": "object",
+        "properties": { "binaryPath": { "type": "string", "description": "Path to the Video AI/VFX RGB8 bridge from video-agent-ai. Otherwise looks for a bundled omni_vfx_bridge library." } }
+      },
       "image": {
         "type": "object",
         "properties": {

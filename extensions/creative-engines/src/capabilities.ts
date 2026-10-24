@@ -13,6 +13,7 @@ import type { EngineBindingModule, FfiParam, OnnxOpSpec, OpBinding } from "./ffi
 import { imageBindings } from "./ffi/image-bindings.js";
 import { vectorBindings } from "./ffi/vector-bindings.js";
 import { videoBindings } from "./ffi/video-bindings.js";
+import { VFX_CAPABILITIES } from "./runtime/vfx.js";
 
 const ENGINE_FAMILY_MAP: Record<string, CreativeCapabilityFamily> = {
   image: "image",
@@ -388,6 +389,9 @@ function getDescriptorMap(): Map<string, CreativeCapabilityDescriptor> {
   }
 
   cachedDescriptors = map;
+  for (const descriptor of VFX_CAPABILITIES) {
+    map.set(descriptor.id, descriptor);
+  }
   return map;
 }
 

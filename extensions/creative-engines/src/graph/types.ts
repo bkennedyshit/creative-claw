@@ -1,7 +1,7 @@
 /** A node in a processing graph. */
 export interface GraphNode {
   id: string;
-  engine: "image" | "audio" | "video" | "vector";
+  engine: "image" | "audio" | "video" | "vector" | "vfx";
   op: string;
   params: Record<string, unknown>;
   /** Input file path or reference to another node's output. */
@@ -33,6 +33,7 @@ export interface NodeResult {
   node_id: string;
   status: NodeStatus;
   output_path?: string;
+  engine_path?: string;
   duration_ms?: number;
   error?: string;
 }

@@ -114,6 +114,7 @@ export interface CreativeEnginesConfig {
   audio?: Partial<EngineConfig>;
   video?: Partial<EngineConfig>;
   vector?: Partial<EngineConfig>;
+  vfx?: Partial<EngineConfig>;
   codec?: CodecConfig;
   /**
    * CUDA 12 / cuDNN 9 discovery for ORT's CUDA execution provider. Optional in

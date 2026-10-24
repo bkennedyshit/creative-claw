@@ -6,6 +6,79 @@
   gap: 20px;
 }
 
+.creative-workflow__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.creative-workflow__scroll {
+  overflow: auto;
+  max-height: 480px;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.creative-workflow__canvas {
+  position: relative;
+  background: radial-gradient(var(--border) 1px, transparent 1px) 0 0 / 20px 20px;
+}
+
+.creative-workflow__edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.creative-workflow__source,
+.creative-workflow__result {
+  position: absolute;
+  top: 5px;
+  left: 30px;
+  padding: 5px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.creative-workflow__node {
+  position: absolute;
+  width: 200px;
+  min-height: 76px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.creative-workflow__node--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.creative-workflow__node small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.creative-workflow__inspector {
+  display: grid;
+  gap: 16px;
+}
+
 .creative-hero {
   position: relative;
   isolation: isolate;

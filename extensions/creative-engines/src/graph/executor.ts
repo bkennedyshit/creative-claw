@@ -2,6 +2,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EngineRuntime } from "../runtime/engine-runtime.js";
 import type { Graph, GraphNode, GraphResult, NodeResult } from "./types.js";
+export type ExecutionEngine = Pick<
+  EngineRuntime,
+  "ensureStarted" | "isAvailable" | "reason" | "apply"
+>;
 
 /**
  * PipelineExecutor: topological sort, cycle detection, execute nodes
@@ -9,9 +13,9 @@ import type { Graph, GraphNode, GraphResult, NodeResult } from "./types.js";
  * Failure isolation: a failed node causes dependents to be skipped, not aborted.
  */
 export class PipelineExecutor {
-  private engines: Record<string, EngineRuntime>;
+  private engines: Record<string, ExecutionEngine>;
 
-  constructor(engines: Record<string, EngineRuntime>) {
+  constructor(engines: Record<string, ExecutionEngine>) {
     this.engines = engines;
   }
 
@@ -98,6 +102,7 @@ export class PipelineExecutor {
         node_id: node.id,
         status: "ok",
         output_path: result.output_path,
+        engine_path: result.engine_path,
         duration_ms: duration,
       };
     } catch (err) {

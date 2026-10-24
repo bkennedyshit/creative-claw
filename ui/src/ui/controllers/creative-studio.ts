@@ -1,16 +1,25 @@
+import type { CreativeCapabilityDescriptor, CreativeGraph } from "@openclaw/creative-contracts";
 // Control UI controller manages creative studio gateway state.
 import type { ReactiveController, ReactiveControllerHost } from "lit";
 import type { GatewayBrowserClient } from "../gateway.ts";
+import { CreativeWorkflowController } from "./creative-workflow.ts";
 
-export type CreativeMedia = "image" | "audio" | "video" | "vector";
+export type CreativeMedia = "image" | "audio" | "video" | "vector" | "vfx";
 
 /** Fixed media order drives the tab switcher; keep stable for deterministic UI. */
-export const CREATIVE_MEDIA_ORDER: readonly CreativeMedia[] = ["image", "audio", "video", "vector"];
+export const CREATIVE_MEDIA_ORDER: readonly CreativeMedia[] = [
+  "image",
+  "audio",
+  "video",
+  "vector",
+  "vfx",
+];
 
 export type CreativeOp = {
   id: string;
   label: string;
   parametersSchema?: Record<string, unknown>;
+  capability?: CreativeCapabilityDescriptor;
 };
 export type CreativeEngineState = {
   available: boolean;
@@ -33,9 +42,10 @@ export type CreativeRunForm = {
   params: Record<string, unknown>;
 };
 export type CreativeRunResult = { ok: boolean; message: string };
+type CreativeNodeResult = { id: string; status: string; durationMs: number; enginePath: string };
 
 /** Host contract: the app supplies the gateway client + connection flag. */
-type CreativeStudioHost = ReactiveControllerHost & {
+export type CreativeStudioHost = ReactiveControllerHost & {
   client: GatewayBrowserClient | null;
   connected: boolean;
   settings?: { token?: string; gatewayUrl?: string };
@@ -51,6 +61,7 @@ function defaultEngines(reason: string): Record<CreativeMedia, CreativeEngineSta
     audio: emptyEngine(reason),
     video: emptyEngine(reason),
     vector: emptyEngine(reason),
+    vfx: emptyEngine(reason),
   };
 }
 
@@ -92,6 +103,9 @@ function normalizeOps(value: unknown): CreativeOp[] {
       id,
       label,
       ...(parametersSchema ? { parametersSchema } : {}),
+      ...(asRecord(record.capability)
+        ? { capability: record.capability as CreativeCapabilityDescriptor }
+        : {}),
     });
   }
   return ops;
@@ -144,13 +158,16 @@ export class CreativeStudioController implements ReactiveController {
   runForm: CreativeRunForm = { input: "", op: "", output: "", params: {} };
   running = false;
   lastResult?: CreativeRunResult;
+  lastNodes: CreativeNodeResult[] = [];
   library: CreativeRecentOutput[] = [];
   libraryError?: string;
   preview?: CreativePreview;
   private restored = false;
+  readonly workflow: CreativeWorkflowController;
 
   constructor(host: CreativeStudioHost) {
     this.host = host;
+    this.workflow = new CreativeWorkflowController(host, this);
     this.host.addController(this);
   }
 
@@ -221,18 +238,51 @@ export class CreativeStudioController implements ReactiveController {
       this.host.requestUpdate();
       return;
     }
+    await this.runRequest("creative.studio.run", {
+      engine: this.activeMedia,
+      op,
+      input,
+      output,
+      params,
+    });
+  }
+
+  async runWorkflow(graph: CreativeGraph) {
+    await this.runRequest("creative.studio.graph.run", {
+      id: graph.id,
+      revision: graph.revision,
+      input: this.runForm.input,
+      output: this.runForm.output,
+    });
+  }
+
+  private async runRequest(method: string, params: Record<string, unknown>) {
+    const client = this.host.client;
+    if (!client || !this.host.connected || this.running) {
+      return;
+    }
     this.running = true;
+    this.lastNodes = [];
     this.lastResult = undefined;
     this.host.requestUpdate();
     try {
-      const res = await client.request<Record<string, unknown>>("creative.studio.run", {
-        engine: this.activeMedia,
-        op,
-        input,
-        output,
-        params,
-      });
+      const res = await client.request<Record<string, unknown>>(method, params);
       const record = asRecord(res) ?? {};
+      this.lastNodes = Array.isArray(record.nodes)
+        ? record.nodes.flatMap((value) => {
+            const node = asRecord(value);
+            return node
+              ? [
+                  {
+                    id: asString(node.node_id),
+                    status: asString(node.status),
+                    durationMs: asNumber(node.duration_ms),
+                    enginePath: asString(node.engine_path),
+                  },
+                ]
+              : [];
+          })
+        : [];
       const ok = record.ok !== false && record.error === undefined;
       const message =
         asString(record.message) ||
@@ -301,6 +351,11 @@ export class CreativeStudioController implements ReactiveController {
     try {
       const res = await client.request("creative.studio.snapshot", {});
       this.recentOutputs = normalizeRecentOutputs(res);
+      const snapshotRecord = asRecord(res);
+      this.workflow.restore(
+        Array.isArray(snapshotRecord?.graphs) ? (snapshotRecord.graphs as CreativeGraph[]) : [],
+        asString(asRecord(snapshotRecord?.project)?.activeGraphId),
+      );
       if (!this.restored && !this.runForm.op && !this.runForm.input) {
         const snapshot = asRecord(res);
         const run = asRecord(Array.isArray(snapshot?.runs) ? snapshot.runs[0] : undefined);
