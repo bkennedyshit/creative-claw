@@ -322,8 +322,14 @@ describe("GpuBroker", () => {
   });
 
   describe("GPU snapshot reading", () => {
-    it("reads and parses nvidia-smi output", () => {
+    it("reads GPU status without displaying a background console", async () => {
+      const { spawnSync } = await import("node:child_process");
       const snapshot = broker.readGpuSnapshot();
+      expect(spawnSync).toHaveBeenCalledWith(
+        "nvidia-smi",
+        ["--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+        { windowsHide: true },
+      );
       expect(snapshot).not.toBeNull();
       expect(snapshot!.usedMb).toBe(2048);
       expect(snapshot!.totalMb).toBe(24576);

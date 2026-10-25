@@ -91,7 +91,7 @@ export function runCapture(
 ): Promise<Buffer> {
   options?.signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(bin, args, { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     const abort = () => {
       child.kill();
     };

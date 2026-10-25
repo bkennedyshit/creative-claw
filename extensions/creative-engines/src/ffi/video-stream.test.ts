@@ -1,13 +1,22 @@
+import { spawn } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { probeDurationSec, resolveFfmpeg, runCapture } from "./codec.js";
 import { probeVideoStream, transformVideoFrames } from "./video-stream.js";
+
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return { ...actual, spawn: vi.fn(actual.spawn) };
+});
 
 describe("Bounded video frame streaming", () => {
   let directory: string;
   let input: string;
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "creative-stream-"));
     input = join(directory, "source.mp4");
@@ -53,6 +62,10 @@ describe("Bounded video frame streaming", () => {
         },
       },
     );
+    expect(spawn).toHaveBeenCalledTimes(3);
+    for (const call of vi.mocked(spawn).mock.calls) {
+      expect(call[2]).toMatchObject({ windowsHide: true });
+    }
     expect(result.frames).toBe(24);
     expect(progress.at(-1)).toBe(24);
     expect(await probeDurationSec(output, undefined)).toBeCloseTo(2, 0);

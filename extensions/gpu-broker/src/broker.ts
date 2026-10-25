@@ -219,7 +219,7 @@ export class GpuBroker {
     }
     this.lastSnapshot = snapshot;
 
-    this.evaluateGhostClaim(snapshot);
+    void this.evaluateGhostClaim(snapshot);
   }
 
   private async evaluateGhostClaim(snapshot: GpuSnapshot): Promise<void> {
@@ -245,10 +245,12 @@ export class GpuBroker {
 
   /** Read GPU memory via nvidia-smi */
   readGpuSnapshot(): GpuSnapshot | null {
-    const result = spawnSync("nvidia-smi", [
-      "--query-gpu=memory.used,memory.total",
-      "--format=csv,noheader,nounits",
-    ]);
+    // Polling must not create a flashing console or steal focus on Windows.
+    const result = spawnSync(
+      "nvidia-smi",
+      ["--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+      { windowsHide: true },
+    );
 
     if (result.status !== 0 || result.error) {
       return null;

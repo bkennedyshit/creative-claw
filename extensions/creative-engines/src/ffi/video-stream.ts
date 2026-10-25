@@ -128,7 +128,7 @@ export async function transformVideoFrames(
       "rgba",
       "pipe:1",
     ],
-    { stdio: ["ignore", "pipe", "pipe"] },
+    { stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
   );
   const encoder = spawn(
     ffmpeg,
@@ -165,7 +165,7 @@ export async function transformVideoFrames(
       "+faststart",
       temp,
     ],
-    { stdio: ["pipe", "ignore", "pipe"] },
+    { stdio: ["pipe", "ignore", "pipe"], windowsHide: true },
   );
   const decoded = completion(decoder, "Video decoder");
   const encoded = completion(encoder, "Video encoder");
