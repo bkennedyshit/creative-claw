@@ -160,6 +160,10 @@ export async function transformVideoFrames(
       "yuv420p",
       "-c:a",
       "aac",
+      // Make video EOF authoritative: a short audio track must not close the
+      // encoder's stdin while native frames are still being written.
+      "-af",
+      "apad",
       "-shortest",
       "-movflags",
       "+faststart",

@@ -109,6 +109,51 @@ describe("Durable Studio job queue", () => {
     await jobs.cancel(queued[0].id);
     expect((await jobs.start(buildStudioRecipe("warm"), "new-slot.mp4")).status).toBe("queued");
   });
+  it("keeps cancellation terminal when an operation does not observe its signal", async () => {
+    let finish!: () => void;
+    const execute = vi.fn(async () => {
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      return outcome;
+    });
+    jobs = new StudioJobs(store, execute);
+    const job = await jobs.start(buildStudioRecipe("clean-cut"), "source.mp4");
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+    expect((await jobs.cancel(job.id)).status).toBe("cancelling");
+    finish();
+    await vi.waitFor(async () => expect((await jobs.get(job.id)).status).toBe("cancelled"));
+    expect((await jobs.get(job.id)).result).toBeUndefined();
+  });
+
+  it.each(["running", "succeeded"] as const)(
+    "continues accepted work after one failed %s state write without replaying execution",
+    async (phase) => {
+      const register = store.register.bind(store);
+      let failWrite!: () => void;
+      const failure = new Promise<void>((resolve) => {
+        failWrite = resolve;
+      });
+      let injected = false;
+      vi.spyOn(store, "register").mockImplementation(async (key, record) => {
+        if (!injected && record.status === phase) {
+          injected = true;
+          await failure;
+          throw new Error("Transient state write failure");
+        }
+        return register(key, record);
+      });
+      const execute = vi.fn(async () => outcome);
+      jobs = new StudioJobs(store, execute);
+      const first = await jobs.start(buildStudioRecipe("clean-cut"), "first.mp4");
+      await vi.waitFor(() => expect(injected).toBe(true));
+      const second = await jobs.start(buildStudioRecipe("warm"), "second.mp4");
+      failWrite();
+      await vi.waitFor(async () => expect((await jobs.get(second.id)).status).toBe("succeeded"));
+      expect((await jobs.get(first.id)).status).toBe(phase === "running" ? "failed" : "succeeded");
+      expect(execute).toHaveBeenCalledTimes(phase === "running" ? 1 : 2);
+    },
+  );
 
   it("recovers interrupted lifecycle records and retains completed outcomes after reopening SQLite", async () => {
     const graph = buildStudioRecipe("clean-cut");

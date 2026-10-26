@@ -142,8 +142,9 @@ export class StudioJobs {
       this.active = task;
       task.record.status = "running";
       task.record.updatedAt = new Date().toISOString();
-      await this.persist(task);
       try {
+        await this.persist(task);
+        task.controller.signal.throwIfAborted();
         const result = await this.execute(
           task.record.graph,
           task.record.input,
@@ -163,6 +164,9 @@ export class StudioJobs {
             },
           },
         );
+        // Native image operations may finish without observing cancellation.
+        // An accepted cancel must still win before publishing job success.
+        task.controller.signal.throwIfAborted();
         task.record.result = {
           ok: result.ok,
           output: result.output,
@@ -177,8 +181,18 @@ export class StudioJobs {
         task.record.error = error instanceof Error ? error.message : String(error);
       }
       task.record.updatedAt = new Date().toISOString();
-      await this.persist(task);
-      this.active = undefined;
+      try {
+        try {
+          await this.persist(task);
+        } catch (error) {
+          // Retry only the terminal write, never the media operation. A transient
+          // store failure must not strand every already-accepted queue entry.
+          this.report(error);
+          await this.persist(task);
+        }
+      } finally {
+        this.active = undefined;
+      }
     }
   }
 

@@ -408,6 +408,7 @@ export class CreativeStudio {
         })),
     };
     const execution = await new PipelineExecutor(this.engines).execute(plan, context);
+    context.signal?.throwIfAborted();
     const resultEdge = graph.edges.find(
       (edge) => edge.targetNodeId === graph.id && edge.targetPort === graph.outputs[0].name,
     )!;
@@ -462,6 +463,9 @@ export class CreativeStudio {
         input: source.originalPath,
         output: final && output ? resolve(output) : result.output_path,
       };
+      // Hashing a large result yields to cancellation; do not export or register
+      // its artifact after the operator cancelled during that verification.
+      context.signal?.throwIfAborted();
       if (final && output) {
         await copyFile(result.output_path, resolve(output), constants.COPYFILE_EXCL);
       }

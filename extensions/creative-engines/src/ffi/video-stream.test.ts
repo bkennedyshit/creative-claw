@@ -85,6 +85,35 @@ describe("Bounded video frame streaming", () => {
     ).rejects.toThrow("User cancelled");
     expect((await readdir(directory)).some((name) => name.includes("cancelled"))).toBe(false);
   });
+  it.each([
+    [8, 1],
+    [1, 8],
+  ])("preserves %is of video when its audio lasts %is", async (videoSeconds, audioSeconds) => {
+    const source = join(directory, `unequal-${videoSeconds}-${audioSeconds}.mp4`);
+    const output = join(directory, `unequal-${videoSeconds}-${audioSeconds}-output.mp4`);
+    await runCapture(resolveFfmpeg(undefined), [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      `testsrc=size=64x48:rate=12:duration=${videoSeconds}`,
+      "-f",
+      "lavfi",
+      "-i",
+      `sine=frequency=440:duration=${audioSeconds}`,
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      source,
+    ]);
+    const result = await transformVideoFrames(source, output, async (frame) => frame);
+    expect(result.frames).toBe(videoSeconds * 12);
+    expect(await probeDurationSec(output, undefined)).toBeCloseTo(videoSeconds, 0);
+  });
   it("preserves an existing output file and rejects invalid destinations", async () => {
     const output = join(directory, "existing.mp4");
     await writeFile(output, "user-owned bytes");
