@@ -1,5 +1,24 @@
 import { html, nothing } from "lit";
+import type { CreativeJob } from "../controllers/creative-jobs.ts";
 import type { CreativeStudioController } from "../controllers/creative-studio.ts";
+
+function outputForJob(job: CreativeJob) {
+  const result = job.result;
+  const artifact = result?.artifact;
+  if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
+    return undefined;
+  }
+  const record = artifact as Record<string, unknown>;
+  if (typeof record.id !== "string" || typeof result?.output !== "string") {
+    return undefined;
+  }
+  return {
+    id: record.id,
+    path: result.output,
+    type: typeof record.kind === "string" ? record.kind : "unknown",
+    previewUrl: `/plugins/creative-engines/artifacts/${encodeURIComponent(record.id)}`,
+  };
+}
 
 export function renderCreativeJobs(studio: CreativeStudioController) {
   const job = studio.jobs.active;
@@ -45,15 +64,19 @@ export function renderCreativeJobs(studio: CreativeStudioController) {
   ${studio.jobs.history.length
     ? html`<details>
         <summary>Recent workflow jobs · ${studio.jobs.history.length}</summary>
-        ${studio.jobs.history
-          .slice(0, 8)
-          .map(
-            (entry) =>
-              html`<p>
-                <strong>${entry.name}</strong> · ${entry.status} ·
-                ${new Date(entry.createdAt).toLocaleString()}
-              </p>`,
-          )}
+        ${studio.jobs.history.slice(0, 8).map((entry) => {
+          const output = outputForJob(entry);
+          return html`<div>
+            <strong>${entry.name}</strong> · ${entry.status} ·
+            ${new Date(entry.createdAt).toLocaleString()}
+            ${output
+              ? html`<p class="creative-output-path">Saved at: ${output.path}</p>
+                  <button class="btn" @click=${() => void studio.showPreview(output)}>
+                    Preview ${entry.name} output
+                  </button>`
+              : nothing}
+          </div>`;
+        })}
       </details>`
     : nothing}`;
 }

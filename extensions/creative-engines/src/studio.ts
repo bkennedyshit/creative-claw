@@ -77,7 +77,14 @@ export class CreativeStudio {
     const assets = (await this.sources.entries()).map((entry) => entry.value);
     const now = new Date().toISOString();
     const persistedProject = await this.projects?.lookup(PROJECT_ID);
-    const graphs = ((await this.graphs?.entries()) ?? []).map((entry) => entry.value);
+    const allGraphs = ((await this.graphs?.entries()) ?? []).map((entry) => entry.value);
+    const graphs = allGraphs.filter((graph) => !graph.metadata.archivedAt);
+    const archivedGraphs = allGraphs.filter((graph) => graph.metadata.archivedAt);
+    const activeGraphId = archivedGraphs.some(
+      (graph) => graph.id === persistedProject?.activeGraphId,
+    )
+      ? graphs[0]?.id
+      : persistedProject?.activeGraphId;
     const project: CreativeProject = {
       schemaVersion: 1,
       id: PROJECT_ID,
@@ -91,15 +98,12 @@ export class CreativeStudio {
         ...new Set([...graphs.map((graph) => graph.id), ...runs.map((run) => run.graph.id)]),
       ],
       tags: [],
-      ...(persistedProject?.activeGraphId
-        ? { activeGraphId: persistedProject.activeGraphId }
-        : runs[0]
-          ? { activeGraphId: runs[0].graph.id }
-          : {}),
+      ...(activeGraphId ? { activeGraphId } : runs[0] ? { activeGraphId: runs[0].graph.id } : {}),
     };
     return {
       project,
       graphs,
+      archivedGraphs,
       projectId: PROJECT_ID,
       assets: assets.slice(-50),
       runs: runs.slice(0, 12),
@@ -189,6 +193,9 @@ export class CreativeStudio {
       throw new Error("Studio workflows need one source file input and one result output");
     }
     const existing = await this.graphs.lookup(value.id);
+    if (existing?.metadata.archivedAt || value.metadata.archivedAt) {
+      throw new Error("Restore the archived workflow before saving");
+    }
     const graph: CreativeGraph = {
       ...structuredClone(value),
       revision: value.revision + 1,
@@ -231,10 +238,40 @@ export class CreativeStudio {
 
   async getGraph(id: string) {
     const graph = await this.graphs?.lookup(id);
-    if (!graph) {
+    if (!graph || graph.metadata.archivedAt) {
       throw new Error("Workflow not found");
     }
     return graph;
+  }
+
+  async archiveGraph(id: string, revision: number, archived: boolean) {
+    if (!this.graphs?.update || typeof archived !== "boolean") {
+      throw new Error("Workflow archive requires atomic storage and an explicit archive state");
+    }
+    let graph: CreativeGraph | undefined;
+    // Keep the graph as a tombstone: removing a saved copy never removes media or run history.
+    const accepted = await this.graphs.update(id, (current) => {
+      if (!current || current.revision !== revision) {
+        return undefined;
+      }
+      const metadata = { ...current.metadata };
+      if (archived) {
+        metadata.archivedAt = new Date().toISOString();
+      } else {
+        delete metadata.archivedAt;
+      }
+      graph = {
+        ...current,
+        metadata,
+        revision: current.revision + 1,
+        updatedAt: new Date().toISOString(),
+      };
+      return graph;
+    });
+    if (!accepted || !graph) {
+      throw new Error("Workflow changed elsewhere; reload before updating");
+    }
+    return { graph };
   }
 
   private async activateGraph(graph: CreativeGraph) {
@@ -259,6 +296,8 @@ export class CreativeStudio {
       throw new Error("Expected a canonical workflow JSON document");
     }
     const graph = structuredClone(value);
+    delete graph.metadata.archivedAt;
+    delete graph.metadata.exportPath;
     const originalId = graph.id;
     graph.id = `workflow-${randomUUID()}`;
     graph.projectId = PROJECT_ID;
@@ -539,6 +578,13 @@ export function registerCreativeStudio(
     });
   };
   registerStudioJobs(api, studio);
+  register("creative.studio.graph.archive", (params) =>
+    studio.archiveGraph(
+      typeof params.id === "string" ? params.id : "",
+      Number(params.revision),
+      params.archived as boolean,
+    ),
+  );
   register("creative.studio.graph.save", (params) => studio.saveGraph(params.graph));
   register("creative.studio.recipes", async () => ({
     recipes: STUDIO_RECIPES.map(({ steps, ...recipe }) =>

@@ -5,10 +5,10 @@ export function renderCreativeRecipes(studio: CreativeStudioController) {
   const editor = studio.workflow;
   const disabled = editor.busy || editor.dirty || studio.running;
   return html`<details class="creative-recipes" open>
-    <summary>Workflow launchpad · ${editor.recipes.length} editable starters</summary>
+    <summary>Starter templates · ${editor.filteredRecipes.length} for this studio</summary>
     <p class="muted">
-      Choose a starting point, then customize every node. These run locally; no auto-posting or
-      AI-model downloads. Start with a short clip.
+      A template creates your own saved workflow. Each node is one operation; the workflow runs the
+      connected steps. Saved copies can be removed and restored; built-in templates stay here.
     </p>
     <div class="creative-workflow__toolbar">
       <label class="field"
@@ -28,7 +28,7 @@ export function renderCreativeRecipes(studio: CreativeStudioController) {
           @change=${(event: Event) =>
             editor.filterRecipes(editor.recipeQuery, (event.target as HTMLSelectElement).value)}
         >
-          ${["All", ...new Set(editor.recipes.map((recipe) => recipe.category))].map(
+          ${["All", ...new Set(editor.mediaRecipes.map((recipe) => recipe.category))].map(
             (category) =>
               html`<option value=${category} ?selected=${category === editor.recipeCategory}>
                 ${category}
@@ -39,8 +39,8 @@ export function renderCreativeRecipes(studio: CreativeStudioController) {
     </div>
     ${editor.dirty
       ? html`<p class="callout warn">
-          Save your current draft before loading another workflow. Duplicate keeps your current
-          edits in a new copy.
+          Save your draft or use Discard edits below to load another starter. Duplicate preserves
+          the draft in a separate saved copy.
         </p>`
       : nothing}
     <div class="creative-recipes__grid">
@@ -68,7 +68,7 @@ export function renderCreativeRecipes(studio: CreativeStudioController) {
     ${!editor.filteredRecipes.length
       ? html`<p class="muted">
           ${editor.recipes.length
-            ? "No matching workflows."
+            ? "No matching templates in this studio. Clear the filters or create a new workflow and add operations."
             : "Workflow recipes are not available from the gateway yet."}
         </p>`
       : nothing}

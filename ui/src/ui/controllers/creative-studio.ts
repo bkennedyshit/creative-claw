@@ -188,9 +188,22 @@ export class CreativeStudioController implements ReactiveController {
     if (this.activeMedia === media) {
       return;
     }
+    if (this.workflow.dirty || this.workflow.busy || this.running) {
+      this.workflow.message =
+        this.running || this.workflow.busy
+          ? "Wait for the current action to finish before switching studios."
+          : "Save or discard your draft before switching studios.";
+      this.host.requestUpdate();
+      return;
+    }
     this.activeMedia = media;
     // Reset the op selection and params so the run form matches the newly active engine.
-    this.runForm = { ...this.runForm, op: "", params: {} };
+    this.runForm = { input: "", output: "", op: "", params: {} };
+    if (this.preview) {
+      URL.revokeObjectURL(this.preview.url);
+    }
+    this.preview = undefined;
+    this.workflow.switchMedia();
     this.host.requestUpdate();
   }
 
@@ -380,6 +393,9 @@ export class CreativeStudioController implements ReactiveController {
       this.workflow.restore(
         Array.isArray(snapshotRecord?.graphs) ? (snapshotRecord.graphs as CreativeGraph[]) : [],
         asString(asRecord(snapshotRecord?.project)?.activeGraphId),
+        Array.isArray(snapshotRecord?.archivedGraphs)
+          ? (snapshotRecord.archivedGraphs as CreativeGraph[])
+          : [],
       );
       if (!this.restored && !this.runForm.op && !this.runForm.input) {
         const snapshot = asRecord(res);
@@ -445,7 +461,14 @@ export class CreativeStudioController implements ReactiveController {
       if (this.preview) {
         URL.revokeObjectURL(this.preview.url);
       }
-      this.preview = { url: URL.createObjectURL(blob), type: output.type, path: output.path };
+      const type = blob.type.startsWith("video/")
+        ? "video"
+        : blob.type.startsWith("audio/")
+          ? "audio"
+          : blob.type.startsWith("image/")
+            ? "image"
+            : output.type;
+      this.preview = { url: URL.createObjectURL(blob), type, path: output.path };
     } catch (error) {
       this.lastResult = { ok: true, message: `Output saved. ${String(error)}` };
     }
@@ -453,6 +476,7 @@ export class CreativeStudioController implements ReactiveController {
   }
 
   hostDisconnected() {
+    this.workflow.observeViewport(undefined);
     this.jobs.stopPolling();
     if (this.preview) {
       URL.revokeObjectURL(this.preview.url);

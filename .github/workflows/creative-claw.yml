@@ -40,7 +40,15 @@ jobs:
           extensions/creative-engines/src/ffi/video-stream.test.ts
           extensions/creative-engines/src/studio-cancellation.test.ts
           extensions/creative-engines/src/studio-jobs.test.ts
+          extensions/creative-engines/src/studio-archive.test.ts
           extensions/gpu-broker/src/broker.test.ts
+      - name: Test Studio navigation, editing, and job controls
+        working-directory: ui
+        run: >-
+          node ../scripts/run-vitest.mjs run --config vitest.config.ts --project unit
+          src/ui/controllers/creative-workflow.test.ts
+          src/ui/controllers/creative-studio.test.ts
+          src/ui/controllers/creative-jobs.test.ts
       - name: Build application and Control UI
         run: pnpm build
       - name: Check CLI bootstrap

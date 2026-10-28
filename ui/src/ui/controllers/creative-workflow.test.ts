@@ -81,8 +81,86 @@ function setup() {
 }
 
 describe("Creative workflow editor", () => {
+  it("preserves path edits through save, studio changes, and explicit discard", async () => {
+    const { studio, editor } = setup();
+    editor.add("image.invert");
+    editor.editPaths({ input: "first.png", output: "first-export.png" });
+    await editor.save();
+    editor.editPaths({ input: "second.png", output: "second-export.png" });
+    studio.setActiveMedia("video");
+    expect(studio.activeMedia).toBe("image");
+    expect(studio.runForm.input).toBe("second.png");
+    editor.discard();
+    expect(studio.runForm).toMatchObject({ input: "first.png", output: "first-export.png" });
+    editor.editPaths({ input: "third.png", output: "third-export.png" });
+    await editor.save();
+    studio.setActiveMedia("video");
+    studio.setActiveMedia("image");
+    expect(studio.runForm).toMatchObject({ input: "third.png", output: "third-export.png" });
+  });
+  it("switches graph, source, saved list and palette together with the media tab", async () => {
+    const { studio, editor } = setup();
+    editor.add("image.invert");
+    studio.updateRunForm({ input: "photo.png" });
+    await editor.save();
+    const imageId = editor.graph!.id;
+    studio.setActiveMedia("video");
+    expect(editor.graph!.inputs[0].dataType).toBe("video");
+    expect(studio.runForm.input).toBe("");
+    expect(editor.mediaSaved).toHaveLength(0);
+    expect(editor.paletteCapabilities.map((cap) => cap.id)).toEqual(["video.blur"]);
+    studio.setActiveMedia("image");
+    expect(editor.graph!.id).toBe(imageId);
+    expect(studio.runForm.input).toBe("photo.png");
+  });
+
+  it("preserves unsaved work when switching is blocked and offers explicit discard", async () => {
+    const { studio, editor } = setup();
+    editor.add("image.invert");
+    await editor.save();
+    editor.rename("Draft edit");
+    studio.setActiveMedia("audio");
+    expect(studio.activeMedia).toBe("image");
+    expect(editor.graph!.name).toBe("Draft edit");
+    expect(editor.message).toContain("Save or discard");
+    editor.discard();
+    expect(editor.graph!.name).toBe("Untitled workflow");
+    studio.setActiveMedia("audio");
+    expect(editor.graph!.inputs[0].dataType).toBe("audio");
+  });
+
+  it("archives and restores saved copies while protecting dirty drafts", async () => {
+    const { studio, editor, request } = setup();
+    editor.add("image.invert");
+    await editor.save();
+    const saved = structuredClone(editor.graph!);
+    request.mockImplementation(async (method, params) =>
+      method === "creative.studio.graph.archive"
+        ? {
+            graph: {
+              ...saved,
+              revision: saved.revision + 1,
+              metadata: params.archived ? { archivedAt: "2026-10-28" } : {},
+            },
+          }
+        : {},
+    );
+    await editor.setArchived(saved, true);
+    expect(editor.saved).toHaveLength(0);
+    expect(editor.archived).toHaveLength(1);
+    expect(editor.message).toContain("source files and outputs are kept");
+    await editor.setArchived(editor.archived[0], false);
+    expect(editor.archived).toHaveLength(0);
+    expect(editor.graph!.id).toBe(saved.id);
+    editor.rename("Don't discard me");
+    request.mockClear();
+    await editor.setArchived(editor.graph!, true);
+    expect(request).not.toHaveBeenCalled();
+    expect(studio.workflow.graph!.name).toBe("Don't discard me");
+  });
   it("filters workflow starters and identifies unavailable native dependencies", () => {
-    const { editor } = setup();
+    const { editor, studio } = setup();
+    studio.activeMedia = "video";
     editor.recipes = [
       {
         id: "cut",

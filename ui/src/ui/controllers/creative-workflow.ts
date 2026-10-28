@@ -3,7 +3,11 @@ import type {
   CreativeGraph,
   CreativeGraphNode,
 } from "@openclaw/creative-contracts";
-import type { CreativeStudioController, CreativeStudioHost } from "./creative-studio.ts";
+import type {
+  CreativeMedia,
+  CreativeStudioController,
+  CreativeStudioHost,
+} from "./creative-studio.ts";
 
 type FileType = "image" | "audio" | "video" | "vector";
 const FILE_TYPES = new Set(["image", "audio", "video", "vector"]);
@@ -22,6 +26,8 @@ export type CreativeRecipe = {
 export class CreativeWorkflowController {
   graph?: CreativeGraph;
   saved: CreativeGraph[] = [];
+  archived: CreativeGraph[] = [];
+  confirmArchive = false;
   dirty = false;
   busy = false;
   message = "";
@@ -32,6 +38,28 @@ export class CreativeWorkflowController {
   recipeQuery = "";
   recipeCategory = "All";
   paletteQuery = "";
+  paletteAllMedia = false;
+  canvasWidth = 800;
+  private viewport?: Element;
+  private resizeObserver?: ResizeObserver;
+  readonly observeViewport = (element?: Element) => {
+    if (element === this.viewport) {
+      return;
+    }
+    this.resizeObserver?.disconnect();
+    this.viewport = element;
+    if (!element || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    this.resizeObserver = new ResizeObserver(([entry]) => {
+      const width = Math.floor(entry.contentRect.width);
+      if (width > 0 && width !== this.canvasWidth) {
+        this.canvasWidth = width;
+        this.host.requestUpdate();
+      }
+    });
+    this.resizeObserver.observe(element);
+  };
   private drag?: { id: string; x: number; y: number; origin: { x: number; y: number } };
 
   constructor(
@@ -56,6 +84,130 @@ export class CreativeWorkflowController {
 
   capability(id: string) {
     return this.capabilities.find((cap) => cap.id === id);
+  }
+
+  private matchesMedia(source: string, operations: string[], media = this.studio.activeMedia) {
+    if (
+      media === "audio" &&
+      operations.some((id) =>
+        Object.values(this.capability(id)?.outputs ?? {}).some((port) => port.dataType === "audio"),
+      )
+    ) {
+      return true;
+    }
+    return media === "ai" || media === "vfx"
+      ? operations.some((operation) => operation.startsWith(`${media}.`))
+      : source === media;
+  }
+
+  get mediaRecipes() {
+    return this.recipes.filter((recipe) => this.matchesMedia(recipe.sourceType, recipe.operations));
+  }
+
+  get mediaSaved() {
+    return this.saved.filter((graph) =>
+      this.matchesMedia(
+        graph.inputs[0].dataType,
+        graph.nodes.map((node) => node.capability),
+      ),
+    );
+  }
+
+  get paletteCapabilities() {
+    const available = new Set([this.graph?.inputs[0].dataType]);
+    for (const node of this.graph?.nodes ?? []) {
+      for (const port of Object.values(this.capability(node.capability)?.outputs ?? {})) {
+        available.add(port.dataType);
+      }
+    }
+    return this.capabilities.filter(
+      (cap) =>
+        (this.paletteAllMedia || cap.id.startsWith(`${this.studio.activeMedia}.`)) &&
+        available.has(Object.values(cap.inputs)[0].dataType),
+    );
+  }
+
+  switchMedia() {
+    this.recipeCategory = "All";
+    this.recipeQuery = this.paletteQuery = "";
+    this.paletteAllMedia = false;
+    this.confirmArchive = false;
+    const saved = this.mediaSaved[0];
+    if (saved) {
+      this.select(saved.id);
+    } else {
+      this.create(
+        this.studio.activeMedia === "ai" || this.studio.activeMedia === "vfx"
+          ? "image"
+          : this.studio.activeMedia,
+      );
+      // Merely visiting a studio must not create unsaved work that blocks the next tab.
+      this.dirty = false;
+    }
+  }
+
+  discard() {
+    if (this.busy || this.studio.running) {
+      return;
+    }
+    const saved = this.saved.find((entry) => entry.id === this.graph?.id);
+    if (saved) {
+      this.select(saved.id);
+    } else {
+      this.switchMedia();
+    }
+    this.message = "Draft changes discarded. Saved workflows and media are unchanged.";
+    this.host.requestUpdate();
+  }
+
+  editPaths(patch: { input?: string; output?: string }) {
+    this.studio.updateRunForm(patch);
+    if (this.graph) {
+      this.graph.metadata.sourcePath = this.studio.runForm.input;
+      this.graph.metadata.exportPath = this.studio.runForm.output;
+      this.touch();
+    }
+  }
+
+  async setArchived(graph: CreativeGraph, archived: boolean) {
+    if (
+      !this.host.client ||
+      !this.host.connected ||
+      this.busy ||
+      this.studio.running ||
+      this.dirty
+    ) {
+      return;
+    }
+    this.busy = true;
+    this.host.requestUpdate();
+    try {
+      const result = await this.host.client.request<{ graph?: CreativeGraph; error?: string }>(
+        "creative.studio.graph.archive",
+        { id: graph.id, revision: graph.revision, archived },
+      );
+      if (!result.graph || result.error) {
+        throw new Error(result.error || "Workflow could not be updated");
+      }
+      this.saved = this.saved.filter((entry) => entry.id !== graph.id);
+      this.archived = this.archived.filter((entry) => entry.id !== graph.id);
+      (archived ? this.archived : this.saved).unshift(result.graph);
+      this.busy = false;
+      if (archived) {
+        this.switchMedia();
+      } else {
+        this.select(result.graph.id);
+      }
+      this.confirmArchive = false;
+      this.message = archived
+        ? "Workflow moved to archive. Restore it below; source files and outputs are kept."
+        : "Workflow restored.";
+    } catch (error) {
+      this.message = String(error);
+    } finally {
+      this.busy = false;
+      this.host.requestUpdate();
+    }
   }
 
   async loadRecipes() {
@@ -87,7 +239,7 @@ export class CreativeWorkflowController {
 
   get filteredRecipes() {
     const query = this.recipeQuery.toLowerCase().trim();
-    return this.recipes.filter(
+    return this.mediaRecipes.filter(
       (recipe) =>
         (this.recipeCategory === "All" || recipe.category === this.recipeCategory) &&
         `${recipe.name} ${recipe.description} ${recipe.operations.join(" ")}`
@@ -187,8 +339,9 @@ export class CreativeWorkflowController {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  restore(graphs: CreativeGraph[], activeId?: string) {
+  restore(graphs: CreativeGraph[], activeId?: string, archived: CreativeGraph[] = []) {
     this.saved = graphs;
+    this.archived = archived;
     if (!this.graph && !this.dirty) {
       // An inline operation can be active without being an editable saved workflow.
       // Do not replace its restored source/parameters with an unrelated saved graph.
@@ -205,16 +358,30 @@ export class CreativeWorkflowController {
       return;
     }
     this.graph = structuredClone(graph);
+    this.confirmArchive = false;
     this.dirty = false;
     this.issues = [];
     this.message = "";
     this.selectedNodeId = graph.nodes[0]?.id ?? "";
+    const media = graph.inputs[0].dataType;
+    if (
+      FILE_TYPES.has(media) &&
+      !this.matchesMedia(
+        media,
+        graph.nodes.map((node) => node.capability),
+      )
+    ) {
+      this.studio.activeMedia = media as CreativeMedia;
+    }
     this.studio.lastResult = undefined;
     this.studio.lastNodes = [];
     const source = graph.metadata.sourcePath;
     if (typeof source === "string") {
       this.studio.updateRunForm({ input: source });
     }
+    this.studio.updateRunForm({
+      output: typeof graph.metadata.exportPath === "string" ? graph.metadata.exportPath : "",
+    });
     this.host.requestUpdate();
   }
 
@@ -256,6 +423,10 @@ export class CreativeWorkflowController {
       return;
     }
     this.graph.inputs[0].dataType = kind;
+    if (this.studio.activeMedia !== "ai" && this.studio.activeMedia !== "vfx") {
+      this.studio.activeMedia = kind;
+      this.recipeCategory = "All";
+    }
     this.touch();
   }
 
@@ -447,13 +618,18 @@ export class CreativeWorkflowController {
       }>("creative.studio.graph.save", {
         graph: {
           ...this.graph,
-          metadata: { ...this.graph.metadata, sourcePath: this.studio.runForm.input },
+          metadata: {
+            ...this.graph.metadata,
+            sourcePath: this.studio.runForm.input,
+            exportPath: this.studio.runForm.output,
+          },
         },
       });
       if (result.error || !result.graph) {
         throw new Error(result.error || "Workflow save failed");
       }
-      this.graph = result.graph;
+      // The editable draft must not alias the saved snapshot used by Discard edits.
+      this.graph = structuredClone(result.graph);
       this.saved = [result.graph, ...this.saved.filter((entry) => entry.id !== result.graph!.id)];
       this.dirty = false;
       this.issues = result.validation?.issues.map((issue) => issue.message) ?? [];

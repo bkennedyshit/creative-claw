@@ -15,8 +15,11 @@
 }
 
 .creative-workflow__scroll {
+  width: 100%;
   overflow: auto;
-  max-height: 480px;
+  height: clamp(320px, 48vh, 640px);
+  resize: vertical;
+  min-height: 280px;
   margin: 16px 0;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -24,7 +27,24 @@
 
 .creative-workflow__canvas {
   position: relative;
+  min-width: 100%;
+  min-height: 100%;
   background: radial-gradient(var(--border) 1px, transparent 1px) 0 0 / 20px 20px;
+}
+
+.creative-workflow__guide {
+  padding: 12px 16px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg);
+}
+
+.creative-output-path {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.creative-advanced > summary {
+  cursor: pointer;
+  padding: 12px 0;
 }
 
 .creative-workflow__edges {

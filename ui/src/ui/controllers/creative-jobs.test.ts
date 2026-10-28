@@ -1,6 +1,8 @@
 import type { CreativeGraph } from "@openclaw/creative-contracts";
+import { render } from "lit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient } from "../gateway.ts";
+import { renderCreativeJobs } from "../views/creative-jobs.ts";
 import type { CreativeJob } from "./creative-jobs.ts";
 import { CreativeStudioController } from "./creative-studio.ts";
 
@@ -137,5 +139,30 @@ describe("Creative workflow job client", () => {
     await studio.runWorkflow(graph);
     expect(studio.running).toBe(false);
     expect(studio.lastResult?.message).toContain("changed elsewhere");
+  });
+
+  it("shows historical outputs using the server's minimal artifact receipt", () => {
+    studio.jobs.history = [
+      {
+        ...job("succeeded"),
+        result: {
+          ok: true,
+          output: "saved-output.mp4",
+          artifact: { id: "artifact-1" },
+        },
+      },
+    ];
+    const preview = vi.spyOn(studio, "showPreview").mockResolvedValue();
+    const container = document.createElement("div");
+    render(renderCreativeJobs(studio), container);
+    expect(container.textContent).toContain("saved-output.mp4");
+    container.querySelector<HTMLButtonElement>("button")!.click();
+    expect(preview).toHaveBeenCalledWith({
+      id: "artifact-1",
+      path: "saved-output.mp4",
+      type: "unknown",
+      previewUrl: "/plugins/creative-engines/artifacts/artifact-1",
+    });
+    render(null, container);
   });
 });
