@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 30
     env:
       OPENCLAW_VITEST_MAX_WORKERS: "1"
-      OPENCLAW_TSDOWN_MAX_OLD_SPACE_MB: "4096"
+      OPENCLAW_TSDOWN_MAX_OLD_SPACE_MB: "8192"
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
