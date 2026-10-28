@@ -126,7 +126,7 @@ function renderRunForm(props: CreativeStudioViewProps, engine: CreativeEngineSta
   const selectedOp = engine.ops.find((op) => op.id === props.runForm.op);
   return html`
     <section class="card creative-run">
-      <div class="card-title">Run operation</div>
+      <div class="card-title">Run one operation</div>
       <div class="card-sub">
         Apply an ${MEDIA_LABELS[props.activeMedia].toLowerCase()} operation.
       </div>
@@ -139,7 +139,11 @@ function renderRunForm(props: CreativeStudioViewProps, engine: CreativeEngineSta
             ?disabled=${disabled}
             placeholder="path/to/input"
             @input=${(event: Event) =>
-              props.onRunFormChange({ input: (event.target as HTMLInputElement).value })}
+              props.studio
+                ? props.studio.workflow.editPaths({
+                    input: (event.target as HTMLInputElement).value,
+                  })
+                : props.onRunFormChange({ input: (event.target as HTMLInputElement).value })}
           />
         </label>
         <label class="field">
@@ -166,7 +170,11 @@ function renderRunForm(props: CreativeStudioViewProps, engine: CreativeEngineSta
             ?disabled=${disabled}
             placeholder="Leave blank to save in the project"
             @input=${(event: Event) =>
-              props.onRunFormChange({ output: (event.target as HTMLInputElement).value })}
+              props.studio
+                ? props.studio.workflow.editPaths({
+                    output: (event.target as HTMLInputElement).value,
+                  })
+                : props.onRunFormChange({ output: (event.target as HTMLInputElement).value })}
           />
         </label>
       </div>
@@ -281,50 +289,33 @@ export function renderCreativeStudio(props: CreativeStudioViewProps) {
         </div>
         <div class="creative-hero__attribution">Built on the OpenClaw runtime</div>
       </section>
-      ${renderMediaTabs(props)} ${props.studio ? renderCreativeWorkflow(props.studio) : nothing}
-      <section class="card">
-        <div class="card-title">Source media</div>
-        <label class="field"
-          ><span>Search indexed media</span>
-          <input
-            type="search"
-            placeholder="Search, or leave blank for recent media"
-            @change=${(event: Event) =>
-              props.onSearchMedia((event.target as HTMLInputElement).value)}
-          />
-        </label>
-        ${props.libraryError
-          ? html`<div class="callout warn">Media search unavailable: ${props.libraryError}</div>`
-          : nothing}
-        ${props.library.length === 0
-          ? html`<p class="muted">
-              No indexed media. Enter a source file path below, or index a folder with the
-              media_index tool.
-            </p>`
-          : props.library.map(
-              (asset) =>
-                html`<button
-                  class="btn"
-                  title=${asset.path}
-                  @click=${() => {
-                    if (CREATIVE_MEDIA_ORDER.includes(asset.type as CreativeMedia)) {
-                      props.onMediaChange(asset.type as CreativeMedia);
-                    }
-                    props.onRunFormChange({ input: asset.path });
-                  }}
-                >
-                  ${asset.path}
-                </button>`,
-            )}
-      </section>
-      <div class="creative-studio__grid">
-        <div class="creative-studio__main">${renderActivePanel(props)}</div>
-        <div class="creative-studio__side">${renderGpuWidget(props.gpu)}</div>
-      </div>
+      ${renderMediaTabs(props)}
+      ${props.studio?.workflow.dirty
+        ? html`<div class="callout warn" role="alert">
+            Unsaved draft: ${props.studio.workflow.graph?.name}. Save or discard it before switching
+            studios.
+            <button
+              class="btn"
+              ?disabled=${props.studio.workflow.busy || props.studio.running}
+              @click=${() => void props.studio!.workflow.save()}
+            >
+              Save draft
+            </button>
+            <button
+              class="btn"
+              ?disabled=${props.studio.workflow.busy || props.studio.running}
+              @click=${() => props.studio!.workflow.discard()}
+            >
+              Discard draft
+            </button>
+          </div>`
+        : nothing}
+      ${props.studio ? renderCreativeWorkflow(props.studio) : nothing}
       ${props.preview
-        ? html`<section class="card creative-preview">
-            <div class="card-title">Output preview</div>
-            <p>${props.preview.path}</p>
+        ? html`<section class="card creative-preview" aria-label="Output preview">
+            <h2 class="card-title">Latest output preview</h2>
+            <p class="creative-output-path">Saved at: ${props.preview.path}</p>
+            <a class="btn" href=${props.preview.url} download>Download output</a>
             ${props.preview.type === "video"
               ? html`<video controls src=${props.preview.url}></video>`
               : props.preview.type === "audio"
@@ -333,6 +324,55 @@ export function renderCreativeStudio(props: CreativeStudioViewProps) {
           </section>`
         : nothing}
       ${renderRecentOutputs(props.recentOutputs, props.onPreview)}
+      <details class="creative-advanced">
+        <summary>Advanced tools · run a single operation, browse engines, or search media</summary>
+        <section class="card">
+          <div class="card-title">Source media</div>
+          <label class="field"
+            ><span>Search indexed media</span>
+            <input
+              type="search"
+              placeholder="Search, or leave blank for recent media"
+              @change=${(event: Event) =>
+                props.onSearchMedia((event.target as HTMLInputElement).value)}
+            />
+          </label>
+          ${props.libraryError
+            ? html`<div class="callout warn">Media search unavailable: ${props.libraryError}</div>`
+            : nothing}
+          ${props.library.length === 0
+            ? html`<p class="muted">
+                No indexed media. Enter a source file path below, or index a folder with the
+                media_index tool.
+              </p>`
+            : props.library.map(
+                (asset) =>
+                  html`<button
+                    class="btn"
+                    title=${asset.path}
+                    @click=${() => {
+                      if (CREATIVE_MEDIA_ORDER.includes(asset.type as CreativeMedia)) {
+                        props.onMediaChange(asset.type as CreativeMedia);
+                        if (props.studio && props.studio.activeMedia !== asset.type) {
+                          return;
+                        }
+                      }
+                      if (props.studio) {
+                        props.studio.workflow.editPaths({ input: asset.path });
+                      } else {
+                        props.onRunFormChange({ input: asset.path });
+                      }
+                    }}
+                  >
+                    ${asset.path}
+                  </button>`,
+              )}
+        </section>
+        <div class="creative-studio__grid">
+          <div class="creative-studio__main">${renderActivePanel(props)}</div>
+          <div class="creative-studio__side">${renderGpuWidget(props.gpu)}</div>
+        </div>
+      </details>
     </section>
   `;
 }

@@ -1,4 +1,5 @@
 import { html, nothing, svg } from "lit";
+import { ref } from "lit/directives/ref.js";
 import type { CreativeStudioController } from "../controllers/creative-studio.ts";
 import type { CreativeWorkflowController } from "../controllers/creative-workflow.ts";
 import { renderCreativeJobs } from "./creative-jobs.ts";
@@ -40,16 +41,22 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
   const disabled = editor.busy || studio.running;
   const selected = graph?.nodes.find((node) => node.id === editor.selectedNodeId);
   const cap = selected ? editor.capability(selected.capability) : undefined;
-  const width = Math.max(800, ...(graph?.nodes.map((node) => (node.position?.x ?? 0) + 230) ?? []));
+  const width = Math.max(
+    editor.canvasWidth,
+    800,
+    ...(graph?.nodes.map((node) => (node.position?.x ?? 0) + 230) ?? []),
+  );
   const height = Math.max(
     250,
     ...(graph?.nodes.map((node) => (node.position?.y ?? 0) + 110) ?? []),
   );
   return html`<section class="card creative-workflow" aria-label="Workflow editor">
-    <div class="card-title">Editable workflows</div>
+    <h2 class="card-title">
+      ${studio.activeMedia === "ai" ? "Native AI" : studio.activeMedia.toUpperCase()} studio
+    </h2>
     <p class="card-sub">
-      Chain local operations. Select a node to edit parameters and connections. Drag nodes or move
-      them with arrow keys.
+      1. Choose a starter or create a workflow. 2. Set your source file and edit its steps. 3. Run,
+      preview, and find the output below.
     </p>
     ${renderCreativeRecipes(studio)}
     <div class="creative-workflow__toolbar">
@@ -66,7 +73,7 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
           >
             Select a workflow
           </option>
-          ${editor.saved.map(
+          ${editor.mediaSaved.map(
             (entry) =>
               html`<option value=${entry.id} ?selected=${entry.id === graph?.id}>
                 ${entry.name} · r${entry.revision}
@@ -91,6 +98,22 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
       </button>
       <button class="btn" ?disabled=${disabled || !graph} @click=${() => void editor.duplicate()}>
         Duplicate workflow
+      </button>
+      <button class="btn" ?disabled=${disabled || !editor.dirty} @click=${() => editor.discard()}>
+        Discard edits
+      </button>
+      <button
+        class="btn"
+        ?disabled=${disabled ||
+        editor.dirty ||
+        !graph ||
+        !editor.saved.some((entry) => entry.id === graph.id)}
+        @click=${() => {
+          editor.confirmArchive = !editor.confirmArchive;
+          studio.updateRunForm({});
+        }}
+      >
+        Remove saved workflow
       </button>
       <button class="btn" ?disabled=${disabled || !graph} @click=${() => editor.exportGraph()}>
         Export workflow JSON
@@ -127,6 +150,45 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
         ? html`<span class="muted">Unsaved edits · save before switching</span>`
         : nothing}
     </div>
+    ${editor.confirmArchive && graph
+      ? html`<div class="callout warn" role="alert">
+          Remove “${graph.name}” from saved workflows? You can restore it from Archived workflows.
+          Source files, outputs, and job history are kept.
+          <button
+            class="btn"
+            ?disabled=${disabled}
+            @click=${() => void editor.setArchived(graph, true)}
+          >
+            Move to archive
+          </button>
+          <button
+            class="btn"
+            @click=${() => {
+              editor.confirmArchive = false;
+              studio.updateRunForm({});
+            }}
+          >
+            Keep workflow
+          </button>
+        </div>`
+      : nothing}
+    ${editor.archived.length
+      ? html`<details>
+          <summary>Archived workflows · ${editor.archived.length}</summary>
+          ${editor.archived.map(
+            (entry) => html`<p>
+              ${entry.name}
+              <button
+                class="btn"
+                ?disabled=${disabled || editor.dirty}
+                @click=${() => void editor.setArchived(entry, false)}
+              >
+                Restore ${entry.name}
+              </button>
+            </p>`,
+          )}
+        </details>`
+      : nothing}
     ${renderCreativeJobs(studio)}
     ${editor.message ? html`<p role="status">${editor.message}</p>` : nothing}
     ${studio.lastResult
@@ -184,7 +246,7 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
                 ?disabled=${disabled}
                 placeholder="Absolute path to your source file"
                 @input=${(event: Event) =>
-                  studio.updateRunForm({ input: (event.target as HTMLInputElement).value })}
+                  editor.editPaths({ input: (event.target as HTMLInputElement).value })}
             /></label>
             <label class="field"
               ><span>Workflow export (optional)</span
@@ -194,7 +256,7 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
                 ?disabled=${disabled}
                 placeholder="Leave blank to save in the project"
                 @input=${(event: Event) =>
-                  studio.updateRunForm({ output: (event.target as HTMLInputElement).value })}
+                  editor.editPaths({ output: (event.target as HTMLInputElement).value })}
             /></label>
           </div>
           <label class="field"
@@ -219,7 +281,7 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
               }}
             >
               <option value="">Choose an operation to add…</option>
-              ${editor.capabilities
+              ${editor.paletteCapabilities
                 .filter((descriptor) =>
                   `${descriptor.id} ${descriptor.label} ${descriptor.description}`
                     .toLowerCase()
@@ -236,7 +298,22 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
                 )}
             </select>
           </label>
-          <div class="creative-workflow__scroll">
+          <label
+            ><input
+              type="checkbox"
+              .checked=${editor.paletteAllMedia}
+              @change=${(event: Event) => {
+                editor.paletteAllMedia = (event.target as HTMLInputElement).checked;
+                studio.updateRunForm({});
+              }}
+            />
+            Show compatible operations from all studios</label
+          >
+          <p class="muted">
+            Each node is one operation. Add compatible operations for this studio; click a node to
+            edit its parameters. Save or discard changes before switching studios.
+          </p>
+          <div class="creative-workflow__scroll" ${ref(editor.observeViewport)}>
             <div class="creative-workflow__canvas" style="width:${width}px;height:${height}px">
               <div class="creative-workflow__source">Source · ${graph.inputs[0].dataType}</div>
               <div class="creative-workflow__result" style="left:${width - 200}px">
@@ -319,6 +396,11 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
               disabled,
               "Workflow result",
             )}
+            <p class="muted">
+              Workflow result chooses the node exported as the final file. All enabled steps run;
+              remove unwanted steps for a shorter workflow. Node input chooses which source or
+              earlier step feeds an operation.
+            </p>
             ${selected && cap
               ? html`<section aria-label="Node inspector">
                   <h3>${cap.label}</h3>
@@ -357,12 +439,14 @@ export function renderCreativeWorkflow(studio: CreativeStudioController) {
           Create a workflow to combine native image, audio, video, vector and VFX operations. Each
           workflow uses one source file and one final result.
         </p>`}
-    <p class="muted">
-      Native AI runs the local U2Net model through the guarded C++ image bridge. Video uses
-      per-frame segmentation with optional mask smoothing, not recurrent matting. Cutouts export
-      transparent PNG; video background effects export opaque MP4. Python-only AI nodes remain
-      separate.
-    </p>
+    ${studio.activeMedia === "ai"
+      ? html`<p class="muted">
+          Native AI runs the local U2Net model through the guarded C++ image bridge. Video uses
+          per-frame segmentation with optional mask smoothing, not recurrent matting. Cutouts export
+          transparent PNG; video background effects export opaque MP4. Python-only AI nodes remain
+          separate.
+        </p>`
+      : nothing}
     ${studio.lastNodes.length
       ? html`<details open>
           <summary>Last execution · ${studio.lastNodes.length} nodes</summary>
